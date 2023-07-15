@@ -1,6 +1,26 @@
-import Image from 'next/image';
-import { MainNav } from '@/components/main-nav/main-nav';
+'use client';
+
+import { useCallback, useState, useTransition } from 'react';
+import { askQuestion } from '@/server-actions/ask-question';
 
 export default function Home() {
-	return <div>Front Page</div>;
+	const [question, setQuestion] = useState('');
+	const [answer, setAnswer] = useState('');
+	const [isPending, startTransition] = useTransition();
+
+	const ask = useCallback(() => {
+		startTransition(async () => {
+			const answer = await askQuestion(question);
+			setAnswer(answer);
+		});
+	}, [question]);
+
+	return (
+		<div>
+			<div>Welcome to my page :)</div>
+			<input onChange={(event) => setQuestion(event.target.value)} value={question} />
+			<button onClick={ask}>Ask</button>
+			{isPending ? <div>Loading...</div> : answer ? <div>Answer: {answer}</div> : null}
+		</div>
+	);
 }

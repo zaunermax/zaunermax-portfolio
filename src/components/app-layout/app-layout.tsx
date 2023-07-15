@@ -1,24 +1,16 @@
 import { MainNav } from '@/components/main-nav';
 import { ReactNode } from 'react';
-import { ModeToggle } from '@/components/dark-mode-switch/dark-mode-switch';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import Image from 'next/image';
-
-import image from './assets/pp.jpg';
+import { ModeToggle } from '@/components/dark-mode-switch';
+import { OwnAvatar } from '@/components/ui/own-avatar';
 
 export function AppLayout({ children }: { children: ReactNode }) {
 	return (
 		<div className="relative flex min-h-screen flex-col">
 			<header className="border-b">
-				<div className="container flex h-16 items-center">
-					<Avatar>
-						<AvatarImage asChild>
-							<Image src={image} alt={'MZ'} />
-						</AvatarImage>
-						<AvatarFallback>MZ</AvatarFallback>
-					</Avatar>
+				<div className="container flex h-16 items-center space-x-5">
+					<OwnAvatar />
 					<MainNav />
-					<div className="ml-auto flex items-center space-x-4">
+					<div className="flex w-full justify-end">
 						<ModeToggle />
 					</div>
 				</div>
