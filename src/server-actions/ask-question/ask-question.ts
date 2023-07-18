@@ -6,8 +6,23 @@ import { ageContext, cvContext, generalInfo } from './assets/cvContext';
 const config = new Configuration({ apiKey: process.env.OPENAI_API_KEY });
 const openai = new OpenAIApi(config);
 
-export const askQuestion = async (question: string) => {
-	console.log('question?', question);
+export const askQuestion = async (rawQuestion: string) => {
+	console.log('question?', rawQuestion);
+
+	const question = rawQuestion.slice(0, 100);
+
+	const isFlagged = await openai
+		.createModeration({
+			input: question,
+		})
+		.then(({ data }) => data.results.some(({ flagged }) => flagged))
+		.catch((e) => {
+			console.error('Moderation error', e);
+			return true;
+		});
+
+	if (isFlagged) return 'Be nice :(';
+
 	return await openai
 		.createChatCompletion({
 			model: 'gpt-3.5-turbo',
@@ -43,7 +58,6 @@ export const askQuestion = async (question: string) => {
 			],
 		})
 		.then(({ data }) => {
-			console.log(data);
 			return data.choices[0].message?.content;
 		})
 		.catch((error) => {

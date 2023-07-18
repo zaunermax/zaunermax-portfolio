@@ -55,11 +55,6 @@ Interests Technology • Side Project Coding • Smarthome • Spinning • Gami
 Technologies TypeScript • Node.js • Next.js • React • nx • NestJS • Prisma • git • Docker • Google + Amazon Web Dev
 Ops • Terraform • C# • Java • PythonMax Zauner
 based in Vienna
-
-General Information:
-- I am a super passionate software developer. For me software engineering is a craftmanship and not something you just do sloppily to get it done. I'd rather take a bit longer to do it properly than to just dish it out.
-- I really enjoy learning new stuff. I am always super eager to get myself up to speed and I also enjoy learning new technologies. My goal in my new job is to grow and to increase my knowlegde by a lot.
-- Not only learning new technologies but also teaching others is something I enjoy a lot. In my previous job I always pushed to do some workshops and I always tried to teach our juniors what it means to be a good software engineer.
 `;
 
 export const generalInfo = `
