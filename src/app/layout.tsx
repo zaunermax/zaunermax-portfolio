@@ -1,7 +1,6 @@
 import './globals.css';
 
 import { Providers } from '@/app/providers';
-import { AppLayout } from '@/components/app-layout';
 import { cn } from '@/lib/utils';
 
 export const metadata = {
@@ -13,9 +12,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 	return (
 		<html lang="en">
 			<body className={cn('min-h-screen bg-background font-sans antialiased')}>
-				<Providers>
-					<AppLayout>{children}</AppLayout>
-				</Providers>
+				<Providers>{children}</Providers>
 			</body>
 		</html>
 	);

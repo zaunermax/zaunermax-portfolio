@@ -1,10 +1,8 @@
 'use server';
 
-import { Configuration, OpenAIApi } from 'openai';
 import { ageContext, cvContext, generalInfo } from './assets/cvContext';
-
-const config = new Configuration({ apiKey: process.env.OPENAI_API_KEY });
-const openai = new OpenAIApi(config);
+import { openai } from '@/lib/openai-client';
+import { extractAnswer, getLlmContext } from '@/lib/llm-context-utils';
 
 export const askQuestion = async (rawQuestion: string) => {
 	console.log('question?', rawQuestion);
@@ -23,6 +21,8 @@ export const askQuestion = async (rawQuestion: string) => {
 
 	if (isFlagged) return 'Be nice :(';
 
+	const content = await getLlmContext();
+
 	return await openai
 		.createChatCompletion({
 			model: 'gpt-3.5-turbo',
@@ -37,29 +37,23 @@ export const askQuestion = async (rawQuestion: string) => {
           If you don't know the answer, just say that you don't know but be helpful and explain why you can't answer.
           "He" is always referring to Max Zauner.
           Try to answer as short as possible.
+          The current year is ${new Date().getFullYear()}
           `,
 				},
-				{
-					role: 'user',
-					content: cvContext,
-				},
-				{
-					role: 'user',
-					content: generalInfo,
-				},
-				{
-					role: 'user',
-					content: ageContext,
-				},
+				...content.map(
+					({ text }) =>
+						({
+							role: 'user',
+							content: text,
+						} as const),
+				),
 				{
 					role: 'user',
 					content: question,
 				},
 			],
 		})
-		.then(({ data }) => {
-			return data.choices[0].message?.content;
-		})
+		.then(extractAnswer)
 		.catch((error) => {
 			if (error.response) {
 				return error.response.data.error.message;

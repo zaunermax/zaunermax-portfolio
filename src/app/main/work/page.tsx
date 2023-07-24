@@ -1,5 +1,5 @@
 function Page() {
-	return <div>nix</div>;
+	return <div className="mt-20">nix</div>;
 }
 
 export default Page;
