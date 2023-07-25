@@ -1,6 +1,5 @@
 'use server';
 
-import { ageContext, cvContext, generalInfo } from './assets/cvContext';
 import { openai } from '@/lib/openai-client';
 import { extractAnswer, getLlmContext } from '@/lib/llm-context-utils';
 

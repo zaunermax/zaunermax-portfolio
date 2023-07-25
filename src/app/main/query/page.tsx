@@ -1,3 +1,3 @@
 export default function QueryPage() {
-	return <div>QueryPage</div>;
+	return <div>Test</div>;
 }

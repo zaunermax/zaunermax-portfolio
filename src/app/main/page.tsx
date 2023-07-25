@@ -2,7 +2,7 @@ import { QuestionSection } from '@/components/question-section';
 import { Suspense } from 'react';
 import { Suggestions } from '@/components/suggestions';
 
-export default function Home() {
+export default async function MainPage() {
 	return (
 		<div>
 			<div className="flex min-h-screen items-center justify-center">
