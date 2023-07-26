@@ -55,7 +55,7 @@ export const QuestionFormLink = () => {
 								</FormControl>
 								<Button variant="secondary" type="submit">
 									Ask
-								</Button>{' '}
+								</Button>
 							</span>
 							<FormMessage />
 						</FormItem>
