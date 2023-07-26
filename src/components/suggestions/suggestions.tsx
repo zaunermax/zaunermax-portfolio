@@ -15,13 +15,13 @@ export async function Suggestions() {
 	const suggestions = await getSuggestions();
 
 	return (
-		<div>
+		<div className="flex space-x-2">
 			{suggestions.map((suggestion, idx) => {
 				const query = new URLSearchParams();
 				query.append('q', suggestion);
 				return (
 					<Link href={`/main/query?${query.toString()}`} key={idx}>
-						<Badge className="mr-1 hover:cursor-pointer">{suggestion}</Badge>
+						<Badge className=" hover:cursor-pointer">{suggestion}</Badge>
 					</Link>
 				);
 			})}
