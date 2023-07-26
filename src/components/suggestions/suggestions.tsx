@@ -1,5 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { serverURL } from '@/lib/server-url';
+import Link from 'next/link';
 
 const getSuggestions = async () => {
 	const res = await fetch(`${serverURL}/api/suggestions`, {
@@ -15,11 +16,15 @@ export async function Suggestions() {
 
 	return (
 		<div>
-			{suggestions.map((suggestion, idx) => (
-				<Badge className="mr-1" key={idx}>
-					{suggestion}
-				</Badge>
-			))}
+			{suggestions.map((suggestion, idx) => {
+				const query = new URLSearchParams();
+				query.append('q', suggestion);
+				return (
+					<Link href={`/main/query?${query.toString()}`} key={idx}>
+						<Badge className="mr-1 hover:cursor-pointer">{suggestion}</Badge>
+					</Link>
+				);
+			})}
 		</div>
 	);
 }
