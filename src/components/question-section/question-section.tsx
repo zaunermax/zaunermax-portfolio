@@ -3,9 +3,11 @@
 import {
 	ChangeEvent,
 	FormEvent,
+	LegacyRef,
 	PropsWithChildren,
 	useCallback,
 	useEffect,
+	useRef,
 	useState,
 	useTransition,
 } from 'react';
@@ -14,6 +16,13 @@ import { useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { TypeAnimation } from 'react-type-animation';
+import {
+	BlankTerminalLine,
+	TerminalLine,
+	VisualTerminal,
+} from '@/components/visual-terminal';
+
+const modelName = 'max-q-learning-16k-0623';
 
 export const QuestionSection = ({ children }: PropsWithChildren) => {
 	const rawSearchParams = useSearchParams();
@@ -23,6 +32,8 @@ export const QuestionSection = ({ children }: PropsWithChildren) => {
 	const [question, setQuestion] = useState(queryQuestion);
 	const [answer, setAnswer] = useState('');
 	const [isPending, startTransition] = useTransition();
+	const [answers, setAnswers] = useState([] as string[]);
+	const inputRef = useRef<HTMLInputElement>(null);
 
 	useEffect(() => {
 		setQuestion(queryQuestion);
@@ -53,32 +64,51 @@ export const QuestionSection = ({ children }: PropsWithChildren) => {
 				</Button>
 			</form>
 			{children}
-			<div className="pt-5">
-				<div className="mt-15 mx-auto w-full max-w-xl rounded-lg bg-black p-6 text-white shadow-md">
-					<div className="flex items-center justify-between">
-						<div className="flex items-center space-x-2 text-xs">
-							<div className="h-3 w-3 rounded-full bg-red-500"></div>
-							<div className="h-3 w-3 rounded-full bg-yellow-500"></div>
-							<div className="h-3 w-3 rounded-full bg-green-500"></div>
-						</div>
-						<span className="font-mono text-sm">text-damaxi-7.2</span>
-					</div>
-					<div className="mt-4 space-y-2">
-						{isPending ? (
-							<p className="font-mono text-xs">$ Loading...</p>
-						) : (
-							<p className="font-mono text-xs">
-								${' '}
-								<TypeAnimation
-									sequence={[answer]}
-									speed={80}
-									className="font-mono text-xs"
-								/>
-							</p>
-						)}
-					</div>
-				</div>
-			</div>
+			<VisualTerminal title={modelName}>
+				<TerminalLine>
+					ask --help
+					<BlankTerminalLine />
+					<div>Usage: ask QUESTION</div>
+					<BlankTerminalLine />
+					<div>LLM &quot;{modelName}&quot;: answering questions about max</div>
+					<BlankTerminalLine />
+					<div>Example: ask What is Max Zauner&#39;s area of expertise?</div>
+					<div>Example: ask What kind of projects did Max Zauner work on?</div>
+					<div>Example: ask What are Max Zauner&#39;s interests?</div>
+				</TerminalLine>
+				{answers.map((answer, idx) => (
+					<TerminalLine key={idx}>{answer}</TerminalLine>
+				))}
+				{isPending ? (
+					<TerminalLine>Loading...</TerminalLine>
+				) : answer ? (
+					<TerminalLine>
+						<TypeAnimation
+							sequence={[
+								answer,
+								() => {
+									if (!answer) return;
+									setAnswers((answers) => answers.concat(answer));
+									setAnswer('');
+								},
+							]}
+							speed={80}
+							className="font-mono text-xs"
+						/>
+					</TerminalLine>
+				) : null}
+				<TerminalLine onClick={() => inputRef.current?.focus()}>
+					{question}
+					<input
+						ref={inputRef}
+						type="text"
+						value={question}
+						onChange={(e) => setQuestion(e.target.value)}
+						onKeyUp={() => {}}
+						className="fixed left-[-1000px]"
+					/>
+				</TerminalLine>
+			</VisualTerminal>
 		</div>
 	);
 };
