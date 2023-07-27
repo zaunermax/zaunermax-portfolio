@@ -13,6 +13,7 @@ import { askQuestion } from '@/server-actions/ask-question';
 import { useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { TypeAnimation } from 'react-type-animation';
 
 export const QuestionSection = ({ children }: PropsWithChildren) => {
 	const rawSearchParams = useSearchParams();
@@ -52,7 +53,11 @@ export const QuestionSection = ({ children }: PropsWithChildren) => {
 				</Button>
 			</form>
 			{children}
-			{isPending ? <div>Loading...</div> : answer ? <div>Answer: {answer}</div> : null}
+			{isPending ? (
+				<div>🤔</div>
+			) : answer ? (
+				<TypeAnimation sequence={[answer]} speed={99} />
+			) : null}
 		</div>
 	);
 };

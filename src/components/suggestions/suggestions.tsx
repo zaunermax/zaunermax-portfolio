@@ -12,20 +12,25 @@ const getSuggestions = async () =>
 		})
 		.catch((e) => {
 			console.error(e);
-			return [];
+			return [] as string[];
 		});
 
 export const Suggestions = async () => {
 	const suggestions = await getSuggestions();
 
 	return (
-		<div className="flex space-x-2">
+		<div>
 			{suggestions.map((suggestion, idx) => {
 				const query = new URLSearchParams();
 				query.append('q', suggestion);
 				return (
-					<Link href={`/main/query?${query.toString()}`} key={idx}>
-						<Badge className=" hover:cursor-pointer">{suggestion}</Badge>
+					<Link className="mr-2" href={`/main/query?${query.toString()}`} key={idx}>
+						<Badge
+							className="mt-1 w-full rounded-2xl px-4 py-2 md:m-auto md:mb-2 md:w-auto md:rounded-full md:px-2.5 md:py-0.5"
+							variant="secondary"
+						>
+							{suggestion}
+						</Badge>
 					</Link>
 				);
 			})}
