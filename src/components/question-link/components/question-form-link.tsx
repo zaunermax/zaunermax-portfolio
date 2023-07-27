@@ -51,7 +51,11 @@ export const QuestionFormLink = () => {
 						<FormItem>
 							<span className="flex space-x-2">
 								<FormControl>
-									<Input type="text" placeholder="Ask anything about Max" {...field} />
+									<Input
+										type="text"
+										placeholder="Ask a question about Max..."
+										{...field}
+									/>
 								</FormControl>
 								<Button variant="secondary" type="submit">
 									Ask

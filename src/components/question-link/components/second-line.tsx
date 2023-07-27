@@ -5,15 +5,15 @@ import { TypeAnimation } from 'react-type-animation';
 export const SecondLine = () => {
 	return (
 		<TypeAnimation
-			className="text-xl font-semibold text-gray-600 dark:text-gray-400 sm:text-2xl md:text-3xl"
-			speed={85}
-			deletionSpeed={99}
+			className="font-mono text-sm font-semibold text-gray-600 dark:text-gray-400 sm:text-xl md:text-2xl"
+			speed={60}
+			deletionSpeed={80}
 			sequence={[
-				'I am a Web Technology Solution Architect',
+				'Web Technology Solution Architect 🏗️',
 				3000,
 				'feat(👶): initial commit | Sept 21, 1993',
 				3000,
-				'Ask me anything!',
+				'Why not ask something about me 😉',
 				5000,
 			]}
 			repeat={Infinity}

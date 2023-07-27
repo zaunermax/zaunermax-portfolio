@@ -1,27 +1,28 @@
 import Link from 'next/link';
 
 import { cn } from '@/lib/utils';
+import { HTMLAttributes } from 'react';
 
-export function MainNav({ className, ...props }: React.HTMLAttributes<HTMLElement>) {
+export function MainNav({ className, ...props }: HTMLAttributes<HTMLElement>) {
 	return (
 		<nav className={cn('flex items-center space-x-4 lg:space-x-6', className)} {...props}>
 			<Link
-				href="/main/projects"
+				href="/main/query"
 				className="text-sm font-medium transition-colors hover:text-primary"
 			>
-				Projects
+				main/query
 			</Link>
 			<Link
-				href="/main/education"
+				href="/main/wiki"
 				className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
 			>
-				Education
+				main/wiki
 			</Link>
 			<Link
-				href="/main/work"
+				href="/main/xp"
 				className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
 			>
-				Work
+				main/xp
 			</Link>
 		</nav>
 	);

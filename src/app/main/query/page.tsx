@@ -4,7 +4,7 @@ import { Suspense } from 'react';
 
 export default async function QueryPage() {
 	return (
-		<div className="mt-20">
+		<div className="mt-28">
 			<QuestionSection>
 				<Suspense fallback={<div>Loading some suggestions...</div>}>
 					<Suggestions />

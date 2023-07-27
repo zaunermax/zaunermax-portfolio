@@ -10,12 +10,21 @@ module.exports = {
 	theme: {
 		container: {
 			center: true,
-			padding: '2rem',
+			padding: {
+				DEFAULT: '0.8rem',
+				sm: '2rem',
+				lg: '4rem',
+				xl: '5rem',
+				'2xl': '6rem',
+			},
 			screens: {
 				'2xl': '1400px',
 			},
 		},
 		extend: {
+			fontFamily: {
+				mono: ['var(--font-roboto-mono)'],
+			},
 			height: {
 				screen: ['100vh /* fallback for Opera, IE and etc. */', '100dvh'],
 			},

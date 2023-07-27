@@ -45,7 +45,7 @@ export const QuestionSection = ({ children }: PropsWithChildren) => {
 	);
 
 	return (
-		<div className="flex flex-col space-y-2">
+		<div className="m-auto flex max-w-screen-lg flex-col space-y-2">
 			<form onSubmit={ask} className="flex space-x-2">
 				<Input onChange={onChange} value={question} />
 				<Button type="submit" variant="secondary">
@@ -53,11 +53,32 @@ export const QuestionSection = ({ children }: PropsWithChildren) => {
 				</Button>
 			</form>
 			{children}
-			{isPending ? (
-				<div>🤔</div>
-			) : answer ? (
-				<TypeAnimation sequence={[answer]} speed={99} />
-			) : null}
+			<div className="pt-5">
+				<div className="mt-15 mx-auto w-full max-w-xl rounded-lg bg-black p-6 text-white shadow-md">
+					<div className="flex items-center justify-between">
+						<div className="flex items-center space-x-2 text-xs">
+							<div className="h-3 w-3 rounded-full bg-red-500"></div>
+							<div className="h-3 w-3 rounded-full bg-yellow-500"></div>
+							<div className="h-3 w-3 rounded-full bg-green-500"></div>
+						</div>
+						<span className="font-mono text-sm">text-damaxi-7.2</span>
+					</div>
+					<div className="mt-4 space-y-2">
+						{isPending ? (
+							<p className="font-mono text-xs">$ Loading...</p>
+						) : (
+							<p className="font-mono text-xs">
+								${' '}
+								<TypeAnimation
+									sequence={[answer]}
+									speed={80}
+									className="font-mono text-xs"
+								/>
+							</p>
+						)}
+					</div>
+				</div>
+			</div>
 		</div>
 	);
 };
