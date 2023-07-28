@@ -22,7 +22,6 @@ import {
 	TerminalLineProps,
 	VisualTerminal,
 } from '@/components/visual-terminal';
-import { cn } from '@/lib/utils';
 
 type QuestionCommandProps = TerminalLineProps &
 	PropsWithChildren & {
@@ -57,6 +56,24 @@ const Answers = ({ answers }: AnswersProps) => {
 			{answer}
 		</TerminalLine>
 	));
+};
+
+const HelpSection = () => {
+	return (
+		<TerminalLine>
+			ask --help
+			<BlankTerminalLine />
+			<div>Usage: ask QUESTION</div>
+			<BlankTerminalLine />
+			<div>LLM &quot;{modelName}&quot;: answering questions about max</div>
+			<BlankTerminalLine />
+			<div>Example: ask What is Max Zauner&#39;s area of expertise?</div>
+			<div>Example: ask What kind of projects did Max Zauner work on?</div>
+			<div>Example: ask What are Max Zauner&#39;s interests?</div>
+			<BlankTerminalLine />
+			<div>You can click the examples for quick fill in</div>
+		</TerminalLine>
+	);
 };
 
 const modelName = 'max-q-learning-16k-0623';
@@ -115,20 +132,12 @@ export const QuestionSection = ({ children }: PropsWithChildren) => {
 				</Button>
 			</form>
 			{children}
-			<VisualTerminal title={modelName} onClick={handleInputFocus}>
-				<TerminalLine>
-					ask --help
-					<BlankTerminalLine />
-					<div>Usage: ask QUESTION</div>
-					<BlankTerminalLine />
-					<div>LLM &quot;{modelName}&quot;: answering questions about max</div>
-					<BlankTerminalLine />
-					<div>Example: ask What is Max Zauner&#39;s area of expertise?</div>
-					<div>Example: ask What kind of projects did Max Zauner work on?</div>
-					<div>Example: ask What are Max Zauner&#39;s interests?</div>
-					<BlankTerminalLine />
-					<div>You can click the examples for quick fill in</div>
-				</TerminalLine>
+			<VisualTerminal
+				title={modelName}
+				onClick={handleInputFocus}
+				className="drop-shadow-2xl"
+			>
+				<HelpSection />
 				<Answers answers={answers} />
 				<QuestionCommand
 					question={question}
