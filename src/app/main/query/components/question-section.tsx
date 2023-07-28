@@ -111,7 +111,7 @@ export const QuestionSection = () => {
 						value={question}
 						onChange={onChange}
 						onKeyUp={onKeyUp}
-						className="fixed top-[-1000px]"
+						className="fixed left-[-1000px]"
 					/>
 				</QuestionCommand>
 			</VisualTerminal>
