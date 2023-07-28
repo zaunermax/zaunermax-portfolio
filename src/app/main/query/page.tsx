@@ -1,15 +1,9 @@
-import { QuestionSection } from '@/components/question-section';
-import { Suggestions } from '@/components/suggestions';
-import { Suspense } from 'react';
+import { QuestionSection } from './components';
 
 export default async function QueryPage() {
 	return (
 		<div className="mt-28">
-			<QuestionSection>
-				<Suspense fallback={<div>Loading some suggestions...</div>}>
-					<Suggestions />
-				</Suspense>
-			</QuestionSection>
+			<QuestionSection />
 		</div>
 	);
 }
