@@ -2,9 +2,8 @@
 
 import {
 	ChangeEvent,
-	FormEvent,
-	LegacyRef,
 	PropsWithChildren,
+	SyntheticEvent,
 	useCallback,
 	useEffect,
 	useRef,
@@ -18,9 +17,47 @@ import { Button } from '@/components/ui/button';
 import { TypeAnimation } from 'react-type-animation';
 import {
 	BlankTerminalLine,
+	LoadingAnimation,
 	TerminalLine,
+	TerminalLineProps,
 	VisualTerminal,
 } from '@/components/visual-terminal';
+import { cn } from '@/lib/utils';
+
+type QuestionCommandProps = TerminalLineProps &
+	PropsWithChildren & {
+		question: string;
+		newline?: boolean;
+	};
+
+const QuestionCommand = ({
+	question,
+	newline = false,
+	children,
+	...rest
+}: QuestionCommandProps) => {
+	return (
+		<TerminalLine {...rest}>
+			ask {question}
+			{newline ? <BlankTerminalLine /> : null}
+			{children}
+		</TerminalLine>
+	);
+};
+
+type AnswersProps = {
+	answers: { answer: string; question: string }[];
+};
+
+const Answers = ({ answers }: AnswersProps) => {
+	return answers.map(({ question, answer }, idx) => (
+		<TerminalLine key={idx}>
+			ask {question}
+			<BlankTerminalLine />
+			{answer}
+		</TerminalLine>
+	));
+};
 
 const modelName = 'max-q-learning-16k-0623';
 
@@ -32,7 +69,8 @@ export const QuestionSection = ({ children }: PropsWithChildren) => {
 	const [question, setQuestion] = useState(queryQuestion);
 	const [answer, setAnswer] = useState('');
 	const [isPending, startTransition] = useTransition();
-	const [answers, setAnswers] = useState([] as string[]);
+	const [answers, setAnswers] = useState([] as { question: string; answer: string }[]);
+
 	const inputRef = useRef<HTMLInputElement>(null);
 
 	useEffect(() => {
@@ -40,7 +78,7 @@ export const QuestionSection = ({ children }: PropsWithChildren) => {
 	}, [queryQuestion]);
 
 	const ask = useCallback(
-		(e: FormEvent<HTMLFormElement>) => {
+		(e: SyntheticEvent) => {
 			e.preventDefault();
 			startTransition(async () => {
 				const answer = await askQuestion(question);
@@ -55,6 +93,19 @@ export const QuestionSection = ({ children }: PropsWithChildren) => {
 		[],
 	);
 
+	const handleInputFocus = useCallback(() => {
+		const ref = inputRef.current;
+
+		if (!ref) return;
+
+		const length = ref.value.length;
+
+		ref.focus();
+		ref.setSelectionRange(length, length);
+	}, []);
+
+	const isAnswering = !!answer || isPending;
+
 	return (
 		<div className="m-auto flex max-w-screen-lg flex-col space-y-2">
 			<form onSubmit={ask} className="flex space-x-2">
@@ -64,7 +115,7 @@ export const QuestionSection = ({ children }: PropsWithChildren) => {
 				</Button>
 			</form>
 			{children}
-			<VisualTerminal title={modelName}>
+			<VisualTerminal title={modelName} onClick={handleInputFocus}>
 				<TerminalLine>
 					ask --help
 					<BlankTerminalLine />
@@ -75,39 +126,44 @@ export const QuestionSection = ({ children }: PropsWithChildren) => {
 					<div>Example: ask What is Max Zauner&#39;s area of expertise?</div>
 					<div>Example: ask What kind of projects did Max Zauner work on?</div>
 					<div>Example: ask What are Max Zauner&#39;s interests?</div>
+					<BlankTerminalLine />
+					<div>You can click the examples for quick fill in</div>
 				</TerminalLine>
-				{answers.map((answer, idx) => (
-					<TerminalLine key={idx}>{answer}</TerminalLine>
-				))}
-				{isPending ? (
-					<TerminalLine>Loading...</TerminalLine>
-				) : answer ? (
-					<TerminalLine>
+				<Answers answers={answers} />
+				<QuestionCommand
+					question={question}
+					newline={isAnswering}
+					hasCursor={!isAnswering}
+				>
+					{isPending ? (
+						<LoadingAnimation />
+					) : answer ? (
 						<TypeAnimation
 							sequence={[
 								answer,
 								() => {
 									if (!answer) return;
-									setAnswers((answers) => answers.concat(answer));
+									setAnswers((answers) => answers.concat({ answer, question }));
 									setAnswer('');
+									setQuestion('');
 								},
 							]}
 							speed={80}
 							className="font-mono text-xs"
 						/>
-					</TerminalLine>
-				) : null}
-				<TerminalLine onClick={() => inputRef.current?.focus()}>
-					{question}
+					) : null}
 					<input
 						ref={inputRef}
 						type="text"
 						value={question}
 						onChange={(e) => setQuestion(e.target.value)}
-						onKeyUp={() => {}}
-						className="fixed left-[-1000px]"
+						onKeyUp={(event) => {
+							if (event.key !== 'Enter') return;
+							ask(event);
+						}}
+						className="fixed top-[-1000px]"
 					/>
-				</TerminalLine>
+				</QuestionCommand>
 			</VisualTerminal>
 		</div>
 	);

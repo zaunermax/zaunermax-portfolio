@@ -13,6 +13,8 @@ export const SecondLine = () => {
 				3000,
 				'feat(👶): initial commit | Sept 21, 1993',
 				3000,
+				'Låt oss prater lite Svenska 🇸🇪',
+				3000,
 				'Why not ask something about me 😉',
 				5000,
 			]}
