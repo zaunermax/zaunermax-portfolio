@@ -1,9 +1,16 @@
 'use client';
 
 import { TypeAnimation } from 'react-type-animation';
+import { useEffect, useState } from 'react';
 
 export const SecondLine = () => {
-	return (
+	const [mounted, setMounted] = useState(false);
+
+	useEffect(() => {
+		if (!mounted) setMounted(true);
+	}, [mounted]);
+
+	return mounted ? (
 		<TypeAnimation
 			className="font-mono text-sm font-semibold text-gray-600 dark:text-gray-400 sm:text-xl md:text-2xl"
 			speed={60}
@@ -20,5 +27,9 @@ export const SecondLine = () => {
 			]}
 			repeat={Infinity}
 		/>
+	) : (
+		<div className="font-mono text-sm font-semibold text-gray-600 dark:text-gray-400 sm:text-xl md:text-2xl">
+			|
+		</div>
 	);
 };
