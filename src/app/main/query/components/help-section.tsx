@@ -6,21 +6,11 @@ import {
 import { useEffect, useState } from 'react';
 import { MultiplyChildren } from '@/components/multiply-children';
 import Link from 'next/link';
+import { getSuggestions } from '@/lib/get-suggestions';
 
 export type HelpSectionProps = {
 	modelName: string;
 };
-
-const getSuggestions = async () =>
-	fetch(`/api/suggestions`)
-		.then((res) => {
-			if (!res.ok) return [];
-			else return res.json().then(({ suggestions }) => suggestions as string[]);
-		})
-		.catch((e) => {
-			console.error(e);
-			return [] as string[];
-		});
 
 export const HelpSection = ({ modelName }: HelpSectionProps) => {
 	const [suggestions, setSuggestions] = useState([] as string[]);
