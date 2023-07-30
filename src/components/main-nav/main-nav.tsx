@@ -1,29 +1,35 @@
-import Link from 'next/link';
+'use client';
 
 import { cn } from '@/lib/utils';
 import { HTMLAttributes } from 'react';
+import { usePathname } from 'next/navigation';
+import { NavLink } from './components';
+
+const links = [
+	{ href: '/main', linkText: 'main' },
+	{ href: '/main/query', linkText: 'main/query' },
+	{ href: '/main/wiki', linkText: 'main/wiki' },
+];
+
+const isActive = ({ href }: { href: string }, pathname: string) => {
+	return pathname === href;
+};
 
 export function MainNav({ className, ...props }: HTMLAttributes<HTMLElement>) {
+	const pathname = usePathname();
+
 	return (
-		<nav className={cn('flex items-center space-x-4 lg:space-x-6', className)} {...props}>
-			<Link
-				href="/main/query"
-				className="text-sm font-medium transition-colors hover:text-primary"
-			>
-				main/query
-			</Link>
-			<Link
-				href="/main/wiki"
-				className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
-			>
-				main/wiki
-			</Link>
-			<Link
-				href="/main/xp"
-				className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
-			>
-				main/xp
-			</Link>
+		<nav
+			className={cn('flex items-center space-x-4 font-mono lg:space-x-6', className)}
+			{...props}
+		>
+			{links.map((linkProps) => (
+				<NavLink
+					key={linkProps.href}
+					{...linkProps}
+					isActive={isActive(linkProps, pathname)}
+				/>
+			))}
 		</nav>
 	);
 }
