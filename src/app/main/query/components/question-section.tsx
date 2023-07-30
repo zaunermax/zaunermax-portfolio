@@ -1,58 +1,30 @@
 'use client';
 
-import {
-	ChangeEvent,
-	PropsWithChildren,
-	SyntheticEvent,
-	KeyboardEvent,
-	useCallback,
-	useEffect,
-	useRef,
-	useState,
-	useTransition,
-} from 'react';
-import { askQuestion } from '@/server-actions/ask-question';
-import { useSearchParams } from 'next/navigation';
+import { ChangeEvent, KeyboardEvent, useCallback, useState } from 'react';
 import { TypeAnimation } from 'react-type-animation';
 import { LoadingAnimation, VisualTerminal } from '@/components/visual-terminal';
 import { HelpSection } from './help-section';
 import { Answers } from './answers';
 import { QuestionCommand } from './question-command';
+import { useFocusableInputRef, useQueryQuestion } from '../hooks';
 
 const modelName = 'max-q-learning-16k-0623';
 
 export const QuestionSection = () => {
-	const rawSearchParams = useSearchParams();
-	const searchParams = new URLSearchParams(rawSearchParams);
-	const queryQuestion = searchParams.get('q') || '';
+	const { inputRef, handleInputFocus } = useFocusableInputRef();
+	const { question, setQuestion, ask, answer, setAnswer, isPending } = useQueryQuestion();
 
-	const [question, setQuestion] = useState(queryQuestion);
-	const [answer, setAnswer] = useState('');
-	const [isPending, startTransition] = useTransition();
 	const [answers, setAnswers] = useState([] as { question: string; answer: string }[]);
-
-	const inputRef = useRef<HTMLInputElement>(null);
-
-	const ask = useCallback(
-		(e: SyntheticEvent) => {
-			e.preventDefault();
-			startTransition(async () => {
-				const answer = await askQuestion(question);
-				setAnswer(answer);
-			});
-		},
-		[question],
-	);
 
 	const onChange = useCallback(
 		({ target }: ChangeEvent<HTMLInputElement>) => setQuestion(target.value),
-		[],
+		[setQuestion],
 	);
 
 	const onKeyUp = useCallback(
 		(event: KeyboardEvent) => {
 			if (event.key !== 'Enter') return;
-			ask(event);
+			ask();
 		},
 		[ask],
 	);
@@ -62,23 +34,8 @@ export const QuestionSection = () => {
 		setAnswers((answers) => answers.concat({ answer, question }));
 		setAnswer('');
 		setQuestion('');
-	}, [answer, question]);
-
-	const handleInputFocus = useCallback(() => {
-		const ref = inputRef.current;
-
-		if (!ref) return;
-
-		const length = ref.value.length;
-
-		ref.focus();
-		ref.setSelectionRange(length, length);
-	}, []);
-
-	useEffect(() => {
-		setQuestion(queryQuestion);
 		handleInputFocus();
-	}, [handleInputFocus, queryQuestion]);
+	}, [answer, question, setQuestion]);
 
 	const isAnswering = !!answer || isPending;
 
