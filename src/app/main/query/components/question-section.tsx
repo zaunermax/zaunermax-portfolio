@@ -1,6 +1,6 @@
 'use client';
 
-import { ChangeEvent, KeyboardEvent, useCallback, useState } from 'react';
+import { ChangeEvent, KeyboardEvent, Suspense, useCallback, useState } from 'react';
 import { TypeAnimation } from 'react-type-animation';
 import { LoadingAnimation, VisualTerminal } from '@/components/visual-terminal';
 import { HelpSection } from './help-section';
@@ -35,7 +35,7 @@ export const QuestionSection = () => {
 		setAnswer('');
 		setQuestion('');
 		handleInputFocus();
-	}, [answer, question, setQuestion]);
+	}, [answer, handleInputFocus, question, setAnswer, setQuestion]);
 
 	const isAnswering = !!answer || isPending;
 
@@ -46,7 +46,9 @@ export const QuestionSection = () => {
 				onClick={handleInputFocus}
 				className="drop-shadow-2xl"
 			>
-				<HelpSection modelName={modelName} />
+				<Suspense>
+					<HelpSection modelName={modelName} />
+				</Suspense>
 				<Answers answers={answers} />
 				<QuestionCommand
 					question={question}
