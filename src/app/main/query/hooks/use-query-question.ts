@@ -23,6 +23,7 @@ export const useQueryQuestion = () => {
 	);
 
 	useEffect(() => {
+		if (!queryQuestion) return;
 		setQuestion(queryQuestion);
 		startTransition(async () => {
 			const answer = await askQuestion(queryQuestion);

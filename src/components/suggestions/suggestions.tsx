@@ -1,22 +1,10 @@
 import { Badge } from '@/components/ui/badge';
 import { serverURL } from '@/lib/server-url';
 import Link from 'next/link';
-
-const getSuggestions = async () =>
-	fetch(`${serverURL}/api/suggestions`, {
-		next: { revalidate: 300 },
-	})
-		.then((res) => {
-			if (!res.ok) return [];
-			else return res.json().then(({ suggestions }) => suggestions as string[]);
-		})
-		.catch((e) => {
-			console.error(e);
-			return [] as string[];
-		});
+import { getSuggestions } from '@/lib/get-suggestions';
 
 export const Suggestions = async () => {
-	const suggestions = await getSuggestions();
+	const suggestions = await getSuggestions(serverURL);
 
 	return (
 		<div>

@@ -2,12 +2,12 @@ import './globals.css';
 
 import { Providers } from '@/app/providers';
 import { cn } from '@/lib/utils';
-import { Roboto_Mono } from 'next/font/google';
+import { JetBrains_Mono } from 'next/font/google';
 
-const roboto_mono = Roboto_Mono({
+const jetbrains_mono = JetBrains_Mono({
 	subsets: ['latin'],
 	display: 'auto',
-	variable: '--font-roboto-mono',
+	variable: '--font-jetbrains-mono',
 });
 
 export const metadata = {
@@ -17,7 +17,7 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
 	return (
-		<html lang="en" className={`${roboto_mono.variable}`}>
+		<html lang="en" className={`${jetbrains_mono.variable}`}>
 			<body className={cn('min-h-screen bg-background font-sans antialiased')}>
 				<Providers>{children}</Providers>
 			</body>
