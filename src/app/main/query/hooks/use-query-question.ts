@@ -1,5 +1,5 @@
 import { useSearchParams } from 'next/navigation';
-import { SyntheticEvent, useCallback, useEffect, useState, useTransition } from 'react';
+import { useCallback, useEffect, useState, useTransition } from 'react';
 import { askQuestion } from '@/server-actions/ask-question';
 
 export const useQueryQuestion = () => {
@@ -10,33 +10,37 @@ export const useQueryQuestion = () => {
 	const [question, setQuestion] = useState(queryQuestion);
 	const [answer, setAnswer] = useState('');
 	const [isPending, startTransition] = useTransition();
+	const [answers, setAnswers] = useState([] as { question: string; answer: string }[]);
 
-	const ask = useCallback(
-		(e?: SyntheticEvent) => {
-			e?.preventDefault();
-			startTransition(async () => {
-				const answer = await askQuestion(question);
-				setAnswer(answer);
-			});
-		},
-		[question],
-	);
+	const ask = useCallback((question: string) => {
+		if (question.length > 100)
+			return setAnswers((answers) =>
+				answers.concat({
+					answer: 'Your question cannot have more than 100 characters 🤷',
+					question,
+				}),
+			);
+
+		startTransition(async () => {
+			const answer = await askQuestion(question);
+			setAnswer(answer);
+		});
+	}, []);
 
 	useEffect(() => {
 		if (!queryQuestion) return;
 		setQuestion(queryQuestion);
-		startTransition(async () => {
-			const answer = await askQuestion(queryQuestion);
-			setAnswer(answer);
-		});
-	}, [queryQuestion]);
+		ask(queryQuestion);
+	}, [ask, queryQuestion]);
 
 	return {
+		ask,
 		question,
 		setQuestion,
-		ask,
 		answer,
 		setAnswer,
+		answers,
+		setAnswers,
 		isPending,
 	};
 };

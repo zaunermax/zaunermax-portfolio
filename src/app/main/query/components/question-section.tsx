@@ -1,6 +1,6 @@
 'use client';
 
-import { ChangeEvent, KeyboardEvent, Suspense, useCallback, useState } from 'react';
+import { ChangeEvent, KeyboardEvent, useCallback } from 'react';
 import { TypeAnimation } from 'react-type-animation';
 import { LoadingAnimation, VisualTerminal } from '@/components/visual-terminal';
 import { HelpSection } from './help-section';
@@ -12,9 +12,16 @@ const modelName = 'max-q-learning-16k-0623';
 
 export const QuestionSection = () => {
 	const { inputRef, handleInputFocus } = useFocusableInputRef();
-	const { question, setQuestion, ask, answer, setAnswer, isPending } = useQueryQuestion();
-
-	const [answers, setAnswers] = useState([] as { question: string; answer: string }[]);
+	const {
+		ask,
+		question,
+		setQuestion,
+		answer,
+		setAnswer,
+		answers,
+		setAnswers,
+		isPending,
+	} = useQueryQuestion();
 
 	const onChange = useCallback(
 		({ target }: ChangeEvent<HTMLInputElement>) => setQuestion(target.value),
@@ -24,18 +31,19 @@ export const QuestionSection = () => {
 	const onKeyUp = useCallback(
 		(event: KeyboardEvent) => {
 			if (event.key !== 'Enter') return;
-			ask();
+			ask(question);
 		},
-		[ask],
+		[question, ask],
 	);
 
-	const onHandleAnswerFinished = useCallback(() => {
+	// no need for useCallback -> TypeAnimation is hard-memoized on first render
+	const onHandleAnswerFinished = () => {
 		if (!answer) return;
 		setAnswers((answers) => answers.concat({ answer, question }));
 		setAnswer('');
 		setQuestion('');
 		handleInputFocus();
-	}, [answer, handleInputFocus, question, setAnswer, setQuestion]);
+	};
 
 	const isAnswering = !!answer || isPending;
 
@@ -46,9 +54,7 @@ export const QuestionSection = () => {
 				onClick={handleInputFocus}
 				className="drop-shadow-2xl"
 			>
-				<Suspense>
-					<HelpSection modelName={modelName} />
-				</Suspense>
+				<HelpSection modelName={modelName} />
 				<Answers answers={answers} />
 				<QuestionCommand
 					question={question}
@@ -70,7 +76,7 @@ export const QuestionSection = () => {
 						value={question}
 						onChange={onChange}
 						onKeyUp={onKeyUp}
-						className="fixed left-[-999999px]"
+						className="fixed left-[-999999px] text-xl"
 					/>
 				</QuestionCommand>
 			</VisualTerminal>

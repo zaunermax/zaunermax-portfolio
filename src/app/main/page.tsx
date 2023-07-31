@@ -1,4 +1,5 @@
 import { QuestionLink } from '@/components/question-link';
+import { SecondLine } from '@/app/main/components/second-line';
 
 export default async function MainPage() {
 	return (
@@ -12,6 +13,7 @@ export default async function MainPage() {
 						</span>{' '}
 						👋
 					</h1>
+					<SecondLine />
 					<QuestionLink />
 				</div>
 			</div>

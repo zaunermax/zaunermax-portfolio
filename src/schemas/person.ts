@@ -6,21 +6,22 @@ const Person: SchemaTypeDefinition = {
 	type: 'document',
 	fields: [
 		{
-			name: 'fullName',
-			title: 'Full name',
+			name: 'name',
+			title: 'Name',
 			type: 'string',
 		},
 		{
-			name: 'bio',
-			title: 'Bio',
-			type: 'text',
+			name: 'introSentences',
+			title: 'Intro Sentences',
+			type: 'array',
+			of: [{ type: 'string' }],
 		},
 		{
-			name: 'portrait',
-			title: 'Portrait',
-			type: 'image',
+			name: 'cv',
+			title: 'CV',
+			type: 'file',
 			options: {
-				hotspot: true,
+				accept: '.pdf',
 			},
 		},
 	],
