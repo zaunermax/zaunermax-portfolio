@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { extractAnswer, getLlmContext } from '@/lib/llm-context-utils';
 import { openai } from '@/lib/openai-client';
 
+export const revalidate = 300;
+
 export async function GET() {
 	const content = await getLlmContext();
 

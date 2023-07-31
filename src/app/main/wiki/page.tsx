@@ -1,7 +1,18 @@
-'use client';
+import { getCVUrl } from '@/lib/get-person';
+import { Button } from '@/components/ui/button';
 
-import { xpJSON } from '@/app/main/wiki/assets/content';
+const Page = async () => {
+	const { fileUrl } = await getCVUrl();
 
-const Page = () => <div className="mt-20">{xpJSON}</div>;
+	return (
+		<div className="flex min-h-screen items-center justify-center">
+			<Button asChild className="mx-auto" size="lg">
+				<a href={fileUrl} target="_blank" rel="noopener noreferrer">
+					Download CV
+				</a>
+			</Button>
+		</div>
+	);
+};
 
 export default Page;
