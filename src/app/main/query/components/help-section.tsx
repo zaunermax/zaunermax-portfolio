@@ -32,7 +32,7 @@ export const HelpSection = ({ modelName }: HelpSectionProps) => {
 					const query = new URLSearchParams();
 					query.append('q', suggestion);
 					return (
-						<Link href={`/main/query?${query.toString()}`} key={suggestion}>
+						<Link href={`/main/query?${query.toString()}`} key={suggestion} replace>
 							<div>
 								Example:{' '}
 								<span className="text-blue-500 underline hover:text-blue-800">

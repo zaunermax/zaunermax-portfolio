@@ -48,7 +48,7 @@ export async function GET() {
 			}
 			return `["What technologies does Max Zauner use?", "What are Max Zauner's programming expertise areas?", "Where did Max Zauner study for his Master's degree?"]`;
 		})
-		.finally(() => console.log('did a thing...'));
+		.finally(() => console.log('created new suggestions'));
 
 	try {
 		const res = JSON.parse(rawSuggestions || '[]') as string[];
