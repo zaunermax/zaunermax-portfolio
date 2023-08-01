@@ -10,6 +10,7 @@ export const Footer = async () => {
 					The code is{' '}
 					<a
 						className="text-blue-500 underline hover:text-blue-800"
+						target="_blank"
 						href={'https://github.com/zaunermax/zaunermax-portfolio'}
 					>
 						open source
