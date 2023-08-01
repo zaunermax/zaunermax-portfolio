@@ -8,8 +8,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
 	Form,
 	FormControl,
+	FormDescription,
 	FormField,
 	FormItem,
+	FormLabel,
 	FormMessage,
 } from '@/components/ui/form';
 import { useCallback } from 'react';
@@ -49,6 +51,7 @@ export const QuestionFormLink = () => {
 					control={form.control}
 					render={({ field }) => (
 						<FormItem>
+							<FormLabel className="sr-only">Ask a question about Max</FormLabel>
 							<span className="flex space-x-2">
 								<FormControl>
 									<Input
@@ -61,6 +64,10 @@ export const QuestionFormLink = () => {
 									Ask
 								</Button>
 							</span>
+							<FormDescription className="sr-only">
+								The question you type in will take you to another screen where your
+								questions will be answered once you submit the form.
+							</FormDescription>
 							<FormMessage />
 						</FormItem>
 					)}

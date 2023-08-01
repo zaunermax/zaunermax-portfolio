@@ -1,6 +1,6 @@
 'use client';
 
-import { ChangeEvent, KeyboardEvent, useCallback } from 'react';
+import { ChangeEvent, KeyboardEvent, useCallback, useId } from 'react';
 import { TypeAnimation } from 'react-type-animation';
 import { LoadingAnimation, VisualTerminal } from '@/components/visual-terminal';
 import { HelpSection } from './help-section';
@@ -11,6 +11,7 @@ import { useFocusableInputRef, useQueryQuestion } from '../hooks';
 const modelName = 'max-q-learning-16k-0623';
 
 export const QuestionSection = () => {
+	const inputId = useId();
 	const { inputRef, handleInputFocus } = useFocusableInputRef();
 	const {
 		ask,
@@ -70,13 +71,18 @@ export const QuestionSection = () => {
 							className="font-mono text-xs"
 						/>
 					) : null}
+					<label htmlFor={inputId} className={'sr-only'}>
+						Type a question you like to ask about Max Zauner and then press ENTER to
+						submit the question.
+					</label>
 					<input
+						id={inputId}
 						ref={inputRef}
 						type="text"
 						value={question}
 						onChange={onChange}
 						onKeyUp={onKeyUp}
-						className="fixed left-[-999999px] text-xl"
+						className="sr-only"
 					/>
 				</QuestionCommand>
 			</VisualTerminal>

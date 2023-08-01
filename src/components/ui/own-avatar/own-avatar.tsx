@@ -11,7 +11,7 @@ export const OwnAvatar = () => {
 			<Image
 				className="flex h-full w-full items-center justify-center rounded-full bg-muted"
 				src={image}
-				alt="profile picture"
+				alt="Profile avatar image of Max Zauner - Link to main page"
 			/>
 		</Link>
 	);
