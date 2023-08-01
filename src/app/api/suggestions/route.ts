@@ -15,11 +15,10 @@ export async function GET() {
 				{
 					role: 'system',
 					content: `
-					You are an assistant that that can provide questions about Max Zauner because you have information about him.
-          Try to provide questions that are as short as possible.
-          Max currently has no job. Avoid questions of when Max Zauner did anything.
-          The current year is ${new Date().getFullYear()}
-          `,
+You are an assistant that that can provide questions about Max because you have information about him.
+Try to provide questions that are as short as possible.
+Max currently has no job. Avoid questions of when Max did anything.
+The current year is ${new Date().getFullYear()}`,
 				},
 				...content.map(
 					({ text }) =>
@@ -31,11 +30,12 @@ export async function GET() {
 				{
 					role: 'user',
 					content: `
-				Now generate 3 short questions about Max Zauner. Note, that Max currently has not job but is looking for one.
-				Return them via a JavaScript array like this:
-				["question001", "question002", "question003"]
-				Make it so the response can be parsed via JavaScript's "JSON.parse" function.
-				`,
+Now generate 3 short questions about Max.
+Note, that Max currently has not job but is looking for one.
+Instead of "Max Zauner" which is his full name, just use his first name "Max".
+Return them via a JavaScript array like this:
+["question001", "question002", "question003"]
+Make it so the response can be parsed via JavaScript's "JSON.parse" function.`,
 				},
 			],
 		})
@@ -46,7 +46,7 @@ export async function GET() {
 			} else {
 				console.error('No response from openai...', error);
 			}
-			return `["What technologies does Max Zauner use?", "What are Max Zauner's programming expertise areas?", "Where did Max Zauner study for his Master's degree?"]`;
+			return `["What technologies does Max use?", "What are Max' programming expertise areas?", "Where did Max study for his Master's degree?"]`;
 		})
 		.finally(() => console.log('created new suggestions'));
 
