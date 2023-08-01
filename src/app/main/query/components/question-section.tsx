@@ -49,7 +49,7 @@ export const QuestionSection = () => {
 	const isAnswering = !!answer || isPending;
 
 	return (
-		<div className="m-auto flex max-w-screen-lg flex-col space-y-2">
+		<div className="m-auto mb-16 flex max-w-screen-lg flex-col space-y-2">
 			<VisualTerminal
 				title={modelName}
 				onClick={handleInputFocus}
