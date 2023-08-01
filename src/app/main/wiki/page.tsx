@@ -1,6 +1,8 @@
 import { getCVUrl } from '@/lib/get-person';
 import { Button } from '@/components/ui/button';
 
+export const revalidate = 300;
+
 const Page = async () => {
 	const { fileUrl } = await getCVUrl();
 
