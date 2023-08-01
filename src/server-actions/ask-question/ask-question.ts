@@ -25,7 +25,6 @@ export const askQuestion = async (rawQuestion: string) => {
 	return await openai
 		.createChatCompletion({
 			model: 'gpt-3.5-turbo',
-			temperature: 0.8,
 			messages: [
 				{
 					role: 'system',
@@ -35,7 +34,6 @@ export const askQuestion = async (rawQuestion: string) => {
           Write the answer in the same language as the question.
           If you don't know the answer, just say that you don't know but be helpful and explain why you can't answer.
           "He" is always referring to Max Zauner.
-          Try to answer as short as possible.
           The current year is ${new Date().getFullYear()}
           `,
 				},
