@@ -1,6 +1,6 @@
 export const Footer = async () => {
 	return (
-		<footer className="container fixed bottom-1.5 flex">
+		<footer className="container fixed bottom-1.5 left-0 right-0 flex">
 			<div className="mx-auto flex flex-col font-mono text-xs sm:block">
 				<span className="mx-auto block sm:inline sm:w-auto">
 					Made with 💖 by Max Zauner
