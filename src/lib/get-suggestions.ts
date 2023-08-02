@@ -1,7 +1,23 @@
 import { captureException } from '@sentry/nextjs';
 
-export const getSuggestions = async (baseUrl = '') =>
-	fetch(`${baseUrl}/api/suggestions`, { next: { revalidate: 300 } })
+type Params = {
+	baseUrl?: string;
+	shortMode?: boolean;
+	revalidate?: number;
+};
+
+export const getSuggestions = async ({
+	shortMode = true,
+	baseUrl = '',
+	revalidate = 300,
+}: Params) => {
+	const searchParams = new URLSearchParams();
+
+	searchParams.append('mode', shortMode ? 'short' : 'long');
+
+	return fetch(`${baseUrl}/api/suggestions?${searchParams.toString()}`, {
+		next: { revalidate },
+	})
 		.then((res) => {
 			if (!res.ok) return [];
 			else return res.json().then(({ suggestions }) => suggestions as string[]);
@@ -10,3 +26,4 @@ export const getSuggestions = async (baseUrl = '') =>
 			captureException(e);
 			return [] as string[];
 		});
+};

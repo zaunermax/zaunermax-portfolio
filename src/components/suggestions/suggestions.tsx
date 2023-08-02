@@ -4,7 +4,10 @@ import Link from 'next/link';
 import { getSuggestions } from '@/lib/get-suggestions';
 
 export const Suggestions = async () => {
-	const suggestions = await getSuggestions(serverURL);
+	const suggestions = await getSuggestions({
+		shortMode: true,
+		baseUrl: serverURL,
+	});
 
 	return (
 		<div>

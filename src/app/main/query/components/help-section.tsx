@@ -1,3 +1,5 @@
+'use client';
+
 import {
 	BlankTerminalLine,
 	LoadingAnimation,
@@ -16,7 +18,7 @@ export const HelpSection = ({ modelName }: HelpSectionProps) => {
 	const [suggestions, setSuggestions] = useState([] as string[]);
 
 	useEffect(() => {
-		getSuggestions().then(setSuggestions);
+		getSuggestions({ shortMode: false }).then(setSuggestions);
 	}, []);
 
 	return (

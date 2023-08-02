@@ -3,9 +3,12 @@ import { extractAnswer, getLlmContext } from '@/lib/llm-context-utils';
 import { openai } from '@/lib/openai-client';
 import { captureException, captureMessage } from '@sentry/nextjs';
 
-export const revalidate = 300;
+export async function GET(request: Request) {
+	const { searchParams } = new URL(request.url);
+	const rawMode = searchParams.get('mode') || 'short';
 
-export async function GET() {
+	const shortMode = rawMode === 'short';
+
 	const content = await getLlmContext();
 
 	const rawSuggestions = await openai
@@ -18,7 +21,7 @@ export async function GET() {
 					content: `
 You are an assistant that that can provide questions about Max because you have information about him.
 Try to provide questions that are as short as possible.
-Max currently has no job. Avoid questions of when Max did anything.
+Avoid questions of when Max did anything.
 The current year is ${new Date().getFullYear()}`,
 				},
 				...content.map(
@@ -31,9 +34,13 @@ The current year is ${new Date().getFullYear()}`,
 				{
 					role: 'user',
 					content: `
-Now generate exactly 3 short questions about Max.
-Note, that Max currently has not job but is looking for one.
-Instead of "Max Zauner" which is his full name, just use his first name "Max".
+Generate exactly 3 ${shortMode ? 'short ' : ''}questions about Max.
+Avoid questions about locations.
+${
+	!shortMode
+		? 'Try to create questions that lead to interesting long answers while keeping the questions under 100 characters.'
+		: 'Try to keep the questions under 60 characters if possible.'
+}
 Return them via a JavaScript array like this:
 ["question001", "question002", "question003"]
 Make it so the response can be parsed via JavaScript's "JSON.parse" function.`,
