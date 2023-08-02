@@ -5,7 +5,7 @@ import {
 	LoadingAnimation,
 	TerminalLine,
 } from '@/components/visual-terminal';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useTransition } from 'react';
 import { MultiplyChildren } from '@/components/multiply-children';
 import Link from 'next/link';
 import { getSuggestions } from '@/lib/get-suggestions';
@@ -16,10 +16,18 @@ export type HelpSectionProps = {
 
 export const HelpSection = ({ modelName }: HelpSectionProps) => {
 	const [suggestions, setSuggestions] = useState([] as string[]);
+	const [isPending, startTransition] = useTransition();
+
+	const handleGetSuggestions = useCallback(() => {
+		startTransition(async () => {
+			const suggestions = await getSuggestions({ shortMode: false });
+			setSuggestions(suggestions);
+		});
+	}, []);
 
 	useEffect(() => {
-		getSuggestions({ shortMode: false }).then(setSuggestions);
-	}, []);
+		handleGetSuggestions();
+	}, [handleGetSuggestions]);
 
 	return (
 		<TerminalLine>
@@ -29,7 +37,7 @@ export const HelpSection = ({ modelName }: HelpSectionProps) => {
 			<BlankTerminalLine />
 			<div>LLM &quot;{modelName}&quot;: answering questions about max</div>
 			<BlankTerminalLine />
-			{suggestions.length ? (
+			{suggestions.length && !isPending ? (
 				suggestions.map((suggestion) => {
 					const query = new URLSearchParams();
 					query.append('q', suggestion);
@@ -52,7 +60,16 @@ export const HelpSection = ({ modelName }: HelpSectionProps) => {
 				</MultiplyChildren>
 			)}
 			<BlankTerminalLine />
-			<div>You can click the examples for quick fill in</div>
+			<div>
+				You can click the examples for quick fill in or you can{' '}
+				<span
+					className="text-blue-500 underline hover:cursor-pointer hover:text-blue-800"
+					role="link"
+					onClick={handleGetSuggestions}
+				>
+					reload them
+				</span>
+			</div>
 		</TerminalLine>
 	);
 };

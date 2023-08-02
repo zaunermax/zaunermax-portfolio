@@ -38,7 +38,7 @@ Generate exactly 3 ${shortMode ? 'short ' : ''}questions about Max.
 Avoid questions about locations.
 ${
 	!shortMode
-		? 'Try to create questions that lead to interesting long answers while keeping the questions under 100 characters.'
+		? 'Try to create questions that lead to interesting long answers while keeping the questions under 90 characters.'
 		: 'Try to keep the questions under 60 characters if possible.'
 }
 Return them via a JavaScript array like this:
