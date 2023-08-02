@@ -6,9 +6,9 @@ import { usePathname } from 'next/navigation';
 import { NavLink } from './components';
 
 const links = [
-	{ href: '/main', linkText: 'main' },
-	{ href: '/main/query', linkText: 'main/query' },
-	{ href: '/main/wiki', linkText: 'main/wiki' },
+	{ href: '/', linkText: 'main' },
+	{ href: '/query', linkText: 'main/query' },
+	{ href: '/wiki', linkText: 'main/wiki' },
 ];
 
 const isActive = ({ href }: { href: string }, pathname: string) => {

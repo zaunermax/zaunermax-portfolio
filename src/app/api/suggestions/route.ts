@@ -29,7 +29,7 @@ The current year is ${new Date().getFullYear()}`,
 						({
 							role: 'user',
 							content: text,
-						} as const),
+						}) as const,
 				),
 				{
 					role: 'user',
@@ -52,7 +52,9 @@ Make it so the response can be parsed via JavaScript's "JSON.parse" function.`,
 			captureException(error);
 			return `["What technologies does Max use?", "What are Max' programming expertise areas?", "Where did Max study for his Master's degree?"]`;
 		})
-		.finally(() => console.log('created new suggestions'));
+		.finally(() =>
+			console.log(`created new ${shortMode ? 'short' : 'long'} suggestions`),
+		);
 
 	try {
 		const res = JSON.parse(rawSuggestions || '[]') as string[];
