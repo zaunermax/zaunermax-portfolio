@@ -55,7 +55,7 @@ export const QuestionSection = () => {
 				onClick={handleInputFocus}
 				className="drop-shadow-2xl"
 			>
-				<HelpSection modelName={modelName} />
+				<HelpSection modelName={modelName} disableLinks={isAnswering} />
 				<Answers answers={answers} />
 				<QuestionCommand
 					question={question}

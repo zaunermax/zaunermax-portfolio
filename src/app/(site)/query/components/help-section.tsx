@@ -12,9 +12,19 @@ import { getSuggestions } from '@/lib/get-suggestions';
 
 export type HelpSectionProps = {
 	modelName: string;
+	disableLinks?: boolean;
 };
 
-export const HelpSection = ({ modelName }: HelpSectionProps) => {
+const Example = ({ suggestion }: { suggestion: string }) => {
+	return (
+		<div>
+			Example:{' '}
+			<span className="text-blue-500 underline hover:text-blue-800">{suggestion}</span>
+		</div>
+	);
+};
+
+export const HelpSection = ({ modelName, disableLinks }: HelpSectionProps) => {
 	const [suggestions, setSuggestions] = useState([] as string[]);
 	const [isPending, startTransition] = useTransition();
 
@@ -41,14 +51,11 @@ export const HelpSection = ({ modelName }: HelpSectionProps) => {
 				suggestions.map((suggestion) => {
 					const query = new URLSearchParams();
 					query.append('q', suggestion);
-					return (
+					return disableLinks ? (
+						<Example suggestion={suggestion} />
+					) : (
 						<Link href={`/main/query?${query.toString()}`} key={suggestion} replace>
-							<div>
-								Example:{' '}
-								<span className="text-blue-500 underline hover:text-blue-800">
-									{suggestion}
-								</span>
-							</div>
+							<Example suggestion={suggestion} />
 						</Link>
 					);
 				})
