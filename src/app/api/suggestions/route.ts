@@ -31,7 +31,7 @@ The current year is ${new Date().getFullYear()}`,
 				{
 					role: 'user',
 					content: `
-Now generate 3 short questions about Max.
+Now generate exactly 3 short questions about Max.
 Note, that Max currently has not job but is looking for one.
 Instead of "Max Zauner" which is his full name, just use his first name "Max".
 Return them via a JavaScript array like this:
@@ -49,7 +49,7 @@ Make it so the response can be parsed via JavaScript's "JSON.parse" function.`,
 
 	try {
 		const res = JSON.parse(rawSuggestions || '[]') as string[];
-		return NextResponse.json({ suggestions: res });
+		return NextResponse.json({ suggestions: res.slice(0, 3) });
 	} catch (e: unknown) {
 		captureMessage(`Weird suggestions format: ${rawSuggestions}`);
 		captureException(e);
