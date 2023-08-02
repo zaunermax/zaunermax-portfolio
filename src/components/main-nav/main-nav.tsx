@@ -8,7 +8,6 @@ import { NavLink } from './components';
 const links = [
 	{ href: '/', linkText: 'main' },
 	{ href: '/query', linkText: 'main/query' },
-	{ href: '/wiki', linkText: 'main/wiki' },
 ];
 
 const isActive = ({ href }: { href: string }, pathname: string) => {
