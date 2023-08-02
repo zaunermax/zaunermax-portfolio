@@ -14,4 +14,7 @@ export const getClient = (useCdn: boolean) =>
 	});
 
 const client = getClient(false);
-export const clientFetch = cache(client.fetch.bind(client));
+const cdnClient = getClient(true);
+
+export const cachedClientFetch = cache(client.fetch.bind(client));
+export const cachedCdnClientFetch = cache(cdnClient.fetch.bind(cdnClient));

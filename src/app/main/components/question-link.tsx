@@ -1,8 +1,8 @@
 import { Suspense } from 'react';
-import { Suggestions } from '@/components/suggestions';
-import { QuestionFormLink } from '@/components/question-link/components';
+import { Suggestions } from './suggestions';
+import { QuestionFormLink } from './question-form-link';
 
-export const QuestionLink = async () => {
+export async function QuestionLink() {
 	return (
 		<div className="flex flex-col space-y-4">
 			<QuestionFormLink />
@@ -11,4 +11,4 @@ export const QuestionLink = async () => {
 			</Suspense>
 		</div>
 	);
-};
+}

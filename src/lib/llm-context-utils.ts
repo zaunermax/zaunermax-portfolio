@@ -1,10 +1,10 @@
-import { clientFetch } from './sanity-client';
+import { cachedClientFetch } from './sanity-client';
 import { groq } from 'next-sanity';
 import 'server-only';
 import { CreateChatCompletionResponse } from 'openai';
 
 export const getLlmContext = async () => {
-	return clientFetch<{ text: string; order: number }[]>(
+	return cachedClientFetch<{ text: string; order: number }[]>(
 		groq`*[_type == 'llm-content'] | order(order asc)`,
 	);
 };

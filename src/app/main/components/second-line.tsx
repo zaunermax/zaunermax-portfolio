@@ -1,7 +1,7 @@
 'use client';
 
 import { TypeAnimation } from 'react-type-animation';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getIntroSentences } from '@/lib/get-person';
 import { prepareTypeAnimationArray } from '@/lib/prepare-type-animation-array';
 

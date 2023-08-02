@@ -1,4 +1,4 @@
-import { QuestionSection } from './components';
+import { QuestionSection } from './components/question-section';
 
 export default async function QueryPage() {
 	return (
