@@ -52,7 +52,7 @@ export const HelpSection = ({ modelName, disableLinks }: HelpSectionProps) => {
 					const query = new URLSearchParams();
 					query.append('q', suggestion);
 					return disableLinks ? (
-						<Example suggestion={suggestion} />
+						<Example key={suggestion} suggestion={suggestion} />
 					) : (
 						<Link href={`/main/query?${query.toString()}`} key={suggestion} replace>
 							<Example suggestion={suggestion} />
