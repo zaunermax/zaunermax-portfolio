@@ -1,3 +1,5 @@
+import { captureException } from '@sentry/nextjs';
+
 export const getSuggestions = async (baseUrl = '') =>
 	fetch(`${baseUrl}/api/suggestions`, { next: { revalidate: 300 } })
 		.then((res) => {
@@ -5,6 +7,6 @@ export const getSuggestions = async (baseUrl = '') =>
 			else return res.json().then(({ suggestions }) => suggestions as string[]);
 		})
 		.catch((e) => {
-			console.error(e);
+			captureException(e);
 			return [] as string[];
 		});

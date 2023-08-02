@@ -2,6 +2,7 @@
 
 import { openai } from '@/lib/openai-client';
 import { extractAnswer, getLlmContext } from '@/lib/llm-context-utils';
+import { captureException } from '@sentry/nextjs';
 
 export const askQuestion = async (rawQuestion: string) => {
 	console.log('question?', rawQuestion);
@@ -14,7 +15,7 @@ export const askQuestion = async (rawQuestion: string) => {
 		})
 		.then(({ data }) => data.results.some(({ flagged }) => flagged))
 		.catch((e) => {
-			console.error('Moderation error', e);
+			captureException(e);
 			return true;
 		});
 
@@ -50,11 +51,5 @@ The current year is ${new Date().getFullYear()}`,
 			],
 		})
 		.then(extractAnswer)
-		.catch((error) => {
-			if (error.response) {
-				return error.response.data.error.message;
-			} else {
-				return 'No response received from OpenAI';
-			}
-		});
+		.catch(captureException);
 };
