@@ -4,7 +4,7 @@ import { openai } from '@/lib/openai-client';
 import { extractAnswer, getLlmContext } from '@/lib/llm-context-utils';
 import { captureException } from '@sentry/nextjs';
 
-export const askQuestion = async (rawQuestion: string) => {
+export const askQuestion = async (rawQuestion: string): Promise<string> => {
 	console.log('question?', rawQuestion);
 
 	const question = rawQuestion.slice(0, 100);
@@ -51,5 +51,11 @@ The current year is ${new Date().getFullYear()}`,
 			],
 		})
 		.then(extractAnswer)
-		.catch(captureException);
+		.then(
+			(answer) => answer ?? 'No answer received from openai 💔 Something went wrong 😔',
+		)
+		.catch((e) => {
+			captureException(e);
+			return 'There was en error receiving an answer from openai 💔';
+		});
 };

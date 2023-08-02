@@ -14,7 +14,7 @@ import { askQuestion } from '@/server-actions/ask-question';
 import { useSearchParams } from 'next/navigation';
 
 export const NonNerdQuestionSection = ({ children }: PropsWithChildren) => {
-	const rawSearchParams = useSearchParams();
+	const rawSearchParams = useSearchParams() || '';
 	const searchParams = new URLSearchParams(rawSearchParams);
 	const queryQuestion = searchParams.get('q') || '';
 

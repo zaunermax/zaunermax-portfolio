@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState, useTransition } from 'react';
 import { askQuestion } from '@/server-actions/ask-question';
 
 export const useQueryQuestion = () => {
-	const rawSearchParams = useSearchParams();
+	const rawSearchParams = useSearchParams() || '';
 	const searchParams = new URLSearchParams(rawSearchParams);
 	const queryQuestion = searchParams.get('q') || '';
 
