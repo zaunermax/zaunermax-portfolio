@@ -1,6 +1,6 @@
-import './globals.css';
+import '../globals.css';
 
-import { Providers } from '@/app/providers';
+import { Providers } from './providers';
 import { JetBrains_Mono } from 'next/font/google';
 import { ReactNode } from 'react';
 
