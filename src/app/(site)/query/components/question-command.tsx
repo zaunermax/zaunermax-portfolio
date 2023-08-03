@@ -19,7 +19,7 @@ export const QuestionCommand = ({
 }: QuestionCommandProps) => {
 	return (
 		<TerminalLine {...rest}>
-			ask {question}
+			ask <span aria-hidden="true">{question}</span>
 			{newline ? <BlankTerminalLine /> : null}
 			{children}
 		</TerminalLine>

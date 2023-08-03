@@ -1,12 +1,20 @@
 import Image from 'next/image';
 import image from './assets/pp.jpg';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
-export const OwnAvatar = () => {
+export type OwnAvatarProps = {
+	className?: string;
+};
+
+export const OwnAvatar = ({ className }: OwnAvatarProps) => {
 	return (
 		<Link
 			href="/"
-			className="relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full"
+			className={cn(
+				'relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full',
+				className,
+			)}
 		>
 			<Image
 				className="flex h-full w-full items-center justify-center rounded-full bg-muted"
