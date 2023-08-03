@@ -21,7 +21,9 @@ export const FileRow = ({
 			<div className="w-100 hidden flex-auto basis-1/3 text-gray-500 sm:block">
 				{commitMsg}
 			</div>
-			<div className="basis-1/6 text-right text-gray-500">{relativeTimeAgo}</div>
+			<div className="basis-auto flex-nowrap text-right text-gray-500 sm:basis-1/6">
+				{relativeTimeAgo}
+			</div>
 		</div>
 	);
 };

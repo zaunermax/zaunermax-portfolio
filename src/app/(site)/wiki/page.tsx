@@ -33,7 +33,7 @@ const Page = async () => {
 					}}
 					icon={File}
 					filename={'CV.pdf'}
-					commitMsg={'feat(📝): removed phone from public CV'}
+					commitMsg={'fix(📝): removed phone from public CV'}
 					relativeTimeAgo={'yesterday'}
 				/>
 			</FileList>
