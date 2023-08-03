@@ -9,16 +9,22 @@ const WikiPage: SchemaTypeDefinition = {
 			name: 'filename',
 			title: 'Filename',
 			type: 'string',
+			validation: (rule) => rule.required(),
+			options: {
+				isUnique: true,
+			},
 		},
 		{
 			name: 'commitMsg',
 			title: 'Commit Message',
 			type: 'string',
+			validation: (rule) => rule.required(),
 		},
 		{
 			name: 'relativeTimeAgo',
 			title: 'How long ago',
 			type: 'string',
+			validation: (rule) => rule.required(),
 		},
 		{
 			name: 'order',
@@ -31,8 +37,8 @@ const WikiPage: SchemaTypeDefinition = {
 			},
 		},
 		{
-			title: 'Content',
 			name: 'content',
+			title: 'Content',
 			type: 'array',
 			of: [{ type: 'block' }],
 		},
