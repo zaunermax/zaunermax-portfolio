@@ -5,8 +5,8 @@ import { OwnAvatar } from '@/components/ui/own-avatar';
 
 export function AppLayout({ children }: { children: ReactNode }) {
 	return (
-		<div className="relative z-10 flex min-h-screen flex-col">
-			<header className="fixed w-full border-b bg-background">
+		<div className="relative flex min-h-screen flex-col">
+			<header className="fixed z-10 w-full border-b bg-background">
 				<div className="container flex h-16 items-center space-x-5">
 					<OwnAvatar />
 					<MainNav />
