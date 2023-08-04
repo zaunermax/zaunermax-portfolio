@@ -11,7 +11,11 @@ export const getWikiContent = async () => {
 };
 
 export const getWikiPageContent = async (docName: string) => {
-	return cachedClientFetch<{ content: PortableTextProps['value'] }>(
-		groq`*[_type == 'wiki-page' && filename == '${docName}'][0]{ content }`,
+	return cachedClientFetch<{
+		content: PortableTextProps['value'];
+		filename: string;
+		commitMsg: string;
+	}>(
+		groq`*[_type == 'wiki-page' && filename == '${docName}'][0]{ content, filename, commitMsg }`,
 	);
 };
