@@ -6,12 +6,12 @@ export const getWikiContent = async () => {
 	return cachedClientFetch<
 		{ filename: string; commitMsg: string; relativeTimeAgo: string }[]
 	>(
-		groq`*[_type == 'wiki-page']{ filename, commitMsg, relativeTimeAgo } | order(order asc)`,
+		groq`*[_type == 'wiki-page'] | order(order asc) { filename, commitMsg, relativeTimeAgo }`,
 	);
 };
 
 export const getWikiPageContent = async (docName: string) => {
 	return cachedClientFetch<{ content: PortableTextProps['value'] }>(
-		groq`*[_type == 'wiki-page' && name == ${docName}][0]{ content }`,
+		groq`*[_type == 'wiki-page' && filename == '${docName}'][0]{ content }`,
 	);
 };

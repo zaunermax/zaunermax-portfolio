@@ -6,7 +6,7 @@ export type FileListProps = PropsWithChildren;
 
 export const FileList = ({ children }: FileListProps) => {
 	return (
-		<div className="m-auto mb-16 flex max-w-screen-md flex-col space-y-2">
+		<div className="m-auto flex max-w-screen-md flex-col space-y-2">
 			<div className="mt-15 mx-auto w-full overflow-hidden rounded-lg border-[1px] border-white border-opacity-20 bg-wiki-body text-white shadow-md">
 				<div className="flex items-center rounded-t-lg bg-wiki-header px-3 py-4">
 					<div className="relative h-6 w-6 flex-shrink-0">
