@@ -1,7 +1,12 @@
+import { Badge } from '@/components/ui/badge';
+
 export const Footer = async () => {
 	return (
 		<footer className="container fixed bottom-1.5 left-0 right-0 z-20 flex">
-			<div className="mx-auto flex flex-col font-mono text-xs sm:block">
+			<Badge
+				variant="secondary"
+				className="mx-auto flex flex-col rounded-xl font-mono text-xs sm:block sm:rounded-full"
+			>
 				<span className="mx-auto block sm:inline sm:w-auto">
 					Made with 💖 by Max Zauner
 				</span>
@@ -16,7 +21,7 @@ export const Footer = async () => {
 						open source
 					</a>
 				</span>
-			</div>
+			</Badge>
 		</footer>
 	);
 };
