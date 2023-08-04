@@ -15,6 +15,11 @@ const nextConfig = {
 				destination: '/:path*',
 				permanent: false,
 			},
+			{
+				source: '/impressum',
+				destination: '/wiki/IMPRESSUM.md',
+				permanent: false,
+			},
 		];
 	},
 };
