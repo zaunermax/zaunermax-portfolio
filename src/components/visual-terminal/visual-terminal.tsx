@@ -1,5 +1,4 @@
 import { PropsWithChildren, MouseEventHandler } from 'react';
-import { cn } from '@/lib/utils';
 
 type Props = PropsWithChildren & {
 	title: string;
@@ -9,8 +8,8 @@ type Props = PropsWithChildren & {
 
 export const VisualTerminal = ({ children, title, onClick, className }: Props) => {
 	return (
-		<div className={cn('pt-5', className)} onClick={onClick}>
-			<div className="mt-15 mx-auto w-full max-w-3xl rounded-lg border-[1px] border-white border-opacity-20 bg-terminal-body pb-4 text-white shadow-md">
+		<div className={className} onClick={onClick}>
+			<div className="mx-auto w-full max-w-3xl rounded-lg border-[1px] border-white border-opacity-20 bg-terminal-body pb-4 text-white shadow-md dark:border-opacity-20">
 				<div className="flex items-center justify-between rounded-t-lg bg-terminal-header p-2">
 					<div className="flex items-center space-x-2 text-xs">
 						<div className="h-3 w-3 rounded-full bg-red-500"></div>

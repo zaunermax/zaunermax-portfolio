@@ -39,6 +39,14 @@ module.exports = {
 				foreground: 'hsl(var(--foreground))',
 				'terminal-header': '#333333',
 				'terminal-body': '#1e1e1e',
+				'wiki-header': {
+					DEFAULT: '#161b22',
+					light: '#f6f8fa',
+				},
+				'wiki-body': {
+					DEFAULT: '#0d1117',
+					light: '#ffffff',
+				},
 				primary: {
 					DEFAULT: 'hsl(var(--primary))',
 					foreground: 'hsl(var(--primary-foreground))',

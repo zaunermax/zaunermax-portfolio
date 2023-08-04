@@ -11,5 +11,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
 			url: `${serverURL}/query`,
 			lastModified: new Date(),
 		},
+		{
+			url: `${serverURL}/wiki`,
+			lastModified: new Date(),
+		},
 	];
 }
