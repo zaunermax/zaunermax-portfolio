@@ -10,7 +10,7 @@ export default async function Layout({ children }: { children: ReactNode }) {
 	const content = await getWikiContent();
 
 	return (
-		<div className="mt-20 md:mt-28">
+		<div className="mb-20 mt-20 md:mt-28">
 			<FileList>
 				{content.map((doc) => {
 					return (
