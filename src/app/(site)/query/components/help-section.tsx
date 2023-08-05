@@ -77,6 +77,17 @@ export const HelpSection = ({ modelName, disableLinks }: HelpSectionProps) => {
 					reload them
 				</span>
 			</div>
+			<BlankTerminalLine />
+			<div>
+				Please read the{' '}
+				<Link
+					className="text-blue-500 underline hover:cursor-pointer hover:text-blue-800"
+					href={'/wiki/DISCLAIMER.md'}
+				>
+					disclaimer
+				</Link>{' '}
+				about using LLMs in user experiences
+			</div>
 		</TerminalLine>
 	);
 };
