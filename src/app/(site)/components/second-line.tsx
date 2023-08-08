@@ -2,15 +2,15 @@
 
 import { TypeAnimation } from 'react-type-animation';
 import { useEffect, useState } from 'react';
-import { getIntroSentences } from '@/lib/get-person';
 import { prepareTypeAnimationArray } from '@/lib/prepare-type-animation-array';
+import { getGeneralInfo } from '@/lib/get-general-info';
 
 export const SecondLine = () => {
 	const [sequence, setSequence] = useState([] as (number | string)[]);
 	const [accessibilitySeq, setAccessibilitySeq] = useState([] as string[]);
 
 	useEffect(() => {
-		getIntroSentences().then(({ introSentences }) => {
+		getGeneralInfo(true).then(({ introSentences }) => {
 			setSequence(prepareTypeAnimationArray(introSentences, 3000, 5000));
 			setAccessibilitySeq(introSentences);
 		});

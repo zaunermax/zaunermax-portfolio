@@ -1,11 +1,14 @@
-import { defineConfig } from 'sanity';
+import { defineConfig, isDev } from 'sanity';
 import { deskTool } from 'sanity/desk';
 
 import { schemaTypes } from './schemas';
 import { structure } from './desk-structure';
+import { visionTool } from '@sanity/vision';
 
 const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID!;
 const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET!;
+
+const desk = deskTool({ structure });
 
 export const config = defineConfig({
 	basePath: '/studio', // <-- important that `basePath` matches the route you're mounting your studio from, it applies to both `/pages` and `/app`
@@ -13,7 +16,7 @@ export const config = defineConfig({
 	projectId,
 	dataset,
 
-	plugins: [deskTool({ structure })],
+	plugins: isDev ? [desk, visionTool()] : [desk],
 
 	schema: { types: schemaTypes },
 
