@@ -6,5 +6,4 @@ export async function GET() {
 	return NextResponse.json(res);
 }
 
-export const runtime = 'edge';
 export const revalidate = 300;
