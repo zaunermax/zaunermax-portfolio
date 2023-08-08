@@ -20,9 +20,14 @@ export const components: PortableTextProps['components'] = {
 		normal: ({ children }) => <p className="mb-3">{children}</p>,
 	},
 	marks: {
-		link: ({ children }) => {
+		link: ({ children, value }) => {
 			return (
-				<a className="text-blue-500 hover:cursor-pointer hover:underline">{children}</a>
+				<a
+					href={value.href}
+					className="text-blue-500 hover:cursor-pointer hover:underline"
+				>
+					{children}
+				</a>
 			);
 		},
 	},
