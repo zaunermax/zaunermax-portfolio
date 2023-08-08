@@ -5,26 +5,21 @@ import { File } from 'lucide-react';
 import { WikiContent } from '@/lib/get-wiki-content';
 import { serverURL } from '@/lib/server-url';
 import { GeneralInfoType } from '@/lib/get-general-info';
+import { getFetchCatchHandler, getFetchErrorHandler } from '@/lib/fetch-utils';
 
 const fetchWikiContent = async () =>
 	fetch(`${serverURL}/api/file`, {
 		next: { revalidate: 300 },
 	})
-		.then((res) => (!res.ok ? [] : res.json()) as WikiContent[])
-		.catch((e) => {
-			console.error(e);
-			return [] as WikiContent[];
-		});
+		.then(getFetchErrorHandler<WikiContent[]>())
+		.catch(getFetchCatchHandler([]));
 
 const fetchGeneralInfo = async () =>
 	fetch(`${serverURL}/api/general`, {
 		next: { revalidate: 300 },
 	})
-		.then((res) => (!res.ok ? null : res.json()) as GeneralInfoType | null)
-		.catch((e) => {
-			console.error(e);
-			return null;
-		});
+		.then(getFetchErrorHandler<GeneralInfoType>())
+		.catch(getFetchCatchHandler(null));
 
 export default async function Layout({ children }: { children: ReactNode }) {
 	const [content, info] = await Promise.all([fetchWikiContent(), fetchGeneralInfo()]);
