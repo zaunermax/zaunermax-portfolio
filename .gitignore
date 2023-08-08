@@ -36,9 +36,3 @@ next-env.d.ts
 
 # IDE
 /.idea
-
-.env
-
-
-# Sentry Auth Token
-.sentryclirc

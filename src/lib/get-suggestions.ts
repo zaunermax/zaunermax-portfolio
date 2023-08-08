@@ -1,5 +1,3 @@
-import { captureException } from '@sentry/nextjs';
-
 type Params = {
 	baseUrl?: string;
 	shortMode?: boolean;
@@ -23,7 +21,7 @@ export const getSuggestions = async ({
 			else return res.json().then(({ suggestions }) => suggestions as string[]);
 		})
 		.catch((e) => {
-			captureException(e);
+			console.error(e);
 			return [] as string[];
 		});
 };
