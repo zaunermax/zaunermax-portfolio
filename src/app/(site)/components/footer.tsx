@@ -5,7 +5,7 @@ export const Footer = async () => {
 		<footer className="container fixed bottom-1.5 left-0 right-0 z-20 flex">
 			<Badge
 				variant="secondary"
-				className="mx-auto flex flex-col rounded-xl font-mono text-xs sm:block sm:rounded-full"
+				className="mx-auto flex flex-col rounded-xl border-white font-mono text-xs dark:border-opacity-10 dark:bg-wiki-body dark:hover:bg-wiki-header sm:block sm:rounded-full"
 			>
 				<span className="mx-auto block sm:inline sm:w-auto">
 					Made with 💖 by Max Zauner
