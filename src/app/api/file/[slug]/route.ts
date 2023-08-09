@@ -1,11 +1,10 @@
 import { getWikiPageContent } from '@/lib/get-wiki-content';
 import { NextResponse } from 'next/server';
 
-export async function GET(request: Request) {
-	const { searchParams } = new URL(request.url);
-	const fileName = (searchParams.get('slug') || 'README.md').slice(0, 20);
-
-	const pageContent = await getWikiPageContent(fileName);
-
+export async function GET(
+	_: unknown,
+	{ params: { slug } }: { params: { slug: string } },
+) {
+	const pageContent = await getWikiPageContent(slug);
 	return NextResponse.json(pageContent);
 }
