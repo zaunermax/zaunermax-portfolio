@@ -9,3 +9,5 @@ export async function GET(
 	const pageContent = await getWikiPageContent(fileName);
 	return NextResponse.json(pageContent);
 }
+
+export const runtime = 'edge';

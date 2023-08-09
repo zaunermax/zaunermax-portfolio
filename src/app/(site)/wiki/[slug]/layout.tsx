@@ -5,7 +5,7 @@ import { File } from 'lucide-react';
 import { WikiContent } from '@/lib/get-wiki-content';
 import { serverURL } from '@/lib/server-url';
 import { GeneralInfoType } from '@/lib/get-general-info';
-import { doFetch, getFetchCatchHandler, getFetchErrorHandler } from '@/lib/fetch-utils';
+import { doFetch } from '@/lib/fetch-utils';
 
 const fetchWikiContent = async (): Promise<WikiContent[]> =>
 	doFetch({ url: `${serverURL}/api/file`, defaultValue: [] });
