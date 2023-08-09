@@ -5,6 +5,7 @@ export async function GET(
 	_: unknown,
 	{ params: { slug } }: { params: { slug: string } },
 ) {
-	const pageContent = await getWikiPageContent(slug);
+	const fileName = (slug || 'README.md').slice(0, 20);
+	const pageContent = await getWikiPageContent(fileName);
 	return NextResponse.json(pageContent);
 }
