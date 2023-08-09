@@ -1,8 +1,8 @@
 import { SchemaTypeDefinition } from 'sanity';
 
-const Person: SchemaTypeDefinition = {
-	name: 'person',
-	title: 'Person',
+const General: SchemaTypeDefinition = {
+	name: 'general',
+	title: 'General',
 	type: 'document',
 	fields: [
 		{
@@ -27,4 +27,4 @@ const Person: SchemaTypeDefinition = {
 	],
 };
 
-export default Person;
+export default General;
