@@ -11,9 +11,8 @@ const links = [
 	{ href: '/wiki', linkText: 'main/wiki' },
 ];
 
-const isActive = ({ href }: { href: string }, pathname: string) => {
-	return pathname === href;
-};
+const isActive = ({ href }: { href: string }, pathname: string) =>
+	href === pathname || (href === '/wiki' && pathname.startsWith('/wiki'));
 
 export function MainNav({ className, ...props }: HTMLAttributes<HTMLElement>) {
 	const pathname = usePathname();
