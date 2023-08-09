@@ -12,3 +12,18 @@ export const getFetchCatchHandler =
 		console.error(e);
 		return defaultValue;
 	};
+
+type FetcherProps<T> = {
+	url: string;
+	defaultValue: T;
+	revalidate?: number;
+};
+
+export const doFetch = <ReturnType, DefaultValueType>({
+	url,
+	revalidate = 300,
+	defaultValue,
+}: FetcherProps<DefaultValueType>): Promise<ReturnType | DefaultValueType> =>
+	fetch(url, { next: { revalidate } })
+		.then(getFetchErrorHandler<ReturnType>())
+		.catch(getFetchCatchHandler(defaultValue));
