@@ -1,3 +1,6 @@
+import { globalRevalidate } from '@/lib/global-revalidate';
+import { doFetch } from '@/lib/fetch-utils';
+
 type Params = {
 	baseUrl?: string;
 	shortMode?: boolean;
@@ -7,21 +10,17 @@ type Params = {
 export const getSuggestions = async ({
 	shortMode = true,
 	baseUrl = '',
-	revalidate = 300,
-}: Params) => {
+	revalidate = globalRevalidate,
+}: Params): Promise<string[]> => {
 	const searchParams = new URLSearchParams();
 
 	searchParams.append('mode', shortMode ? 'short' : 'long');
 
-	return fetch(`${baseUrl}/api/suggestions?${searchParams.toString()}`, {
-		next: { revalidate },
-	})
-		.then((res) => {
-			if (!res.ok) return [];
-			else return res.json().then(({ suggestions }) => suggestions as string[]);
-		})
-		.catch((e) => {
-			console.error(e);
-			return [] as string[];
-		});
+	const res: { suggestions: string[] } = await doFetch({
+		url: `${baseUrl}/api/suggestions?${searchParams.toString()}`,
+		defaultValue: { suggestions: [] },
+		revalidate,
+	});
+
+	return res.suggestions;
 };

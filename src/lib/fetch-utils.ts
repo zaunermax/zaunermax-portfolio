@@ -1,3 +1,5 @@
+import { globalRevalidate } from '@/lib/global-revalidate';
+
 export const getFetchErrorHandler =
 	<T>() =>
 	async (res: Response) => {
@@ -21,7 +23,7 @@ type FetcherProps<T> = {
 
 export const doFetch = <ReturnType, DefaultValueType>({
 	url,
-	revalidate = 300,
+	revalidate = globalRevalidate,
 	defaultValue,
 }: FetcherProps<DefaultValueType>): Promise<ReturnType | DefaultValueType> =>
 	fetch(url, { next: { revalidate } })
