@@ -24,6 +24,8 @@ export const components: PortableTextProps['components'] = {
 			return (
 				<a
 					href={value.href}
+					target={'_blank'}
+					rel={'noopener noreferrer'}
 					className="text-blue-500 hover:cursor-pointer hover:underline"
 				>
 					{children}
