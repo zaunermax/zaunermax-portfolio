@@ -5,6 +5,7 @@ import { JetBrains_Mono } from 'next/font/google';
 import { ReactNode } from 'react';
 import { Footer } from './components/footer';
 import { AppLayout } from '@/components/app-layout';
+import { Analytics } from '@vercel/analytics/react';
 
 const jetbrains_mono = JetBrains_Mono({
 	subsets: ['latin'],
@@ -26,6 +27,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 					<AppLayout>{children}</AppLayout>
 					<Footer />
 				</Providers>
+				<Analytics />
 			</body>
 		</html>
 	);
