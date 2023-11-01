@@ -8,11 +8,11 @@ export const askQuestion = async (rawQuestion: string): Promise<string> => {
 
 	const question = rawQuestion.slice(0, 100);
 
-	const isFlagged = await openai
-		.createModeration({
+	const isFlagged = await openai.moderations
+		.create({
 			input: question,
 		})
-		.then(({ data }) => data.results.some(({ flagged }) => flagged))
+		.then((data) => data.results.some(({ flagged }) => flagged))
 		.catch((e) => {
 			console.error(e);
 			return true;
@@ -22,8 +22,8 @@ export const askQuestion = async (rawQuestion: string): Promise<string> => {
 
 	const content = await getLlmContext();
 
-	return await openai
-		.createChatCompletion({
+	return await openai.chat.completions
+		.create({
 			model: 'gpt-3.5-turbo',
 			messages: [
 				{

@@ -1,7 +1,7 @@
 import { cachedClientFetch } from './sanity-client';
 import { groq } from 'next-sanity';
 import 'server-only';
-import { CreateChatCompletionResponse } from 'openai';
+import OpenAI from 'openai';
 
 export const getLlmContext = async () => {
 	return cachedClientFetch<{ text: string; order: number }[]>(
@@ -9,5 +9,5 @@ export const getLlmContext = async () => {
 	);
 };
 
-export const extractAnswer = ({ data }: { data: CreateChatCompletionResponse }) =>
+export const extractAnswer = (data: OpenAI.Chat.ChatCompletion) =>
 	data.choices[0].message?.content;

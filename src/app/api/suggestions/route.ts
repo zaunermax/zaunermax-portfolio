@@ -10,8 +10,8 @@ export async function GET(request: Request) {
 
 	const content = await getLlmContext();
 
-	const rawSuggestions = await openai
-		.createChatCompletion({
+	const rawSuggestions = await openai.chat.completions
+		.create({
 			model: 'gpt-3.5-turbo',
 			temperature: 0.8,
 			messages: [

@@ -22,7 +22,7 @@ export const useQueryQuestion = () => {
 			);
 
 		startTransition(async () => {
-			const answer = await askQuestion(question);
+			const answer = await askQuestion(question).catch(() => 'Something went wrong 😢');
 			setAnswer(answer);
 		});
 	}, []);
