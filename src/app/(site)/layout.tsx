@@ -16,7 +16,12 @@ const jetbrains_mono = JetBrains_Mono({
 export const metadata = {
 	title: 'Max Zauner - Software Engineer',
 	description: 'Portfolio website of Max Zauner',
-	viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
+};
+
+export const viewport = {
+	width: 'device-width',
+	initialScale: 1,
+	maximumScale: 1,
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
