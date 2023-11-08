@@ -27,7 +27,7 @@ export const viewport = {
 export default async function RootLayout({ children }: { children: ReactNode }) {
 	return (
 		<html lang="en" className={`${jetbrains_mono.variable}`}>
-			<body className="min-h-screen bg-background font-sans antialiased">
+			<body className="min-h-screen bg-background font-sans">
 				<Providers>
 					<AppLayout>{children}</AppLayout>
 					<Footer />

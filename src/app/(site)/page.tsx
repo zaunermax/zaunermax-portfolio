@@ -1,6 +1,8 @@
 import { SecondLine } from './components/second-line';
 import { QuestionLink } from './components/question-link';
 
+export const revalidate = 300;
+
 export default function Home() {
 	return (
 		<div>

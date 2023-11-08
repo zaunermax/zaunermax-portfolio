@@ -1,6 +1,6 @@
 'use client';
 
-import { ChangeEvent, KeyboardEvent, useCallback, useId } from 'react';
+import { ChangeEvent, KeyboardEvent, useCallback, useEffect, useId } from 'react';
 import { TypeAnimation } from 'react-type-animation';
 import { LoadingAnimation, VisualTerminal } from '@/components/visual-terminal';
 import { HelpSection } from './help-section';
@@ -45,6 +45,10 @@ export const QuestionSection = () => {
 		setQuestion('');
 		handleInputFocus();
 	};
+
+	useEffect(() => {
+		handleInputFocus();
+	}, [handleInputFocus]);
 
 	const isAnswering = !!answer || isPending;
 

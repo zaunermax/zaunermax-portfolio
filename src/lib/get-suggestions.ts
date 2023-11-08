@@ -1,23 +1,23 @@
 import { globalRevalidate } from '@/lib/global-revalidate';
 import { doFetch } from '@/lib/fetch-utils';
+import { SuggestionMode } from '@/types/suggestion-mode';
 
 type Params = {
 	baseUrl?: string;
-	shortMode?: boolean;
+	mode?: SuggestionMode;
 	revalidate?: number;
 };
 
 export const getSuggestions = async ({
-	shortMode = true,
-	baseUrl = '',
+	mode = 'short',
 	revalidate = globalRevalidate,
 }: Params): Promise<string[]> => {
 	const searchParams = new URLSearchParams();
 
-	searchParams.append('mode', shortMode ? 'short' : 'long');
+	searchParams.append('mode', mode);
 
 	const res: { suggestions: string[] } = await doFetch({
-		url: `${baseUrl}/api/suggestions?${searchParams.toString()}`,
+		url: `/api/suggestions?${searchParams.toString()}`,
 		defaultValue: { suggestions: [] },
 		revalidate,
 	});

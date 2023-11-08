@@ -1,6 +1,6 @@
-import { Suspense } from 'react';
 import { Suggestions } from './suggestions';
 import { QuestionFormLink } from './question-form-link';
+import { Suspense } from 'react';
 
 export async function QuestionLink() {
 	return (

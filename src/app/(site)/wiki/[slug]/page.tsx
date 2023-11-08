@@ -3,7 +3,7 @@ import { WikiPageContent } from '@/lib/get-wiki-content';
 import { PortableText } from '@portabletext/react';
 import { FileContent } from './components/file-content';
 import { components } from '@/lib/portable-text-components';
-import { serverURL } from '@/lib/server-url';
+import { serverURL } from '@/lib/server-only/server-url';
 import { doFetch } from '@/lib/fetch-utils';
 
 const fetchWikiPageContent = (filename: string): Promise<WikiPageContent | null> =>

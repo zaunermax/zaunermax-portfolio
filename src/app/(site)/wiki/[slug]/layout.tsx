@@ -3,7 +3,7 @@ import { FileList } from './components/file-list';
 import { FileRowLink } from './components/file-row';
 import { File } from 'lucide-react';
 import { WikiContent } from '@/lib/get-wiki-content';
-import { serverURL } from '@/lib/server-url';
+import { serverURL } from '@/lib/server-only/server-url';
 import { GeneralInfoType } from '@/lib/get-general-info';
 import { doFetch } from '@/lib/fetch-utils';
 

@@ -1,7 +1,7 @@
 'use server';
 
-import { openai } from '@/lib/openai-client';
-import { extractAnswer, getLlmContext } from '@/lib/llm-context-utils';
+import { openai } from '@/lib/server-only/openai-client';
+import { extractAnswer, getLlmContext } from '@/lib/server-only/llm-context-utils';
 
 export const askQuestion = async (rawQuestion: string): Promise<string> => {
 	console.log('question?', rawQuestion);
