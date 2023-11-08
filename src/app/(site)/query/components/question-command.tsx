@@ -1,6 +1,6 @@
 import {
 	BlankTerminalLine,
-	TerminalLine,
+	TerminalOutput,
 	TerminalLineProps,
 } from '@/components/visual-terminal';
 import { PropsWithChildren } from 'react';
@@ -18,10 +18,10 @@ export const QuestionCommand = ({
 	...rest
 }: QuestionCommandProps) => {
 	return (
-		<TerminalLine {...rest}>
+		<TerminalOutput {...rest}>
 			ask <span aria-hidden="true">{question}</span>
 			{newline ? <BlankTerminalLine /> : null}
 			{children}
-		</TerminalLine>
+		</TerminalOutput>
 	);
 };

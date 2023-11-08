@@ -21,7 +21,7 @@ type FetcherProps<T> = {
 	revalidate?: number;
 };
 
-export const doFetch = <ReturnType, DefaultValueType>({
+export const doFetch = <ReturnType, DefaultValueType = ReturnType>({
 	url,
 	revalidate = globalRevalidate,
 	defaultValue,

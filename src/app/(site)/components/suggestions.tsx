@@ -1,13 +1,9 @@
 import { Badge } from '@/components/ui/badge';
-import { serverURL } from '@/lib/server-url';
 import Link from 'next/link';
-import { getSuggestions } from '@/lib/get-suggestions';
+import { generateSuggestions } from '@/lib/server-only/generate-suggestions';
 
 export const Suggestions = async () => {
-	const suggestions = await getSuggestions({
-		shortMode: true,
-		baseUrl: serverURL,
-	});
+	const suggestions = await generateSuggestions('short');
 
 	return (
 		<div>

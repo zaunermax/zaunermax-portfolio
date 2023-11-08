@@ -1,4 +1,4 @@
-import { BlankTerminalLine, TerminalLine } from '@/components/visual-terminal';
+import { BlankTerminalLine, TerminalOutput } from '@/components/visual-terminal';
 
 type AnswersProps = {
 	answers: { answer: string; question: string }[];
@@ -6,10 +6,10 @@ type AnswersProps = {
 
 export const Answers = ({ answers }: AnswersProps) => {
 	return answers.map(({ question, answer }, idx) => (
-		<TerminalLine key={idx}>
+		<TerminalOutput key={idx}>
 			ask {question}
 			<BlankTerminalLine />
 			{answer}
-		</TerminalLine>
+		</TerminalOutput>
 	));
 };

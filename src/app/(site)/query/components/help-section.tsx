@@ -3,7 +3,7 @@
 import {
 	BlankTerminalLine,
 	LoadingAnimation,
-	TerminalLine,
+	TerminalOutput,
 } from '@/components/visual-terminal';
 import { useCallback, useEffect, useState, useTransition } from 'react';
 import { MultiplyChildren } from '@/components/multiply-children';
@@ -30,7 +30,7 @@ export const HelpSection = ({ modelName, disableLinks }: HelpSectionProps) => {
 
 	const handleGetSuggestions = useCallback(() => {
 		startTransition(async () => {
-			const suggestions = await getSuggestions({ shortMode: false });
+			const suggestions = await getSuggestions({ mode: 'long' });
 			setSuggestions(suggestions);
 		});
 	}, []);
@@ -40,7 +40,7 @@ export const HelpSection = ({ modelName, disableLinks }: HelpSectionProps) => {
 	}, [handleGetSuggestions]);
 
 	return (
-		<TerminalLine>
+		<TerminalOutput>
 			ask --help
 			<BlankTerminalLine />
 			<div>Usage: ask QUESTION</div>
@@ -88,6 +88,6 @@ export const HelpSection = ({ modelName, disableLinks }: HelpSectionProps) => {
 				</Link>{' '}
 				about using LLMs in user experiences
 			</div>
-		</TerminalLine>
+		</TerminalOutput>
 	);
 };

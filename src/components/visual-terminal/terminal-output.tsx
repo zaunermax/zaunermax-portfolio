@@ -7,7 +7,7 @@ export type TerminalLineProps = PropsWithChildren & {
 	className?: string;
 };
 
-export const TerminalLine = ({
+export const TerminalOutput = ({
 	children,
 	onClick,
 	hasCursor,

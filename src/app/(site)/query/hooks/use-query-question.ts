@@ -1,6 +1,6 @@
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState, useTransition } from 'react';
-import { askQuestion } from '@/server-actions/ask-question';
+import { doFetch } from '@/lib/fetch-utils';
 
 export const useQueryQuestion = () => {
 	const rawSearchParams = useSearchParams() || '';
@@ -22,8 +22,11 @@ export const useQueryQuestion = () => {
 			);
 
 		startTransition(async () => {
-			const answer = await askQuestion(question);
-			setAnswer(answer);
+			const { message } = await doFetch<{ message: string }>({
+				url: `/api/question?q=${question}`,
+				defaultValue: { message: 'Something went wrong 😢' },
+			});
+			setAnswer(message);
 		});
 	}, []);
 

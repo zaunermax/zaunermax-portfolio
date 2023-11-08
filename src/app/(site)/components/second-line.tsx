@@ -7,12 +7,10 @@ import { getGeneralInfo } from '@/lib/get-general-info';
 
 export const SecondLine = () => {
 	const [sequence, setSequence] = useState([] as (number | string)[]);
-	const [accessibilitySeq, setAccessibilitySeq] = useState([] as string[]);
 
 	useEffect(() => {
 		getGeneralInfo(true).then(({ introSentences }) => {
 			setSequence(prepareTypeAnimationArray(introSentences, 3000, 5000));
-			setAccessibilitySeq(introSentences);
 		});
 	}, []);
 
@@ -24,11 +22,13 @@ export const SecondLine = () => {
 					blinking cursor. The sentences are typed out, remain for a few milliseconds and
 					are then removed again showing the next sentence:
 				</li>
-				{accessibilitySeq.map((sentence, idx) => (
-					<li key={idx} role={'text'}>
-						{`${idx + 1}. sentence about Max: ${sentence}`}
-					</li>
-				))}
+				{sequence.map((sentence, idx) =>
+					typeof sentence === 'string' ? (
+						<li key={idx} role={'text'}>
+							{`${idx + 1}. sentence about Max: ${sentence}`}
+						</li>
+					) : null,
+				)}
 			</ul>
 			<TypeAnimation
 				aria-hidden={'true'}
