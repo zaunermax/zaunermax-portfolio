@@ -5,14 +5,15 @@ import {
 	LoadingAnimation,
 	TerminalOutput,
 } from '@/components/visual-terminal';
-import { useCallback, useEffect, useState, useTransition } from 'react';
+import { memo, useCallback, useEffect, useState, useTransition } from 'react';
 import { MultiplyChildren } from '@/components/multiply-children';
 import Link from 'next/link';
 import { getSuggestions } from '@/lib/get-suggestions';
+import { useAtomValue } from 'jotai';
+import { isAnsweringAtom } from '@/app/(site)/query/atoms/answers.atom';
 
 export type HelpSectionProps = {
 	modelName: string;
-	disableLinks?: boolean;
 };
 
 const Example = ({ suggestion }: { suggestion: string }) => {
@@ -24,9 +25,11 @@ const Example = ({ suggestion }: { suggestion: string }) => {
 	);
 };
 
-export const HelpSection = ({ modelName, disableLinks }: HelpSectionProps) => {
+export const HelpSection = memo(({ modelName }: HelpSectionProps) => {
 	const [suggestions, setSuggestions] = useState([] as string[]);
 	const [isPending, startTransition] = useTransition();
+
+	const disableLinks = useAtomValue(isAnsweringAtom);
 
 	const handleGetSuggestions = useCallback(() => {
 		startTransition(async () => {
@@ -90,4 +93,6 @@ export const HelpSection = ({ modelName, disableLinks }: HelpSectionProps) => {
 			</div>
 		</TerminalOutput>
 	);
-};
+});
+
+HelpSection.displayName = 'HelpSection';

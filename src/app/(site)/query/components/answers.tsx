@@ -1,10 +1,11 @@
 import { BlankTerminalLine, TerminalOutput } from '@/components/visual-terminal';
+import { memo } from 'react';
+import { useAtom } from 'jotai';
+import { answersAtom } from '@/app/(site)/query/atoms/answers.atom';
 
-type AnswersProps = {
-	answers: { answer: string; question: string }[];
-};
+export const Answers = memo(() => {
+	const [answers] = useAtom(answersAtom);
 
-export const Answers = ({ answers }: AnswersProps) => {
 	return answers.map(({ question, answer }, idx) => (
 		<TerminalOutput key={idx}>
 			ask {question}
@@ -12,4 +13,6 @@ export const Answers = ({ answers }: AnswersProps) => {
 			{answer}
 		</TerminalOutput>
 	));
-};
+});
+
+Answers.displayName = 'Answers';
