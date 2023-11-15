@@ -5,8 +5,8 @@ import {
 	LoadingAnimation,
 } from '@/components/visual-terminal';
 import { TypeAnimation } from 'react-type-animation';
-import { forwardRef, KeyboardEvent, useCallback, useId } from 'react';
-import { useQueryQuestion } from '@/app/(site)/query/hooks';
+import { FormEvent, forwardRef, useCallback, useId } from 'react';
+import { useQueryQuestion } from '../hooks';
 
 export type QuestionCommandProps = TerminalLineProps & {
 	handleInputFocus: () => void;
@@ -19,14 +19,6 @@ export const QuestionCommandSection = forwardRef<HTMLInputElement, QuestionComma
 		const { askQuestion, question, answer, handleSetQuestion, resetState, isPending } =
 			useQueryQuestion();
 
-		const onKeyUp = useCallback(
-			(event: KeyboardEvent) => {
-				if (event.key !== 'Enter') return;
-				askQuestion(question);
-			},
-			[question, askQuestion],
-		);
-
 		const isAnswering = !!answer || isPending;
 
 		const onHandleAnswerFinished = () => {
@@ -35,11 +27,18 @@ export const QuestionCommandSection = forwardRef<HTMLInputElement, QuestionComma
 			handleInputFocus();
 		};
 
+		const handleSubmit = useCallback(
+			(event: FormEvent<HTMLFormElement>) => {
+				event.preventDefault();
+				askQuestion(question);
+			},
+			[askQuestion, question],
+		);
+
 		return (
 			<TerminalOutput {...rest} hasCursor={!isAnswering}>
-				ask{' '}
-				<span aria-hidden="true">
-					<span aria-hidden="true">{question}</span>
+				ask <span aria-hidden="true">{question}</span>
+				<form onSubmit={handleSubmit} className={'sr-only'}>
 					<label htmlFor={inputId} className={'sr-only'}>
 						Type a question you like to ask about Max Zauner and then press ENTER to
 						submit the question.
@@ -50,10 +49,9 @@ export const QuestionCommandSection = forwardRef<HTMLInputElement, QuestionComma
 						type="text"
 						value={question}
 						onChange={handleSetQuestion}
-						onKeyUp={onKeyUp}
 						className="sr-only"
 					/>
-				</span>
+				</form>
 				{isAnswering ? <BlankTerminalLine /> : null}
 				{isPending ? (
 					<LoadingAnimation />

@@ -10,7 +10,7 @@ import { MultiplyChildren } from '@/components/multiply-children';
 import Link from 'next/link';
 import { getSuggestions } from '@/lib/get-suggestions';
 import { useAtomValue } from 'jotai';
-import { isAnsweringAtom } from '@/app/(site)/query/atoms/answers.atom';
+import { isAnsweringAtom } from '../atoms/answers.atom';
 
 export type HelpSectionProps = {
 	modelName: string;
