@@ -12,7 +12,7 @@ export type QuestionCommandProps = TerminalLineProps & {
 	handleInputFocus: () => void;
 };
 
-export const QuestionCommand = forwardRef<HTMLInputElement, QuestionCommandProps>(
+export const QuestionCommandSection = forwardRef<HTMLInputElement, QuestionCommandProps>(
 	({ handleInputFocus, ...rest }: QuestionCommandProps, ref) => {
 		const inputId = useId();
 
@@ -69,4 +69,4 @@ export const QuestionCommand = forwardRef<HTMLInputElement, QuestionCommandProps
 	},
 );
 
-QuestionCommand.displayName = 'QuestionCommand';
+QuestionCommandSection.displayName = 'QuestionCommand';

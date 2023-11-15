@@ -3,8 +3,8 @@
 import { useEffect } from 'react';
 import { VisualTerminal } from '@/components/visual-terminal';
 import { HelpSection } from './help-section';
-import { Answers } from './answers';
-import { QuestionCommand } from './question-command';
+import { AnswersSection } from './answers-section';
+import { QuestionCommandSection } from './question-command-section';
 import { useFocusableInputRef } from '../hooks';
 
 const modelName = 'max-q-learning-16k-0623';
@@ -24,8 +24,8 @@ export const QuestionSection = () => {
 				className="drop-shadow-2xl"
 			>
 				<HelpSection modelName={modelName} />
-				<Answers />
-				<QuestionCommand ref={inputRef} handleInputFocus={handleInputFocus} />
+				<AnswersSection />
+				<QuestionCommandSection ref={inputRef} handleInputFocus={handleInputFocus} />
 			</VisualTerminal>
 		</div>
 	);

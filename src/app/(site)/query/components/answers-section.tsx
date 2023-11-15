@@ -3,7 +3,7 @@ import { memo } from 'react';
 import { useAtom } from 'jotai';
 import { answersAtom } from '@/app/(site)/query/atoms/answers.atom';
 
-export const Answers = memo(() => {
+export const AnswersSection = memo(() => {
 	const [answers] = useAtom(answersAtom);
 
 	return answers.map(({ question, answer }, idx) => (
@@ -15,4 +15,4 @@ export const Answers = memo(() => {
 	));
 });
 
-Answers.displayName = 'Answers';
+AnswersSection.displayName = 'Answers';
