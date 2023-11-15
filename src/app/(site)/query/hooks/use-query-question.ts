@@ -3,8 +3,8 @@ import { ChangeEvent, useCallback, useEffect, useState, useTransition } from 're
 import { doFetch } from '@/lib/fetch-utils';
 import {
 	answerAtom,
-	answerPendingAtom,
 	answersAtom,
+	isAnsweringAtom,
 } from '@/app/(site)/query/atoms/answers.atom';
 import { useSetAtom, useAtom } from 'jotai';
 
@@ -19,7 +19,13 @@ export const useQueryQuestion = () => {
 	const [answer, setAnswer] = useAtom(answerAtom);
 
 	const setAnswers = useSetAtom(answersAtom);
-	const setPending = useSetAtom(answerPendingAtom);
+	const setIsAnswering = useSetAtom(isAnsweringAtom);
+
+	const isAnswering = !!answer || isPending;
+
+	useEffect(() => {
+		setIsAnswering(isAnswering);
+	}, [isAnswering, setIsAnswering]);
 
 	const askQuestion = useCallback(
 		(question: string) => {
@@ -31,7 +37,6 @@ export const useQueryQuestion = () => {
 					}),
 				);
 
-			setPending(true);
 			startTransition(async () => {
 				const { message } = await doFetch<{ message: string }>({
 					url: `/api/question?q=${question}`,
@@ -39,10 +44,9 @@ export const useQueryQuestion = () => {
 				});
 
 				setAnswer(message);
-				setPending(false);
 			});
 		},
-		[setAnswer, setAnswers, setPending],
+		[setAnswer, setAnswers],
 	);
 
 	useEffect(() => {
@@ -68,6 +72,7 @@ export const useQueryQuestion = () => {
 		handleSetQuestion,
 		answer,
 		resetState,
+		isAnswering,
 		isPending,
 	};
 };

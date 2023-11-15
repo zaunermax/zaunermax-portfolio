@@ -16,10 +16,15 @@ export const QuestionCommandSection = forwardRef<HTMLInputElement, QuestionComma
 	({ handleInputFocus, ...rest }: QuestionCommandProps, ref) => {
 		const inputId = useId();
 
-		const { askQuestion, question, answer, handleSetQuestion, resetState, isPending } =
-			useQueryQuestion();
-
-		const isAnswering = !!answer || isPending;
+		const {
+			askQuestion,
+			question,
+			answer,
+			handleSetQuestion,
+			resetState,
+			isAnswering,
+			isPending,
+		} = useQueryQuestion();
 
 		const onHandleAnswerFinished = () => {
 			if (!answer) return;
