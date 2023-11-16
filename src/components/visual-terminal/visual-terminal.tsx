@@ -1,4 +1,4 @@
-import { PropsWithChildren, MouseEventHandler } from 'react';
+import { PropsWithChildren, MouseEventHandler, memo } from 'react';
 
 type Props = PropsWithChildren & {
 	title: string;
@@ -6,7 +6,7 @@ type Props = PropsWithChildren & {
 	className?: string;
 };
 
-export const VisualTerminal = ({ children, title, onClick, className }: Props) => {
+export const VisualTerminal = memo(({ children, title, onClick, className }: Props) => {
 	return (
 		<div className={className} onClick={onClick}>
 			<div className="mx-auto w-full max-w-3xl rounded-lg border-[1px] border-white border-opacity-20 bg-terminal-body pb-4 text-white shadow-md dark:border-opacity-20">
@@ -22,4 +22,6 @@ export const VisualTerminal = ({ children, title, onClick, className }: Props) =
 			</div>
 		</div>
 	);
-};
+});
+
+VisualTerminal.displayName = 'VisualTerminal';
