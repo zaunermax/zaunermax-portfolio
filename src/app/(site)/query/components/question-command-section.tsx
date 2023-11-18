@@ -4,8 +4,7 @@ import {
 	TerminalLineProps,
 	LoadingAnimation,
 } from '@/components/visual-terminal';
-import { TypeAnimation } from 'react-type-animation';
-import { FormEvent, forwardRef, useCallback, useId } from 'react';
+import { forwardRef, useId } from 'react';
 import { useQueryQuestion } from '../hooks';
 
 export type QuestionCommandProps = TerminalLineProps & {
@@ -16,29 +15,8 @@ export const QuestionCommandSection = forwardRef<HTMLInputElement, QuestionComma
 	({ handleInputFocus, ...rest }: QuestionCommandProps, ref) => {
 		const inputId = useId();
 
-		const {
-			askQuestion,
-			question,
-			answer,
-			handleSetQuestion,
-			resetState,
-			isAnswering,
-			isPending,
-		} = useQueryQuestion();
-
-		const onHandleAnswerFinished = () => {
-			if (!answer) return;
-			resetState();
-			handleInputFocus();
-		};
-
-		const handleSubmit = useCallback(
-			(event: FormEvent<HTMLFormElement>) => {
-				event.preventDefault();
-				askQuestion(question);
-			},
-			[askQuestion, question],
-		);
+		const { question, handleSubmit, handleSetQuestion, isAnswering, completion } =
+			useQueryQuestion();
 
 		return (
 			<TerminalOutput {...rest} hasCursor={!isAnswering}>
@@ -57,15 +35,11 @@ export const QuestionCommandSection = forwardRef<HTMLInputElement, QuestionComma
 						className="sr-only"
 					/>
 				</form>
-				{isAnswering ? <BlankTerminalLine /> : null}
-				{isPending ? (
-					<LoadingAnimation />
-				) : answer ? (
-					<TypeAnimation
-						sequence={[answer, onHandleAnswerFinished]}
-						speed={80}
-						className="font-mono text-xs"
-					/>
+				{isAnswering ? (
+					<>
+						<BlankTerminalLine />
+						{!completion || completion.length === 0 ? <LoadingAnimation /> : completion}
+					</>
 				) : null}
 			</TerminalOutput>
 		);

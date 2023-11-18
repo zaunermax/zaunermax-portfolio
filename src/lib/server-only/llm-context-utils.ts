@@ -1,6 +1,6 @@
 import { cachedClientFetch } from '../sanity-client';
 import { groq } from 'next-sanity';
-import { ResponseTypes } from 'openai-edge';
+import { OpenAI } from 'openai';
 import 'server-only';
 
 export const getLlmContext = async () => {
@@ -9,12 +9,12 @@ export const getLlmContext = async () => {
 	);
 };
 
-export const extractEdgeAnswer = async (data: Response) => {
-	const res = (await data.json()) as ResponseTypes['createChatCompletion'];
-	return res.choices[0].message?.content;
+export const extractEdgeAnswer = async ({ choices }: OpenAI.ChatCompletion) => {
+	return choices[0]?.message?.content;
 };
 
-export const extractModeration = async (data: Response) => {
-	const { results } = (await data.json()) as ResponseTypes['createModeration'];
+export const extractModeration = async ({
+	results,
+}: OpenAI.Moderations.ModerationCreateResponse) => {
 	return results.some(({ flagged }) => flagged);
 };

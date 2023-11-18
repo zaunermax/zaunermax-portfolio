@@ -1,78 +1,97 @@
 import { useSearchParams } from 'next/navigation';
-import { ChangeEvent, useCallback, useEffect, useState, useTransition } from 'react';
-import { doFetch } from '@/lib/fetch-utils';
-import {
-	answerAtom,
-	answersAtom,
-	isAnsweringAtom,
-} from '@/app/(site)/query/atoms/answers.atom';
-import { useSetAtom, useAtom } from 'jotai';
+import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from 'react';
+import { answersAtom, isAnsweringAtom } from '@/app/(site)/query/atoms/answers.atom';
+import { useSetAtom } from 'jotai';
+import { useCompletion } from 'ai/react';
+
+const safeJsonParse = <T>(json: string) => {
+	try {
+		return JSON.parse(json) as T;
+	} catch {
+		return null;
+	}
+};
 
 export const useQueryQuestion = () => {
 	const rawSearchParams = useSearchParams();
 	const searchParams = new URLSearchParams(rawSearchParams ?? '');
 	const queryQuestion = searchParams.get('q') ?? '';
 
-	const [question, setQuestion] = useState(queryQuestion);
-	const [isPending, startTransition] = useTransition();
-
-	const [answer, setAnswer] = useAtom(answerAtom);
-
-	const setAnswers = useSetAtom(answersAtom);
 	const setIsAnswering = useSetAtom(isAnsweringAtom);
+	const setAnswers = useSetAtom(answersAtom);
 
-	const isAnswering = !!answer || isPending;
+	const [question, setQuestion] = useState('');
+	const [error, setError] = useState('');
 
-	useEffect(() => {
-		setIsAnswering(isAnswering);
-	}, [isAnswering, setIsAnswering]);
+	const resetState = useCallback(() => {
+		setQuestion('');
+		setError('');
+		setIsAnswering(false);
+	}, [setIsAnswering]);
 
-	const askQuestion = useCallback(
-		(question: string) => {
-			if (question.length > 100)
-				return setAnswers((answers) =>
-					answers.concat({
-						answer: 'Your question cannot have more than 100 characters 🤷',
-						question,
-					}),
-				);
+	const onResponse = useCallback(() => {
+		setIsAnswering(true);
+	}, [setIsAnswering]);
 
-			startTransition(async () => {
-				const { message } = await doFetch<{ message: string }>({
-					url: `/api/question?q=${question}`,
-					defaultValue: { message: 'Something went wrong 😢' },
-				});
-
-				setAnswer(message);
-			});
+	const onFinish = useCallback(
+		(prompt: string, completion: string) => {
+			setAnswers((answers) => answers.concat({ question: prompt, answer: completion }));
+			resetState();
 		},
-		[setAnswer, setAnswers],
+		[resetState, setAnswers],
+	);
+
+	const onError = useCallback((error: Error) => {
+		const parsedError = safeJsonParse<{ message: string }>(error?.message ?? '');
+		setError(parsedError?.message ?? 'Something went wrong 😭');
+	}, []);
+
+	const {
+		completion,
+		isLoading: isAnswering,
+		complete,
+		stop,
+	} = useCompletion({
+		onResponse,
+		onFinish,
+		onError,
+	});
+
+	const handleSetQuestion = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+		setQuestion(e.target.value);
+	}, []);
+
+	const handleSubmit = useCallback(
+		(event: FormEvent<HTMLFormElement>) => {
+			event.preventDefault();
+			console.log(`question? ${question}`);
+			complete(question);
+		},
+		[question, complete],
 	);
 
 	useEffect(() => {
 		if (!queryQuestion) return;
 		setQuestion(queryQuestion);
-		askQuestion(queryQuestion);
-	}, [askQuestion, queryQuestion]);
+		complete(queryQuestion);
+	}, [queryQuestion, complete, setQuestion]);
 
-	const handleSetQuestion = useCallback(
-		({ target }: ChangeEvent<HTMLInputElement>) => setQuestion(target.value),
-		[setQuestion],
-	);
+	useEffect(() => {
+		if (!error) return;
+		stop();
+		setAnswers((answers) => answers.concat({ question, answer: error }));
+		resetState();
+	}, [error, question, resetState, setAnswers, stop]);
 
-	const resetState = useCallback(() => {
-		setAnswers((answers) => answers.concat({ answer, question }));
-		setAnswer('');
-		setQuestion('');
-	}, [answer, question, setAnswers]);
+	useEffect(() => {
+		return () => stop();
+	}, [stop]);
 
 	return {
-		askQuestion,
 		question,
+		handleSubmit,
 		handleSetQuestion,
-		answer,
-		resetState,
 		isAnswering,
-		isPending,
+		completion,
 	};
 };
