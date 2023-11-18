@@ -1,6 +1,6 @@
 import { extractEdgeAnswer, getLlmContext } from '@/lib/server-only/llm-context-utils';
-import { openaiEdge } from '@/lib/server-only/openai-edge-client';
 import { SuggestionMode } from '@/types/suggestion-mode';
+import { openai } from '@/lib/server-only/openai-client';
 import 'server-only';
 
 type SuggestionsTuple = [suggestion1: string, suggestion2: string, suggestion3: string];
@@ -36,8 +36,8 @@ export const generateSuggestions = async (
 ): Promise<SuggestionsTuple> => {
 	const content = await getLlmContext();
 
-	return openaiEdge
-		.createChatCompletion({
+	return openai.chat.completions
+		.create({
 			model: 'gpt-3.5-turbo',
 			temperature: 0.8,
 			messages: [
