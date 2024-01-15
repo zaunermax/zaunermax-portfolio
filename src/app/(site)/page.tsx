@@ -1,9 +1,18 @@
 import { SecondLine } from './components/second-line';
 import { QuestionLink } from './components/question-link';
+import { dehydrate, HydrationBoundary, QueryClient } from '@tanstack/react-query';
+import { getSentences } from '@/app/(site)/util/get-sentences';
 
 export const revalidate = 300;
 
-export default function Home() {
+export default async function Home() {
+	const queryClient = new QueryClient();
+
+	await queryClient.prefetchQuery({
+		queryKey: ['sentences'],
+		queryFn: getSentences,
+	});
+
 	return (
 		<div>
 			<div className="flex min-h-screen items-center justify-center">
@@ -15,7 +24,9 @@ export default function Home() {
 						</span>{' '}
 						👋
 					</h1>
-					<SecondLine />
+					<HydrationBoundary state={dehydrate(queryClient)}>
+						<SecondLine />
+					</HydrationBoundary>
 					<QuestionLink />
 				</div>
 			</div>

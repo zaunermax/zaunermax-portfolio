@@ -1,18 +1,14 @@
 'use client';
 
 import { TypeAnimation } from 'react-type-animation';
-import { useEffect, useState } from 'react';
-import { prepareTypeAnimationArray } from '@/lib/prepare-type-animation-array';
-import { getGeneralInfo } from '@/lib/get-general-info';
+import { useQuery } from '@tanstack/react-query';
+import { getSentences } from '@/app/(site)/util/get-sentences';
 
 export const SecondLine = () => {
-	const [sequence, setSequence] = useState([] as (number | string)[]);
-
-	useEffect(() => {
-		getGeneralInfo(true).then(({ introSentences }) => {
-			setSequence(prepareTypeAnimationArray(introSentences, 3000, 5000));
-		});
-	}, []);
+	const { data: sequence = [] } = useQuery({
+		queryKey: ['sentences'],
+		queryFn: getSentences,
+	});
 
 	return sequence.length ? (
 		<span className="relative">
