@@ -2,11 +2,15 @@ import { Suggestions } from './suggestions';
 import { QuestionFormLink } from './question-form-link';
 import { Suspense } from 'react';
 
+const SuggestionFallback = () => {
+	return <div>Loading some suggestions...</div>;
+};
+
 export async function QuestionLink() {
 	return (
-		<div className="flex flex-col space-y-4">
+		<div className="flex flex-col space-y-4 md:w-full">
 			<QuestionFormLink />
-			<Suspense fallback={<div>Loading some suggestions...</div>}>
+			<Suspense fallback={<SuggestionFallback />}>
 				<Suggestions />
 			</Suspense>
 		</div>

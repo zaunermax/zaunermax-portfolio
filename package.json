@@ -18,6 +18,8 @@
 		"@radix-ui/react-slot": "^1.0.2",
 		"@sanity/image-url": "^1.0.2",
 		"@sanity/vision": "^3.19.1",
+		"@tanstack/react-query": "^5.12.2",
+		"@tanstack/react-query-devtools": "^5.13.3",
 		"@vercel/analytics": "^1.1.1",
 		"ai": "^2.2.21",
 		"class-variance-authority": "^0.7.0",
@@ -39,6 +41,7 @@
 		"zod": "^3.22.4"
 	},
 	"devDependencies": {
+		"@tanstack/eslint-plugin-query": "^5.12.1",
 		"@types/node": "20.9.0",
 		"@types/react": "18.2.37",
 		"@types/react-dom": "18.2.15",
