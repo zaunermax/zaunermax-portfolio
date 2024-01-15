@@ -12,7 +12,7 @@ export const NavLink = ({ href, linkText, isActive }: NavLinkProps) => {
 		<Link
 			href={href}
 			className={cn(
-				'text-sm font-medium transition-colors hover:text-primary',
+				'whitespace-nowrap text-sm font-medium transition-colors hover:text-primary',
 				!isActive && 'text-muted-foreground',
 			)}
 		>
