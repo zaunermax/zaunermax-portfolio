@@ -20,6 +20,7 @@ export const OwnAvatar = ({ className }: OwnAvatarProps) => {
 				className="flex h-full w-full items-center justify-center rounded-full bg-muted"
 				src={image}
 				alt="Profile avatar image of Max Zauner - Link to main page"
+				priority
 			/>
 		</Link>
 	);
