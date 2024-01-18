@@ -38,7 +38,7 @@ export const generateSuggestions = async (
 
 	return openai.chat.completions
 		.create({
-			model: 'gpt-3.5-turbo',
+			model: process.env.OPENAI_MODEL!,
 			temperature: 0.8,
 			messages: [
 				{
