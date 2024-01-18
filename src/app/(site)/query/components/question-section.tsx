@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { VisualTerminal } from '@/components/visual-terminal';
 import { HelpSection } from './help-section';
 import { AnswersSection } from './answers-section';
@@ -25,7 +25,9 @@ export const QuestionSection = () => {
 			>
 				<HelpSection modelName={modelName} />
 				<AnswersSection />
-				<QuestionCommandSection ref={inputRef} handleInputFocus={handleInputFocus} />
+				<Suspense fallback={<div>|</div>}>
+					<QuestionCommandSection ref={inputRef} handleInputFocus={handleInputFocus} />
+				</Suspense>
 			</VisualTerminal>
 		</div>
 	);

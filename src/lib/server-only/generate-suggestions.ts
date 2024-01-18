@@ -26,9 +26,10 @@ ${
 		? 'Try to create questions that lead to interesting long answers while keeping the questions under 90 characters.'
 		: 'Try to keep the questions under 60 characters if possible.'
 }
-Return them via a JavaScript array like this:
+Make sure the response can be parsed via JavaScript's "JSON.parse" function.
+Make sure there are no backticks whatsoever.
+Return them EXACTLY via a JavaScript one line array like this:
 ["question001", "question002", "question003"]
-Make it so the response can be parsed via JavaScript's "JSON.parse" function.
 `;
 
 export const generateSuggestions = async (
@@ -62,7 +63,7 @@ export const generateSuggestions = async (
 		.then((suggestions) => JSON.parse(suggestions || '[]') as string[])
 		.then((suggestions) => suggestions.slice(0, 3) as SuggestionsTuple)
 		.catch((error) => {
-			console.error(error);
+			console.error('Error generating suggestions:', error);
 			return STANDARD_QUESTIONS;
 		})
 		.finally(() => console.log(`created new [${mode}] edge suggestions`));
