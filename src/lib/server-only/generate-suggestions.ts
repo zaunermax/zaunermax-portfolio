@@ -26,7 +26,7 @@ ${
 		? 'Try to create questions that lead to interesting long answers while keeping the questions UNDER 90 characters.'
 		: 'Keep the questions UNDER 60 characters.'
 }
-Make sure there are no backticks whatsoever.
+AVOID backticks! NO \`\`\`json... whatsoever! JUST pure JavaScript.
 Return them EXACTLY via a JavaScript one line array which can be passed to JSON.parse() like this:
 ["question001", "question002", "question003"]
 `;
