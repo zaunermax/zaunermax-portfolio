@@ -17,6 +17,28 @@ const General: SchemaTypeDefinition = {
 			of: [{ type: 'string' }],
 		},
 		{
+			name: 'introSentencesV2',
+			title: 'Intro Sentences V2',
+			type: 'array',
+			of: [
+				{
+					type: 'object',
+					fields: [
+						{
+							name: 'sentence',
+							title: 'Sentence',
+							type: 'string',
+						},
+						{
+							name: 'isRandom',
+							title: 'Is Random',
+							type: 'boolean',
+						},
+					],
+				},
+			],
+		},
+		{
 			name: 'cv',
 			title: 'CV',
 			type: 'file',

@@ -37,8 +37,14 @@ module.exports = {
 				ring: 'hsl(var(--ring))',
 				background: 'hsl(var(--background))',
 				foreground: 'hsl(var(--foreground))',
-				'terminal-header': '#333333',
-				'terminal-body': '#1e1e1e',
+				'terminal-header': {
+					DEFAULT: '#333333',
+					light: '#f6f8fa',
+				},
+				'terminal-body': {
+					DEFAULT: '#1e1e1e',
+					light: '#ffffff',
+				},
 				'wiki-header': {
 					DEFAULT: '#161b22',
 					light: '#f6f8fa',

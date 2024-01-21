@@ -5,12 +5,12 @@ import { useQuery } from '@tanstack/react-query';
 import { getSentences } from '@/app/(site)/util/get-sentences';
 
 export const SecondLine = () => {
-	const { data: sequence = [] } = useQuery({
+	const { data: sequence = [], isLoading } = useQuery({
 		queryKey: ['sentences'],
 		queryFn: getSentences,
 	});
 
-	return sequence.length ? (
+	return !isLoading && sequence.length ? (
 		<span className="relative">
 			<ul className="sr-only">
 				<li>
