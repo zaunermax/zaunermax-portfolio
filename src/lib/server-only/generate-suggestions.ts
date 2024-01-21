@@ -19,16 +19,15 @@ const STANDARD_QUESTIONS: SuggestionsTuple = [
 ];
 
 const generateSuggestionPrompt = (shortMode: boolean) => `
-Generate exactly 3 ${shortMode ? 'short ' : ''}questions about Max.
+Generate exactly 3 ${shortMode ? 'SHORT ' : ''}questions about Max.
 Avoid questions about locations.
 ${
 	!shortMode
-		? 'Try to create questions that lead to interesting long answers while keeping the questions under 90 characters.'
-		: 'Try to keep the questions under 60 characters if possible.'
+		? 'Try to create questions that lead to interesting long answers while keeping the questions UNDER 90 characters.'
+		: 'Keep the questions UNDER 60 characters.'
 }
-Make sure the response can be parsed via JavaScript's "JSON.parse" function.
 Make sure there are no backticks whatsoever.
-Return them EXACTLY via a JavaScript one line array like this:
+Return them EXACTLY via a JavaScript one line array which can be passed to JSON.parse() like this:
 ["question001", "question002", "question003"]
 `;
 
