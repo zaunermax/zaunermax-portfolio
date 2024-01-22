@@ -7,7 +7,7 @@ export type FileListProps = PropsWithChildren;
 export const FileList = ({ children }: FileListProps) => {
 	return (
 		<div className="m-auto flex max-w-screen-md flex-col space-y-2">
-			<div className="mt-15 mx-auto w-full overflow-hidden rounded-lg border-[1px] border-opacity-20 bg-wiki-body-light dark:border-white dark:border-opacity-20 dark:bg-wiki-body dark:text-white">
+			<div className="mt-15 mx-auto w-full overflow-hidden rounded-lg border-[1px] border-opacity-15 border-black bg-wiki-body-light dark:border-white dark:border-opacity-20 dark:bg-wiki-body dark:text-white">
 				<div className="flex items-center rounded-t-lg bg-wiki-header-light px-3 py-4 dark:bg-wiki-header">
 					<div className="relative h-6 w-6 flex-shrink-0">
 						<OwnAvatar className="absolute inset-0 m-auto mt-[1px] h-6 w-6" />
