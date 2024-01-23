@@ -21,7 +21,7 @@ export type WikiPageContent = {
 };
 
 export const getWikiPageContent = async (docName: string) => {
-	return cachedClientFetch<WikiPageContent>(
-		groq`*[_type == 'wiki-page' && filename == '${docName}'][0]{ content, filename, commitMsg }`,
+	return cachedClientFetch<WikiPageContent | null>(
+		groq`*[_type == 'wiki-page' && filename == $docName][0]{ content, filename, commitMsg }`, { docName }
 	);
 };

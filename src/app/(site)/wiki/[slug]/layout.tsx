@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
-import { FileList } from './components/file-list';
-import { FileRowLink } from './components/file-row';
+import { FileList } from '@/components/file-display';
+import { FileRowLink } from '@/components/file-display';
 import { File } from 'lucide-react';
 import { getWikiContent } from '@/lib/get-wiki-content';
 import { getGeneralInfo } from '@/lib/get-general-info';

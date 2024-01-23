@@ -15,6 +15,7 @@ const General: SchemaTypeDefinition = {
 			title: 'Intro Sentences',
 			type: 'array',
 			of: [{ type: 'string' }],
+			hidden: true,
 		},
 		{
 			name: 'introSentencesV2',

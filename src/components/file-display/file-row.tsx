@@ -15,7 +15,7 @@ export const FileRow = ({
 	icon: Icon,
 }: FileRowProps) => {
 	return (
-		<div className="flex items-center border-t-[1px] border-opacity-10 px-3 py-2 text-xs hover:cursor-pointer hover:bg-wiki-header-light dark:border-t-white dark:border-opacity-10 hover:dark:bg-wiki-header">
+		<div className="flex items-center border-t-[1px] border-opacity-15 border-black px-3 py-3 text-xs hover:cursor-pointer hover:bg-wiki-header-light dark:border-t-white dark:border-opacity-10 hover:dark:bg-wiki-header">
 			<Icon className="mr-4 h-4 w-4" />
 			<div className="w-100 flex-auto basis-1/6 hover:cursor-pointer hover:text-blue-500 hover:underline">
 				{filename}
