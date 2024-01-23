@@ -27,16 +27,16 @@ const Page = async ({ params }: { params: { slug: string } }) => {
 				</blockquote>
 			</div>
 			<FileList commitMsg="feat(🎙️): last minute adaptations" nrOfCommits={42}>
-				{res.fileUrls.map((url) => {
+				{res.files.map(({ filename, relativeTimeAgo, commitMsg, fileUrl }) => {
 					return (
 						<FileRowLink
-							key={url}
-							filename={'test'}
-							commitMsg={'cool'}
-							relativeTimeAgo={'20 days ago'}
+							key={filename}
+							filename={filename}
+							commitMsg={commitMsg}
+							relativeTimeAgo={relativeTimeAgo}
 							icon={File}
 							linkProps={{
-								href: url,
+								href: fileUrl,
 								target: '_blank',
 								rel: 'noopener noreferrer',
 							}}

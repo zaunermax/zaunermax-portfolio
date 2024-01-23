@@ -29,7 +29,11 @@ const Talk: SchemaTypeDefinition = {
 			name: 'files',
 			title: 'Files',
 			type: 'array',
-			of: [{ type: 'file' }],
+			of: [
+				{
+					type: 'talk-file',
+				},
+			],
 		},
 	],
 };
