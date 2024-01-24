@@ -31,6 +31,11 @@ const TalkFile: SchemaTypeDefinition = {
 			title: 'File',
 			type: 'file',
 		},
+		{
+			name: 'url',
+			title: 'External URL',
+			type: 'url',
+		},
 	],
 };
 
