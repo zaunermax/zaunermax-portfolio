@@ -16,18 +16,20 @@ const Page = async ({ params }: { params: { slug: string } }) => {
 		);
 
 	return (
-		<div className="container mx-auto mt-24 space-y-10 px-4 md:mt-28 md:px-10 lg:px-20">
-			<div>
-				<h1 className="mb-4 mt-6 text-center text-4xl font-bold md:text-6xl">
-					{res.event}
-				</h1>
-				<p className="text-center text-lg md:text-xl">{res.date}</p>
-				<blockquote className="text-md mt-2 text-center italic text-gray-600 md:text-lg">
-					&quot;{res.talk}&quot;
-				</blockquote>
+		<div className="space-y-10">
+			<div className="container mx-auto mt-24 px-4 md:mt-28 md:px-10 lg:px-20">
+				<div>
+					<h1 className="mb-4 mt-6 text-center text-4xl font-bold md:text-6xl">
+						{res.event}
+					</h1>
+					<p className="text-center text-lg md:text-xl">{res.date}</p>
+					<blockquote className="text-md mt-2 text-center italic text-gray-600 md:text-lg">
+						&quot;{res.talk}&quot;
+					</blockquote>
+				</div>
 			</div>
 			<FileList commitMsg="feat(🎙️): last minute adaptations" nrOfCommits={42}>
-				{res.files.map(({ filename, relativeTimeAgo, commitMsg, fileUrl }) => {
+				{res.files.map(({ filename, relativeTimeAgo, commitMsg, url }) => {
 					return (
 						<FileRowLink
 							key={filename}
@@ -36,7 +38,7 @@ const Page = async ({ params }: { params: { slug: string } }) => {
 							relativeTimeAgo={relativeTimeAgo}
 							icon={File}
 							linkProps={{
-								href: fileUrl,
+								href: url,
 								target: '_blank',
 								rel: 'noopener noreferrer',
 							}}

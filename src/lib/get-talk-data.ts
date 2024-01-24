@@ -5,7 +5,7 @@ export type TalkFile = {
 	filename: string;
 	commitMsg: string;
 	relativeTimeAgo: string;
-	fileUrl: string;
+	url: string;
 };
 
 export type TalkData = {
@@ -25,7 +25,7 @@ export const getTalkData = (slug: string) => {
     filename,
     commitMsg,
     relativeTimeAgo,
-    "fileUrl": file.asset->url
+    "url": coalesce(file.asset->url, url)
   },
 	date
 }`,
