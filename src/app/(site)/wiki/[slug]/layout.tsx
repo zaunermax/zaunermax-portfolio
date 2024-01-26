@@ -2,8 +2,8 @@ import { ReactNode } from 'react';
 import { FileList } from '@/components/file-display';
 import { FileRowLink } from '@/components/file-display';
 import { File } from 'lucide-react';
-import { getWikiContent } from '@/lib/get-wiki-content';
-import { getGeneralInfo } from '@/lib/get-general-info';
+import { getWikiContent } from '@/lib/sanity/get-wiki-content';
+import { getGeneralInfo } from '@/lib/sanity/get-general-info';
 
 export const revalidate = 300;
 

@@ -1,4 +1,4 @@
-import type { IntroSentenceV2 } from '@/lib/get-intro-sentences-v2';
+import type { IntroSentenceV2 } from '@/lib/sanity/get-intro-sentences-v2';
 
 const shuffleArray = <T>(unShuffledArray: T[]) =>
 	unShuffledArray

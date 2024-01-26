@@ -26,6 +26,12 @@ const Talk: SchemaTypeDefinition = {
 			type: 'string',
 		},
 		{
+			name: 'public',
+			title: 'Is public',
+			type: 'boolean',
+			initialValue: false,
+		},
+		{
 			name: 'files',
 			title: 'Files',
 			type: 'array',

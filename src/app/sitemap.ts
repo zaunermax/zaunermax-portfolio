@@ -1,6 +1,6 @@
 import { MetadataRoute } from 'next';
 import { serverURL } from '@/lib/server-only/server-url';
-import { getWikiContent } from '@/lib/get-wiki-content';
+import { getWikiContent } from '@/lib/sanity/get-wiki-content';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 	const content = await getWikiContent();

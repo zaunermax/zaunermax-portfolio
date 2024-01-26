@@ -1,7 +1,7 @@
 import { NotTheFilesYouReLookingFor } from '@/components/file-display';
-import { getWikiPageContent } from '@/lib/get-wiki-content';
+import { getWikiPageContent } from '@/lib/sanity/get-wiki-content';
 import { PortableText } from '@portabletext/react';
-import { FileContent } from './components/file-content';
+import { FileContent } from '@/components/file-display';
 import { components } from '@/lib/portable-text-components';
 
 export const revalidate = 300;

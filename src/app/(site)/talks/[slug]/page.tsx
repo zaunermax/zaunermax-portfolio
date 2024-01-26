@@ -1,4 +1,4 @@
-import { getTalkData } from '@/lib/get-talk-data';
+import { getTalkData } from '@/lib/sanity/get-talk-data';
 import { FileList, FileRowLink } from '@/components/file-display';
 import { File } from 'lucide-react';
 import { NotTheFilesYouReLookingFor } from '@/components/file-display';
@@ -23,8 +23,10 @@ const Page = async ({ params }: { params: { slug: string } }) => {
 						{res.event}
 					</h1>
 					<p className="text-center text-lg md:text-xl">{res.date}</p>
-					<blockquote className="text-md mt-2 text-center italic text-gray-600 md:text-lg">
-						&quot;{res.talk}&quot;
+					<blockquote className="my-4 text-center">
+						<span className="inline-block border-l-4 border-gray-200 bg-gray-100 py-4 text-lg font-semibold italic text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 md:px-8 md:text-xl">
+							&quot;{res.talk}&quot;
+						</span>
 					</blockquote>
 				</div>
 			</div>
