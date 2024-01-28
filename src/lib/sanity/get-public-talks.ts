@@ -5,14 +5,16 @@ export type PublicTalk = {
 	event: string;
 	talk: string;
 	date: string;
+	slug: string;
 };
 
 export const getPublicTalks = () => {
 	return cachedClientFetch<PublicTalk[]>(groq`
 *[_type == 'talk' && public == true]{
-	event,
+	"event": eventV2 -> name,
 	talk,
 	date,
+	slug,
 }
 `);
 };

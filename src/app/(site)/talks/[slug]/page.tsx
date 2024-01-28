@@ -24,7 +24,7 @@ const Page = async ({ params }: { params: { slug: string } }) => {
 					</h1>
 					<p className="text-center text-lg md:text-xl">{res.date}</p>
 					<blockquote className="my-4 text-center">
-						<span className="inline-block border-l-4 border-gray-200 bg-gray-100 py-4 text-lg font-semibold italic text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 md:px-8 md:text-xl">
+						<span className="inline-block border-l-4 border-gray-200 bg-gray-100 px-2 py-4 text-lg font-semibold italic text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 md:px-8 md:text-xl">
 							&quot;{res.talk}&quot;
 						</span>
 					</blockquote>
