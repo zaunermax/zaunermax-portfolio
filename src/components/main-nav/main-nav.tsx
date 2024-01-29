@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { NavLink } from './components';
 
 const links = [
+	{ href: '/main', linkText: 'main' },
 	{ href: '/query', linkText: 'query' },
 	{ href: '/wiki', linkText: 'wiki' },
 	{ href: '/talks', linkText: 'talks' },
