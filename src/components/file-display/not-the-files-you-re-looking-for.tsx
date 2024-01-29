@@ -1,4 +1,4 @@
-import { FileContent } from '@/app/(site)/wiki/[slug]/components/file-content';
+import { FileContent } from '@/components/file-display';
 import Image from 'next/image';
 import image from './assets/not-the-files-you-re-looking-for.jpg';
 

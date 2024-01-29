@@ -1,26 +1,26 @@
 import { SchemaTypeDefinition } from 'sanity';
 
-const WikiPage: SchemaTypeDefinition = {
-	name: 'wiki-page',
-	title: 'Wiki Page',
+const Event: SchemaTypeDefinition = {
+	name: 'event',
+	title: 'Event',
 	type: 'document',
 	fields: [
 		{
-			name: 'filename',
-			title: 'Filename',
+			name: 'name',
+			title: 'Name',
 			type: 'string',
 			validation: (rule) => rule.required(),
 		},
 		{
-			name: 'commitMsg',
-			title: 'Commit Message',
-			type: 'string',
-			validation: (rule) => rule.required(),
+			name: 'description',
+			title: 'Description',
+			type: 'array',
+			of: [{ type: 'block' }],
 		},
 		{
-			name: 'relativeTimeAgo',
-			title: 'How long ago',
-			type: 'string',
+			name: 'url',
+			title: 'URL of Event',
+			type: 'url',
 			validation: (rule) => rule.required(),
 		},
 		{
@@ -33,12 +33,6 @@ const WikiPage: SchemaTypeDefinition = {
 				isUnique: true,
 			},
 		},
-		{
-			name: 'content',
-			title: 'Content',
-			type: 'array',
-			of: [{ type: 'block' }],
-		},
 	],
 	orderings: [
 		{
@@ -49,4 +43,4 @@ const WikiPage: SchemaTypeDefinition = {
 	],
 };
 
-export default WikiPage;
+export default Event;

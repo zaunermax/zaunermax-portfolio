@@ -1,8 +1,7 @@
 import { NotTheFilesYouReLookingFor } from '@/components/file-display';
-import { getWikiPageContent } from '@/lib/get-wiki-content';
-import { PortableText } from '@portabletext/react';
-import { FileContent } from './components/file-content';
-import { components } from '@/lib/portable-text-components';
+import { getWikiPageContent } from '@/lib/sanity/get-wiki-content';
+import { FileContent } from '@/components/file-display';
+import { CustomPortableText } from '@/components/custom-portable-text';
 
 export const revalidate = 300;
 
@@ -15,7 +14,7 @@ const Page = async ({ params }: { params: { slug: string } }) => {
 
 	return (
 		<FileContent {...rest}>
-			<PortableText value={content} components={components} />
+			<CustomPortableText value={content} />
 		</FileContent>
 	);
 };

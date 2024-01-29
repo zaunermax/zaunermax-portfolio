@@ -1,6 +1,6 @@
-import { getGeneralInfo } from '@/lib/get-general-info';
+import { getGeneralInfo } from '@/lib/sanity/get-general-info';
 import { prepareTypeAnimationArray } from '@/lib/prepare-type-animation-array';
-import { getIntroSentencesV2 } from '@/lib/get-intro-sentences-v2';
+import { getIntroSentencesV2 } from '@/lib/sanity/get-intro-sentences-v2';
 
 export const getSentences = () =>
 	getIntroSentencesV2().then(({ introSentencesV2 }) =>

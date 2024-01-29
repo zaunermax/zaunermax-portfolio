@@ -6,11 +6,6 @@ const Talk: SchemaTypeDefinition = {
 	type: 'document',
 	fields: [
 		{
-			name: 'event',
-			title: 'Event',
-			type: 'string',
-		},
-		{
 			name: 'talk',
 			title: 'Talk Name',
 			type: 'string',
@@ -21,9 +16,27 @@ const Talk: SchemaTypeDefinition = {
 			type: 'string',
 		},
 		{
+			name: 'eventV2',
+			title: 'Event V2',
+			type: 'reference',
+			to: [{ type: 'event' }],
+		},
+		{
+			name: 'event',
+			title: 'Event (Legacy)',
+			type: 'string',
+			hidden: true,
+		},
+		{
 			name: 'slug',
 			title: 'slug',
 			type: 'string',
+		},
+		{
+			name: 'public',
+			title: 'Is public',
+			type: 'boolean',
+			initialValue: false,
 		},
 		{
 			name: 'files',

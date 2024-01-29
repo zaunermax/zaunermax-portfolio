@@ -40,6 +40,12 @@ const General: SchemaTypeDefinition = {
 			],
 		},
 		{
+			name: 'talksContent',
+			title: 'Talks Section Text',
+			type: 'array',
+			of: [{ type: 'block' }],
+		},
+		{
 			name: 'cv',
 			title: 'CV',
 			type: 'file',
