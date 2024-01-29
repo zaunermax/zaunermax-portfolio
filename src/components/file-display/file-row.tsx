@@ -4,7 +4,7 @@ import { ReactNode } from 'react';
 
 type BaseFileRowProps = {
 	filename: ReactNode;
-	relativeTimeAgo: string;
+	relativeTimeAgo: ReactNode;
 	icon: LucideIcon;
 };
 

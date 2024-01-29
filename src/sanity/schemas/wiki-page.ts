@@ -10,9 +10,6 @@ const WikiPage: SchemaTypeDefinition = {
 			title: 'Filename',
 			type: 'string',
 			validation: (rule) => rule.required(),
-			options: {
-				isUnique: true,
-			},
 		},
 		{
 			name: 'commitMsg',
