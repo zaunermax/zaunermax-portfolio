@@ -16,7 +16,7 @@ const Page = async ({ params }: { params: { slug: string } }) => {
 		);
 
 	return (
-		<div className="space-y-10">
+		<div className="mb-20 space-y-10">
 			<div className="container mx-auto mt-24 px-4 md:mt-28 md:px-10 lg:px-20">
 				<div>
 					<h1 className="mb-4 mt-6 text-center text-4xl font-bold md:text-6xl">
