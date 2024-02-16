@@ -23,12 +23,11 @@ Generate exactly 3 ${shortMode ? 'SHORT ' : ''}questions about Max.
 Avoid questions about locations.
 ${
 	!shortMode
-		? 'Try to create questions that lead to interesting long answers while keeping the questions UNDER 90 characters.'
-		: 'Keep the questions UNDER 60 characters.'
+		? 'Try to create questions that lead to interesting answers while keeping the questions !!!UNDER!!! 90 characters.'
+		: 'Keep the questions !!!UNDER!!! 60 characters.'
 }
-AVOID backticks! NO \`\`\`json... whatsoever! JUST pure JavaScript.
-Return them EXACTLY via a JavaScript one line array which can be passed to JSON.parse() like this:
-["question001", "question002", "question003"]
+Return them EXACTLY via the PROVIDED FORMAT and ONLY substitute the questions:
+"["question001", "question002", "question003"]"
 `;
 
 export const generateSuggestions = async (
@@ -39,7 +38,6 @@ export const generateSuggestions = async (
 	return openai.chat.completions
 		.create({
 			model: process.env.OPENAI_MODEL!,
-			temperature: 0.8,
 			messages: [
 				{
 					role: 'system',
