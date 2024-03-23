@@ -21,8 +21,6 @@ const isActive = ({ href }: { href: string }, pathname: string) =>
 export function MainNav({ className, ...props }: HTMLAttributes<HTMLElement>) {
 	const pathname = usePathname();
 
-	console.log('pathname', pathname);
-
 	return (
 		<nav
 			className={cn('flex items-center space-x-4 font-mono lg:space-x-6', className)}
