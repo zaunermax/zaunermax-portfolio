@@ -13,6 +13,7 @@ If you don't know the answer, just say that you don't know but be helpful and ex
 "He" is always referring to Max.
 Try to answer questions as thoroughly as possible, utilizing every bit of information you got about that question.
 The current year is ${new Date().getFullYear()}
+Try to avoid overly long answers with paragraphs and whatnot. Keep the answers short and simple.
 `;
 
 export async function POST(req: Request) {
