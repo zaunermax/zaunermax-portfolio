@@ -3,6 +3,7 @@ import { SuggestionMode } from '@/types/suggestion-mode';
 import { openai } from '@/lib/server-only/openai-client';
 import 'server-only';
 
+type ResponseObject = { questions: string[] | undefined };
 type SuggestionsTuple = [suggestion1: string, suggestion2: string, suggestion3: string];
 
 const SYSTEM_PROMPT = `
@@ -26,8 +27,7 @@ ${
 		? 'Try to create questions that lead to interesting answers while keeping the questions !!!UNDER!!! 90 characters.'
 		: 'Keep the questions !!!UNDER!!! 60 characters.'
 }
-Return them EXACTLY via the PROVIDED FORMAT and ONLY substitute the questions:
-"["question001", "question002", "question003"]"
+Return a JSON object containing a property called "questions" which contains an array of EXACTLY 3 questions.
 `;
 
 export const generateSuggestions = async (
@@ -38,6 +38,7 @@ export const generateSuggestions = async (
 	return openai.chat.completions
 		.create({
 			model: process.env.OPENAI_MODEL!,
+			response_format: { type: 'json_object' },
 			messages: [
 				{
 					role: 'system',
@@ -57,8 +58,11 @@ export const generateSuggestions = async (
 			],
 		})
 		.then(extractEdgeAnswer)
-		.then((suggestions) => JSON.parse(suggestions || '[]') as string[])
-		.then((suggestions) => suggestions.slice(0, 3) as SuggestionsTuple)
+		.then((response) => JSON.parse(response || '{}') as ResponseObject)
+		.then(({ questions }) => {
+			if (!questions) throw new Error('Response did not contain questions');
+			return questions.slice(0, 3) as SuggestionsTuple;
+		})
 		.catch((error) => {
 			console.error('Error generating suggestions:', error);
 			return STANDARD_QUESTIONS;
