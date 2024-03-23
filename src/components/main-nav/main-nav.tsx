@@ -13,7 +13,10 @@ const links = [
 ];
 
 const isActive = ({ href }: { href: string }, pathname: string) =>
-	href === pathname || (href === '/wiki' && pathname.startsWith('/wiki'));
+	href === pathname ||
+	(href === '/wiki' && pathname.startsWith('/wiki')) ||
+	(href === '/talks' && pathname.startsWith('/talks')) ||
+	(href === '/main' && pathname === '/');
 
 export function MainNav({ className, ...props }: HTMLAttributes<HTMLElement>) {
 	const pathname = usePathname();

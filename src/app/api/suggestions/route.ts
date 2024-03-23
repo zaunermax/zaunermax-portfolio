@@ -14,7 +14,7 @@ export async function GET(request: Request) {
 	const { searchParams } = new URL(request.url);
 	const rawMode = searchParams.get('mode') || 'short';
 
-	const mode: SuggestionMode = isSuggestionMode(rawMode) ? rawMode : 'short';
+	const mode = isSuggestionMode(rawMode) ? rawMode : 'short';
 
 	const suggestions = await generateSuggestions(mode);
 
