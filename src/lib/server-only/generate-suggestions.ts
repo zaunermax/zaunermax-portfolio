@@ -20,14 +20,14 @@ const STANDARD_QUESTIONS: SuggestionsTuple = [
 ];
 
 const generateSuggestionPrompt = (shortMode: boolean) => `
-Generate exactly 3 ${shortMode ? 'SHORT ' : ''}questions about Max.
+Generate exactly 3 ${shortMode ? 'SUPER SHORT ' : ''}questions about Max.
 Avoid questions about locations.
 ${
 	!shortMode
-		? 'Try to create questions that lead to interesting answers while keeping the questions !!!UNDER!!! 90 characters.'
-		: 'Keep the questions !!!UNDER!!! 60 characters.'
+		? 'Try to create questions that lead to interesting answers while keeping the questions UNDER 90 characters.'
+		: 'Keep the questions UNDER 60 characters.'
 }
-Return a JSON object containing a property called "questions" which contains an array of EXACTLY 3 questions.
+Return a JSON object containing a property called "questions" which contains an array of EXACTLY 3 questions which adhere to the previously mentioned constraints.
 `;
 
 export const generateSuggestions = async (
