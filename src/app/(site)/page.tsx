@@ -3,7 +3,7 @@ import { QuestionLink } from './components/question-link';
 import { dehydrate, HydrationBoundary, QueryClient } from '@tanstack/react-query';
 import { getSentences } from '@/app/(site)/util/get-sentences';
 
-export const revalidate = 300;
+export const revalidate = 18000; // 5h
 
 export default async function Home() {
 	const queryClient = new QueryClient();
