@@ -11,7 +11,7 @@ export type TalkData = {
 	event: string;
 	talk: string;
 	date: string;
-	files: TalkFile[];
+	files: TalkFile[] | null;
 };
 
 const query = `
