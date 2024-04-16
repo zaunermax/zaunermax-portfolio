@@ -1,5 +1,4 @@
-import { createClient } from 'next-sanity';
-import { cache } from 'react';
+import { createClient, QueryParams } from 'next-sanity';
 
 const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID!;
 const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET!;
@@ -14,7 +13,18 @@ export const getClient = (useCdn: boolean) =>
 	});
 
 const client = getClient(false);
-const cdnClient = getClient(true);
 
-export const cachedClientFetch = cache(client.fetch.bind(client));
-export const cachedCdnClientFetch = cache(cdnClient.fetch.bind(cdnClient));
+type SanityFetchParameters = {
+	query: string;
+	params?: QueryParams;
+	tags?: string[];
+};
+
+export const sanityFetch = async <QueryResponse>({
+	query,
+	params = {},
+	tags,
+}: SanityFetchParameters) =>
+	client.fetch<QueryResponse>(query, params, {
+		next: { tags },
+	});

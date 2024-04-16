@@ -1,5 +1,4 @@
-import { cachedClientFetch } from '@/lib/sanity-client';
-import { groq } from 'next-sanity';
+import { sanityFetch } from '@/lib/sanity-client';
 
 export type PublicTalk = {
 	event: string;
@@ -8,13 +7,16 @@ export type PublicTalk = {
 	slug: string;
 };
 
-export const getPublicTalks = () => {
-	return cachedClientFetch<PublicTalk[]>(groq`
+const query = `
 *[_type == 'talk' && public == true]{
 	"event": eventV2 -> name,
 	talk,
 	date,
 	slug,
-}
-`);
-};
+}`;
+
+export const getPublicTalks = () =>
+	sanityFetch<PublicTalk[]>({
+		query,
+		tags: ['talk'],
+	});

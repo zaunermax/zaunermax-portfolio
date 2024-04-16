@@ -1,5 +1,4 @@
-import { cachedClientFetch } from '@/lib/sanity-client';
-import { groq } from 'next-sanity';
+import { sanityFetch } from '@/lib/sanity-client';
 import { PortableTextProps } from '@portabletext/react';
 
 export type EventType = {
@@ -8,8 +7,8 @@ export type EventType = {
 	url: string;
 };
 
-export const getEvents = () => {
-	return cachedClientFetch<EventType[]>(
-		groq`*[_type == 'event'] | order(order asc) { name, description, url }`,
-	);
-};
+export const getEvents = () =>
+	sanityFetch<EventType[]>({
+		query: `*[_type == 'event'] | order(order asc) { name, description, url }`,
+		tags: ['event'],
+	});

@@ -1,5 +1,4 @@
-import { cachedCdnClientFetch, cachedClientFetch } from '@/lib/sanity-client';
-import { groq } from 'next-sanity';
+import { sanityFetch } from '@/lib/sanity-client';
 
 export type IntroSentenceV2 = {
 	sentence: string;
@@ -10,7 +9,8 @@ export type IntroSentencesV2Type = {
 	introSentencesV2: IntroSentenceV2[];
 };
 
-export const getIntroSentencesV2 = (useCdn = false): Promise<IntroSentencesV2Type> =>
-	(useCdn ? cachedClientFetch : cachedCdnClientFetch)(
-		groq`*[_type == 'general'][0]{ introSentencesV2 }`,
-	);
+export const getIntroSentencesV2 = (useCdn = false) =>
+	sanityFetch<IntroSentencesV2Type>({
+		query: `*[_type == 'general'][0]{ introSentencesV2 }`,
+		tags: ['general'],
+	});
