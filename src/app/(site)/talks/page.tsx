@@ -13,8 +13,6 @@ import { Fragment } from 'react';
 import { CustomPortableText } from '@/components/custom-portable-text';
 import { TimeAgo } from '@/components/time-ago/time-ago';
 
-export const revalidate = 300;
-
 const Page = async () => {
 	const [talks, content, events] = await Promise.all([
 		getPublicTalks(),

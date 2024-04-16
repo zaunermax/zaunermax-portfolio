@@ -3,8 +3,6 @@ import { getWikiPageContent } from '@/lib/sanity/get-wiki-content';
 import { FileContent } from '@/components/file-display';
 import { CustomPortableText } from '@/components/custom-portable-text';
 
-export const revalidate = 300;
-
 const Page = async ({ params }: { params: { slug: string } }) => {
 	const res = await getWikiPageContent(params.slug);
 
