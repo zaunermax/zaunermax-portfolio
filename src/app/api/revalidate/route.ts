@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
 
 		revalidateTag(body._type);
 
-		console.log('Successfully revalidated');
+		console.log('Successfully revalidated tag:', body._type);
 
 		return NextResponse.json({ body });
 	} catch (err) {
