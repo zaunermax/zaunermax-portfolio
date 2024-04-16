@@ -1,5 +1,4 @@
-import { cachedClientFetch } from '@/lib/sanity-client';
-import { groq } from 'next-sanity';
+import { sanityFetch } from '@/lib/sanity-client';
 import { PortableTextProps } from '@portabletext/react';
 
 export type WikiContent = {
@@ -8,10 +7,11 @@ export type WikiContent = {
 	relativeTimeAgo: string;
 };
 
-export const getWikiContent = async () => {
-	return cachedClientFetch<WikiContent[]>(
-		groq`*[_type == 'wiki-page'] | order(order asc) { filename, commitMsg, relativeTimeAgo }`,
-	);
+export const getWikiContent = () => {
+	return sanityFetch<WikiContent[]>({
+		query: `*[_type == 'wiki-page'] | order(order asc) { filename, commitMsg, relativeTimeAgo }`,
+		tags: ['wiki-page'],
+	});
 };
 
 export type WikiPageContent = {
@@ -21,7 +21,8 @@ export type WikiPageContent = {
 };
 
 export const getWikiPageContent = async (docName: string) => {
-	return cachedClientFetch<WikiPageContent | null>(
-		groq`*[_type == 'wiki-page' && filename == $docName][0]{ content, filename, commitMsg }`, { docName }
-	);
+	return sanityFetch<WikiPageContent | null>({
+		query: `*[_type == 'wiki-page' && filename == $docName][0]{ content, filename, commitMsg }`,
+		params: { docName },
+	});
 };

@@ -1,5 +1,4 @@
-import { cachedClientFetch } from '@/lib/sanity-client';
-import { groq } from 'next-sanity';
+import { sanityFetch } from '@/lib/sanity-client';
 
 export type TalkFile = {
 	filename: string;
@@ -15,9 +14,7 @@ export type TalkData = {
 	files: TalkFile[];
 };
 
-export const getTalkData = (slug: string) => {
-	return cachedClientFetch<TalkData | null>(
-		groq`
+const query = `
 *[_type == 'talk' && slug == $slug][0]{
 	event,
 	talk,
@@ -28,7 +25,11 @@ export const getTalkData = (slug: string) => {
     "url": coalesce(file.asset->url, url)
   },
 	date
-}`,
-		{ slug },
-	);
-};
+}`;
+
+export const getTalkData = (slug: string) =>
+	sanityFetch<TalkData | null>({
+		query,
+		params: { slug },
+		tags: ['talk'],
+	});

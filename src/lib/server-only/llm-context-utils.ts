@@ -1,12 +1,12 @@
-import { cachedClientFetch } from '../sanity-client';
-import { groq } from 'next-sanity';
+import { sanityFetch } from '../sanity-client';
 import { OpenAI } from 'openai';
 import 'server-only';
 
 export const getLlmContext = async () => {
-	return cachedClientFetch<{ text: string; order: number }[]>(
-		groq`*[_type == 'llm-content'] | order(order asc)`,
-	);
+	return sanityFetch<{ text: string; order: number }[]>({
+		query: `*[_type == 'llm-content'] | order(order asc)`,
+		tags: ['llm-content'],
+	});
 };
 
 export const extractEdgeAnswer = async ({ choices }: OpenAI.ChatCompletion) => {

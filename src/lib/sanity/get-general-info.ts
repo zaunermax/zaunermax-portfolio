@@ -1,5 +1,4 @@
-import { cachedCdnClientFetch, cachedClientFetch } from '@/lib/sanity-client';
-import { groq } from 'next-sanity';
+import { sanityFetch } from '@/lib/sanity-client';
 
 export type GeneralInfoType = {
 	name: string;
@@ -7,7 +6,8 @@ export type GeneralInfoType = {
 	fileUrl: string;
 };
 
-export const getGeneralInfo = (useCdn = false): Promise<GeneralInfoType> =>
-	(useCdn ? cachedClientFetch : cachedCdnClientFetch)(
-		groq`*[_type == 'general'][0]{ name, introSentences, "fileUrl": cv.asset->url }`,
-	);
+export const getGeneralInfo = () =>
+	sanityFetch<GeneralInfoType>({
+		query: `*[_type == 'general'][0]{ name, introSentences, "fileUrl": cv.asset->url }`,
+		tags: ['general'],
+	});

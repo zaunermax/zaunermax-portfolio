@@ -5,8 +5,6 @@ import { File } from 'lucide-react';
 import { getWikiContent } from '@/lib/sanity/get-wiki-content';
 import { getGeneralInfo } from '@/lib/sanity/get-general-info';
 
-export const revalidate = 300;
-
 export default async function Layout({ children }: { children: ReactNode }) {
 	const [content, info] = await Promise.all([getWikiContent(), getGeneralInfo()]);
 
