@@ -11,12 +11,12 @@ export type TalkData = {
 	event: string;
 	talk: string;
 	date: string;
-	files: TalkFile[];
+	files: TalkFile[] | null;
 };
 
 const query = `
 *[_type == 'talk' && slug == $slug][0]{
-	event,
+	"event": eventV2 -> name,
 	talk,
 	"files": files[]{
     filename,
