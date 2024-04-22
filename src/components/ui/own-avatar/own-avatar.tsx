@@ -23,6 +23,9 @@ export const OwnAvatar = ({ className, link }: OwnAvatarProps) => {
 				className="flex h-full w-full items-center justify-center rounded-full bg-muted"
 				src={image}
 				alt="Profile avatar image of Max Zauner - Link to main page"
+				width={40}
+				height={40}
+				quality={75}
 				priority
 			/>
 		</Link>
