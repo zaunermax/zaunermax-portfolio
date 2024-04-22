@@ -16,7 +16,7 @@ export type TalkData = {
 
 const query = `
 *[_type == 'talk' && slug == $slug][0]{
-	event,
+	"event": eventV2 -> name,
 	talk,
 	"files": files[]{
     filename,
