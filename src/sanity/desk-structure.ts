@@ -1,4 +1,4 @@
-import { StructureBuilder } from 'sanity/lib/exports/desk';
+import type { StructureBuilder } from 'sanity/structure';
 
 export const structure = (S: StructureBuilder) =>
 	S.list()
