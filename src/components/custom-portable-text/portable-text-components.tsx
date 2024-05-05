@@ -1,7 +1,7 @@
-import { PortableTextProps } from '@portabletext/react/src';
 import { H1, H2, H3, Link, Ol, Paragraph, Ul } from '@/components/text-components';
+import { type PortableTextReactComponents } from '@portabletext/react/src/types';
 
-export const components: PortableTextProps['components'] = {
+export const components = {
 	block: {
 		h1: ({ children }) => <H1>{children}</H1>,
 		h2: ({ children }) => <H2>{children}</H2>,
@@ -18,4 +18,4 @@ export const components: PortableTextProps['components'] = {
 			<Ol>{props.children}</Ol>
 		);
 	},
-};
+} satisfies Partial<PortableTextReactComponents>;

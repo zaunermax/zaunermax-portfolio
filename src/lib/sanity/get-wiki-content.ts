@@ -1,5 +1,5 @@
 import { sanityFetch } from '@/lib/sanity-client';
-import { PortableTextProps } from '@portabletext/react';
+import { type PortableTextBlock } from '@portabletext/react';
 
 export type WikiContent = {
 	filename: string;
@@ -15,7 +15,7 @@ export const getWikiContent = () => {
 };
 
 export type WikiPageContent = {
-	content: PortableTextProps['value'];
+	content: PortableTextBlock;
 	filename: string;
 	commitMsg: string;
 };

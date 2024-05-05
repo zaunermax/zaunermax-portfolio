@@ -1,9 +1,9 @@
 import { sanityFetch } from '@/lib/sanity-client';
-import { PortableTextProps } from '@portabletext/react';
+import { type PortableTextBlock } from '@portabletext/react';
 
 export type EventType = {
 	name: string;
-	description: PortableTextProps['value'];
+	description: PortableTextBlock;
 	url: string;
 };
 

@@ -1,8 +1,8 @@
 import { sanityFetch } from '@/lib/sanity-client';
-import { PortableTextProps } from '@portabletext/react';
+import { type PortableTextBlock } from '@portabletext/react';
 
 export type TalksSectionContent = {
-	talksContent: PortableTextProps['value'];
+	talksContent: PortableTextBlock;
 };
 
 export const getTalksSectionContent = () =>
