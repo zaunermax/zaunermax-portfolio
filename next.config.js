@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-	reactStrictMode: false,
+	reactStrictMode: true,
 	redirects: () => {
 		return [
 			{
@@ -19,9 +19,6 @@ const nextConfig = {
 				permanent: false,
 			},
 		];
-	},
-	typescript: {
-		ignoreBuildErrors: true,
 	},
 };
 
