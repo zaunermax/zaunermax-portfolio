@@ -3,7 +3,8 @@ import { getWikiPageContent } from '@/lib/sanity/get-wiki-content';
 import { FileContent } from '@/components/file-display';
 import { CustomPortableText } from '@/components/custom-portable-text';
 
-const Page = async ({ params }: { params: { slug: string } }) => {
+const Page = async (props: { params: Promise<{ slug: string }> }) => {
+	const params = await props.params;
 	const res = await getWikiPageContent(params.slug);
 
 	if (!res) return <NotTheFilesYouReLookingFor filename={params.slug} />;

@@ -1,4 +1,4 @@
-import { PortableTextProps } from '@portabletext/react/src';
+import { PortableTextProps } from '@portabletext/react';
 import { H1, H2, H3, Link, Ol, Paragraph, Ul } from '@/components/text-components';
 
 export const components: PortableTextProps['components'] = {

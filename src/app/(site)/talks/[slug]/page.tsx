@@ -3,7 +3,8 @@ import { FileList, FileRowLink } from '@/components/file-display';
 import { File } from 'lucide-react';
 import { NotTheFilesYouReLookingFor } from '@/components/file-display';
 
-const Page = async ({ params }: { params: { slug: string } }) => {
+const Page = async (props: { params: Promise<{ slug: string }> }) => {
+	const params = await props.params;
 	const res = await getTalkData(params.slug);
 
 	if (!res)

@@ -26,7 +26,7 @@ export const viewport = {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
 	return (
-		<html lang="en" className={`${jetbrains_mono.variable}`}>
+		<html lang="en" className={`${jetbrains_mono.variable}`} suppressHydrationWarning>
 			<body className="min-h-screen bg-background font-sans">
 				<Providers>
 					<AppLayout>{children}</AppLayout>
