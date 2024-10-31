@@ -27,4 +27,5 @@ export const sanityFetch = async <QueryResponse>({
 }: SanityFetchParameters) =>
 	client.fetch<QueryResponse>(query, params, {
 		next: { tags },
+		cache: 'force-cache',
 	});

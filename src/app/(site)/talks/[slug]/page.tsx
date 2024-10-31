@@ -2,6 +2,16 @@ import { getTalkData } from '@/lib/sanity/get-talk-data';
 import { FileList, FileRowLink } from '@/components/file-display';
 import { File } from 'lucide-react';
 import { NotTheFilesYouReLookingFor } from '@/components/file-display';
+import { getPublicTalks } from '@/lib/sanity/get-public-talks';
+
+export const dynamic = 'force-dynamic';
+export const dynamicParams = true;
+
+export const generateStaticParams = async () => {
+	const res = await getPublicTalks();
+
+	return res.map(({ slug }) => ({ slug }));
+};
 
 const Page = async (props: { params: Promise<{ slug: string }> }) => {
 	const params = await props.params;
