@@ -1,10 +1,15 @@
-import { revalidateTag } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import { parseBody } from 'next-sanity/webhook';
 
 type WebhookPayload = {
 	_type: string;
 };
+
+const typeToPathMap = new Map([
+	['wiki-page', '/wiki/[slug]'],
+	['talk', '/talks/[slug]'],
+]);
 
 export async function POST(req: NextRequest) {
 	try {
@@ -25,9 +30,19 @@ export async function POST(req: NextRequest) {
 			return new Response(JSON.stringify({ message, body }), { status: 400 });
 		}
 
-		revalidateTag(body._type);
+		const { _type: type } = body;
 
-		console.log('Successfully revalidated tag:', body._type);
+		revalidateTag(type);
+		console.log('Revalidating tag:', type);
+
+		const pathToRevalidate = typeToPathMap.get(type);
+
+		if (pathToRevalidate) {
+			revalidatePath(pathToRevalidate, 'page');
+			console.log('Revalidating path:', pathToRevalidate);
+		}
+
+		console.log('Successfully revalidated type:', type);
 
 		return NextResponse.json({ body });
 	} catch (err) {

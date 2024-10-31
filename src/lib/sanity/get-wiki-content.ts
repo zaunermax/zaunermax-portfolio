@@ -24,5 +24,6 @@ export const getWikiPageContent = async (docName: string) => {
 	return sanityFetch<WikiPageContent | null>({
 		query: `*[_type == 'wiki-page' && filename == $docName][0]{ content, filename, commitMsg }`,
 		params: { docName },
+		tags: ['wiki-page'],
 	});
 };
