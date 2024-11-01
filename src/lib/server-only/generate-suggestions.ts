@@ -27,6 +27,8 @@ ${
 		? 'Try to create questions that lead to interesting answers while keeping the questions UNDER 90 characters.'
 		: 'Keep the questions UNDER 60 characters.'
 }
+The questions should address Max in a way that he would be able to answer them. Avoid questions with the word "you" rather use his name.
+Like "What is Max's favorite color?" instead of "What is your favorite color?".
 Return a JSON object containing a property called "questions" which contains an array of EXACTLY 3 questions which adhere to the previously mentioned constraints.
 `;
 
