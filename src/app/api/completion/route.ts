@@ -1,7 +1,7 @@
 import { extractModeration, getLlmContext } from '@/lib/server-only/llm-context-utils';
-import { OpenAIStream, StreamingTextResponse } from 'ai';
+import { streamText } from 'ai';
 import { NextResponse } from 'next/server';
-import { openai } from '@/lib/server-only/openai-client';
+import { openai, openaiVercel } from '@/lib/server-only/openai-client';
 
 export const runtime = 'edge';
 
@@ -13,7 +13,6 @@ If you don't know the answer, just say that you don't know but be helpful and ex
 "He" is always referring to Max.
 Try to answer questions as thoroughly as possible, utilizing every bit of information you got about that question.
 The current year is ${new Date().getFullYear()}
-Try to avoid overly long answers with paragraphs and whatnot. Keep the answers short and simple but at the same time also avoid too short answers.
 `;
 
 export async function POST(req: Request) {
@@ -37,8 +36,8 @@ export async function POST(req: Request) {
 
 	const content = await getLlmContext();
 
-	const response = await openai.chat.completions.create({
-		model: process.env.OPENAI_MODEL!,
+	const stream = await streamText({
+		model: openaiVercel('gpt-4o-mini'),
 		messages: [
 			{
 				role: 'system',
@@ -56,10 +55,7 @@ export async function POST(req: Request) {
 				content: prompt,
 			},
 		],
-		stream: true,
 	});
 
-	const stream = OpenAIStream(response);
-
-	return new StreamingTextResponse(stream);
+	return stream.toDataStreamResponse();
 }
