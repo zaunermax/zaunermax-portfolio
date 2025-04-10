@@ -8,7 +8,7 @@ export type PublicTalk = {
 };
 
 const query = `
-*[_type == 'talk' && public == true]{
+*[_type == 'talk' && public == true] | order(_createdAt desc) {
 	"event": eventV2 -> name,
 	talk,
 	date,
