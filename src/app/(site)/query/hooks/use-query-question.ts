@@ -1,8 +1,8 @@
 import { useSearchParams } from 'next/navigation';
 import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from 'react';
-import { answersAtom, isAnsweringAtom } from '@/app/(site)/query/atoms/answers.atom';
+import { answersAtom, isAnsweringAtom } from '../atoms/answers.atom';
 import { useSetAtom } from 'jotai';
-import { useCompletion } from 'ai/react';
+import { useCompletion } from '@ai-sdk/react';
 
 const safeJsonParse = <T>(json: string) => {
 	try {
