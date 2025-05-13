@@ -37,7 +37,7 @@ export async function POST(req: Request) {
 	const content = await getLlmContext();
 
 	const stream = streamText({
-		model: openaiVercel('gpt-4o-mini'),
+		model: openaiVercel(process.env.NEXT_PUBLIC_OPENAI_API_KEY!),
 		messages: [
 			{
 				role: 'system',
