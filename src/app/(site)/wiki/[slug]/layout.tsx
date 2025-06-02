@@ -23,19 +23,6 @@ export default async function Layout({ children }: { children: ReactNode }) {
 						/>
 					);
 				})}
-				{info ? (
-					<FileRowLink
-						linkProps={{
-							href: info.fileUrl,
-							target: '_blank',
-							rel: 'noopener noreferrer',
-						}}
-						icon={File}
-						filename={'CV.pdf'}
-						commitMsg={'fix(📝): removed phone from public CV'}
-						relativeTimeAgo={'yesterday'}
-					/>
-				) : null}
 			</FileList>
 			{children}
 		</div>
