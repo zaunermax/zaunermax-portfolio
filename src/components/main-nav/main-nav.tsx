@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { NavLink } from './components';
 
 const links = [
-	{ href: '/main', linkText: 'main' },
+	{ href: '/', linkText: 'main' },
 	{ href: '/query', linkText: 'query' },
 	{ href: '/wiki', linkText: 'wiki' },
 	{ href: '/talks', linkText: 'talks' },
@@ -16,7 +16,7 @@ const isActive = ({ href }: { href: string }, pathname: string) =>
 	href === pathname ||
 	(href === '/wiki' && pathname.startsWith('/wiki')) ||
 	(href === '/talks' && pathname.startsWith('/talks')) ||
-	(href === '/main' && pathname === '/');
+	(href === '/' && pathname === '/');
 
 export function MainNav({ className, ...props }: HTMLAttributes<HTMLElement>) {
 	const pathname = usePathname();

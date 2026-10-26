@@ -1,18 +1,12 @@
 import { BlankTerminalLine, TerminalOutput } from '@/components/visual-terminal';
-import { memo } from 'react';
-import { useAtom } from 'jotai';
-import { answersAtom } from '../atoms/answers.atom';
+import type { AnswerType } from '../types/answer.type';
 
-export const AnswersSection = memo(() => {
-	const [answers] = useAtom(answersAtom);
-
-	return answers.map(({ question, answer }, idx) => (
-		<TerminalOutput key={idx}>
+export function AnswersSection({ answers }: { answers: AnswerType[] }) {
+	return answers.map(({ question, answer }, index) => (
+		<TerminalOutput key={index}>
 			ask {question}
 			<BlankTerminalLine />
-			{answer}
+			<div className="break-words whitespace-pre-wrap">{answer}</div>
 		</TerminalOutput>
 	));
-});
-
-AnswersSection.displayName = 'Answers';
+}

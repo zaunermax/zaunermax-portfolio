@@ -9,7 +9,7 @@ export type IntroSentencesV2Type = {
 	introSentencesV2: IntroSentenceV2[];
 };
 
-export const getIntroSentencesV2 = (useCdn = false) =>
+export const getIntroSentencesV2 = () =>
 	sanityFetch<IntroSentencesV2Type>({
 		query: `*[_type == 'general'][0]{ introSentencesV2 }`,
 		tags: ['general'],

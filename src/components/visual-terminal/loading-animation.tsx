@@ -9,11 +9,11 @@ export const LoadingAnimation = () => {
 
 	useEffect(() => {
 		const id = setInterval(() => {
-			setCurrentFrame((currentFrame + 1) % frames.length);
+			setCurrentFrame((frame) => (frame + 1) % frames.length);
 		}, 100);
 
 		return () => clearInterval(id);
-	}, [currentFrame]);
+	}, []);
 
 	return frames[currentFrame];
 };

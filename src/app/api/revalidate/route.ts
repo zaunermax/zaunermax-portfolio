@@ -13,6 +13,9 @@ const typeToPathMap = new Map([
 
 export async function POST(req: NextRequest) {
 	try {
+		if (!process.env.SANITY_REVALIDATE_SECRET) {
+			return Response.json({ message: 'Webhook is not configured' }, { status: 503 });
+		}
 		const { isValidSignature, body } = await parseBody<WebhookPayload>(
 			req,
 			process.env.SANITY_REVALIDATE_SECRET,
@@ -20,19 +23,22 @@ export async function POST(req: NextRequest) {
 
 		if (!isValidSignature) {
 			const message = 'Invalid signature';
-			return new Response(JSON.stringify({ message, isValidSignature, body }), {
-				status: 401,
-			});
+			return Response.json(
+				{ message },
+				{
+					status: 401,
+				},
+			);
 		}
 
 		if (!body?._type) {
 			const message = 'Bad Request';
-			return new Response(JSON.stringify({ message, body }), { status: 400 });
+			return Response.json({ message }, { status: 400 });
 		}
 
 		const { _type: type } = body;
 
-		revalidateTag(type);
+		revalidateTag(type, { expire: 0 });
 		console.log('Revalidating tag:', type);
 
 		const pathToRevalidate = typeToPathMap.get(type);

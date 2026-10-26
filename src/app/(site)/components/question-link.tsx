@@ -11,7 +11,7 @@ const SuggestionFallback = () => (
 					className="mt-1 w-full rounded-2xl px-4 py-2 md:m-auto md:mb-2 md:w-auto md:rounded-full md:px-2.5 md:py-0.5"
 					variant="secondary"
 				>
-					<span className="inline-block w-60 rounded">&nbsp;</span>
+					<span className="inline-block w-60 rounded-sm">&nbsp;</span>
 				</Badge>
 			</span>
 		))}

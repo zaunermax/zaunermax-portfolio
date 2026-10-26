@@ -3,9 +3,6 @@ import { getWikiContent, getWikiPageContent } from '@/lib/sanity/get-wiki-conten
 import { FileContent } from '@/components/file-display';
 import { CustomPortableText } from '@/components/custom-portable-text';
 
-export const dynamic = 'force-static';
-export const dynamicParams = true;
-
 export const generateStaticParams = async () => {
 	const res = await getWikiContent();
 

@@ -38,3 +38,8 @@ next-env.d.ts
 /.idea
 
 .env
+
+# browser test artifacts
+/playwright-report/
+/test-results/
+!.env.example

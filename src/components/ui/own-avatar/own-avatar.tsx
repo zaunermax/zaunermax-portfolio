@@ -20,7 +20,7 @@ export const OwnAvatar = ({ className, link }: OwnAvatarProps) => {
 			prefetch={false}
 		>
 			<Image
-				className="flex h-full w-full items-center justify-center rounded-full bg-muted"
+				className="bg-muted flex h-full w-full items-center justify-center rounded-full"
 				src={image}
 				alt="Profile avatar image of Max Zauner - Link to main page"
 				width={40}

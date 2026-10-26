@@ -39,7 +39,7 @@ export const QuestionFormLink = () => {
 
 			urlParams.append('q', values.question);
 
-			router.push(`/main/query?${urlParams.toString()}`);
+			router.push(`/query?${urlParams.toString()}`);
 		},
 		[router],
 	);
@@ -57,6 +57,7 @@ export const QuestionFormLink = () => {
 									<Input
 										type="text"
 										placeholder="Ask a question about Max..."
+										maxLength={100}
 										{...field}
 									/>
 								</FormControl>

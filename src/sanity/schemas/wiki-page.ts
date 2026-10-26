@@ -27,7 +27,7 @@ const WikiPage: SchemaTypeDefinition = {
 			name: 'order',
 			title: 'Order',
 			type: 'number',
-			initialValue: Date.now(),
+			initialValue: () => Date.now(),
 			validation: (rule) => rule.required(),
 			options: {
 				isUnique: true,

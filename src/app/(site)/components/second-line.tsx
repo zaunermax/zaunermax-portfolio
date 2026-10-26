@@ -1,16 +1,9 @@
 'use client';
 
 import { TypeAnimation } from 'react-type-animation';
-import { useQuery } from '@tanstack/react-query';
-import { getSentences } from '@/app/(site)/util/get-sentences';
 
-export const SecondLine = () => {
-	const { data: sequence = [], isLoading } = useQuery({
-		queryKey: ['sentences'],
-		queryFn: getSentences,
-	});
-
-	return !isLoading && sequence.length ? (
+export const SecondLine = ({ sequence }: { sequence: (string | number)[] }) => {
+	return sequence.length ? (
 		<span className="relative">
 			<ul className="sr-only">
 				<li>
@@ -28,7 +21,7 @@ export const SecondLine = () => {
 			</ul>
 			<TypeAnimation
 				aria-hidden={'true'}
-				className="font-mono text-sm font-semibold text-gray-600 dark:text-gray-400 sm:text-xl md:text-2xl"
+				className="font-mono text-sm font-semibold text-gray-600 sm:text-xl md:text-2xl dark:text-gray-400"
 				speed={60}
 				deletionSpeed={80}
 				sequence={sequence}
@@ -36,7 +29,7 @@ export const SecondLine = () => {
 			/>
 		</span>
 	) : (
-		<div className="font-mono text-sm font-semibold text-gray-600 dark:text-gray-400 sm:text-xl md:text-2xl">
+		<div className="font-mono text-sm font-semibold text-gray-600 sm:text-xl md:text-2xl dark:text-gray-400">
 			Loading ... |
 		</div>
 	);

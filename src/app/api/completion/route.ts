@@ -1,9 +1,9 @@
-import { extractModeration, getLlmContext } from '@/lib/server-only/llm-context-utils';
-import { streamText } from 'ai';
-import { NextResponse } from 'next/server';
-import { openai, openaiVercel } from '@/lib/server-only/openai-client';
+import { getLlmContext } from '@/lib/server-only/llm-context-utils';
+import { createTextStreamResponse, streamText, toTextStream } from 'ai';
+import { openai, getLanguageModel } from '@/lib/server-only/openai-client';
+import { completionRequestSchema } from '@/lib/question-schema';
 
-export const runtime = 'edge';
+export const maxDuration = 60;
 
 const SYSTEM_PROMPT = `
 You are an assistant that that can answer questions about Max because you have information about him.
@@ -16,46 +16,58 @@ The current year is ${new Date().getFullYear()}
 `;
 
 export async function POST(req: Request) {
-	const { prompt = '' } = (await req.json()) as { prompt: string };
+	const parsed = completionRequestSchema.safeParse(await req.json().catch(() => null));
+	if (!parsed.success) {
+		return Response.json(
+			{ message: 'Please ask a question of 1–100 characters.' },
+			{ status: 400 },
+		);
+	}
 
-	console.log('question?', prompt);
+	try {
+		const { prompt } = parsed.data;
+		const moderation = await openai.moderations.create(
+			{ model: 'omni-moderation-latest', input: prompt },
+			{ signal: req.signal },
+		);
+		if (moderation.results.some(({ flagged }) => flagged)) {
+			return Response.json({ message: 'Be nice 😭' }, { status: 400 });
+		}
 
-	const question = prompt?.slice(0, 100);
-
-	if (!question) return NextResponse.json({ message: '💔' }, { status: 400 });
-
-	const isFlagged = await openai.moderations
-		.create({ input: question })
-		.then(extractModeration)
-		.catch((e) => {
-			console.error(e);
-			return true;
+		const content = await getLlmContext();
+		if (!content.length) throw new Error('No portfolio context is available');
+		const result = streamText({
+			model: getLanguageModel(),
+			instructions: SYSTEM_PROMPT,
+			messages: [
+				...content.map(({ text }) => ({ role: 'user' as const, content: text })),
+				{ role: 'user', content: prompt },
+			],
+			providerOptions: { openai: { store: false } },
+			maxOutputTokens: 1500,
+			maxRetries: 0,
+			abortSignal: req.signal,
 		});
 
-	if (isFlagged) return NextResponse.json({ message: 'Be nice 😭' }, { status: 400 });
-
-	const content = await getLlmContext();
-
-	const stream = streamText({
-		model: openaiVercel(process.env.OPENAI_MODEL!),
-		messages: [
-			{
-				role: 'system',
-				content: SYSTEM_PROMPT,
-			},
-			...content.map(
-				({ text }) =>
-					({
-						role: 'user',
-						content: text,
-					}) as const,
-			),
-			{
-				role: 'user',
-				content: prompt,
-			},
-		],
-	});
-
-	return stream.toDataStreamResponse();
+		return createTextStreamResponse({
+			// Plain text has no error frames: propagate provider errors as a failed stream.
+			stream: toTextStream({
+				stream: result.stream.pipeThrough(
+					new TransformStream({
+						transform(part, controller) {
+							if (part.type === 'error') controller.error(part.error);
+							else controller.enqueue(part);
+						},
+					}),
+				),
+			}),
+			headers: { 'Cache-Control': 'no-store' },
+		});
+	} catch (error) {
+		console.error('Unable to answer the question:', error);
+		return Response.json(
+			{ message: 'Something went wrong. Please try again 😭' },
+			{ status: 503 },
+		);
+	}
 }

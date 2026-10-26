@@ -1,49 +1,50 @@
 import {
 	BlankTerminalLine,
 	TerminalOutput,
-	TerminalLineProps,
 	LoadingAnimation,
 } from '@/components/visual-terminal';
-import { forwardRef, useId } from 'react';
-import { useQueryQuestion } from '../hooks';
+import { type Ref, useId } from 'react';
+import type { useQueryQuestion } from '../hooks';
 
-export type QuestionCommandProps = TerminalLineProps & {
-	handleInputFocus: () => void;
-};
+type Props = ReturnType<typeof useQueryQuestion> & { ref: Ref<HTMLInputElement> };
 
-export const QuestionCommandSection = forwardRef<HTMLInputElement, QuestionCommandProps>(
-	({ handleInputFocus, ...rest }: QuestionCommandProps, ref) => {
-		const inputId = useId();
-
-		const { question, handleSubmit, handleSetQuestion, isAnswering, completion } =
-			useQueryQuestion();
-
-		return (
-			<TerminalOutput {...rest} hasCursor={!isAnswering}>
-				ask <span aria-hidden="true">{question}</span>
-				<form onSubmit={handleSubmit} className={'sr-only'}>
-					<label htmlFor={inputId} className={'sr-only'}>
-						Type a question you like to ask about Max Zauner and then press ENTER to
-						submit the question.
-					</label>
-					<input
-						id={inputId}
-						ref={ref}
-						type="text"
-						value={question}
-						onChange={handleSetQuestion}
-						className="sr-only"
-					/>
-				</form>
-				{isAnswering ? (
-					<>
-						<BlankTerminalLine />
-						{!completion || completion.length === 0 ? <LoadingAnimation /> : completion}
-					</>
-				) : null}
-			</TerminalOutput>
-		);
-	},
-);
-
-QuestionCommandSection.displayName = 'QuestionCommand';
+export function QuestionCommandSection({
+	ref,
+	question,
+	setQuestion,
+	submittedQuestion,
+	handleSubmit,
+	isAnswering,
+	completion,
+}: Props) {
+	const inputId = useId();
+	return (
+		<TerminalOutput hasCursor={!isAnswering}>
+			ask <span aria-hidden="true">{isAnswering ? submittedQuestion : question}</span>
+			<form onSubmit={handleSubmit} className="sr-only">
+				<label htmlFor={inputId}>Type a question about Max Zauner and press ENTER.</label>
+				<input
+					id={inputId}
+					ref={ref}
+					name="question"
+					type="text"
+					value={question}
+					onChange={(event) => setQuestion(event.target.value)}
+					maxLength={100}
+					disabled={isAnswering}
+					autoComplete="off"
+					autoCapitalize="sentences"
+					spellCheck={false}
+				/>
+			</form>
+			{isAnswering && (
+				<div role="status" aria-label="Answering">
+					<BlankTerminalLine />
+					<div className="break-words whitespace-pre-wrap">
+						{completion || <LoadingAnimation />}
+					</div>
+				</div>
+			)}
+		</TerminalOutput>
+	);
+}

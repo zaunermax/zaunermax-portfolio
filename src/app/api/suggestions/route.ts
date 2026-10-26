@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { SuggestionMode } from '@/types/suggestion-mode';
 import { generateSuggestions } from '@/lib/server-only/generate-suggestions';
 
-export const runtime = 'edge';
+export const maxDuration = 60;
 
 const possibleModes = ['short', 'long'] as const;
 
@@ -10,13 +10,21 @@ function isSuggestionMode(mode: string): mode is SuggestionMode {
 	return (possibleModes as readonly string[]).includes(mode);
 }
 
-export async function GET(request: Request) {
+async function suggestionsResponse(request: Request, refresh = false) {
 	const { searchParams } = new URL(request.url);
 	const rawMode = searchParams.get('mode') || 'short';
 
 	const mode = isSuggestionMode(rawMode) ? rawMode : 'short';
 
-	const suggestions = await generateSuggestions(mode);
+	const suggestions = await generateSuggestions(mode, refresh);
 
-	return NextResponse.json({ suggestions });
+	return NextResponse.json({ suggestions }, { headers: { 'Cache-Control': 'no-store' } });
+}
+
+export async function GET(request: Request) {
+	return suggestionsResponse(request);
+}
+
+export async function POST(request: Request) {
+	return suggestionsResponse(request, true);
 }

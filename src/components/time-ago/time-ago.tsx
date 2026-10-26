@@ -1,6 +1,6 @@
 'use client';
 
-import React, { memo, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { formatDistanceToNow, parse } from 'date-fns';
 
 export type TimeAgoProps = {

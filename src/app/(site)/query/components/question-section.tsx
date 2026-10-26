@@ -1,20 +1,21 @@
 'use client';
 
-import { Suspense, useEffect } from 'react';
+import { useEffect } from 'react';
 import { VisualTerminal } from '@/components/visual-terminal';
 import { HelpSection } from './help-section';
 import { AnswersSection } from './answers-section';
 import { QuestionCommandSection } from './question-command-section';
-import { useFocusableInputRef } from '../hooks';
+import { useFocusableInputRef, useQueryQuestion } from '../hooks';
 
 const modelName = 'max-q-learning-16k-0623';
 
 export const QuestionSection = () => {
 	const { inputRef, handleInputFocus } = useFocusableInputRef();
+	const query = useQueryQuestion();
 
 	useEffect(() => {
 		handleInputFocus();
-	}, [handleInputFocus]);
+	}, [handleInputFocus, query.isAnswering]);
 
 	return (
 		<div className="m-auto mb-16 flex max-w-screen-lg flex-col space-y-2">
@@ -23,11 +24,9 @@ export const QuestionSection = () => {
 				onClick={handleInputFocus}
 				className="drop-shadow-2xl"
 			>
-				<HelpSection modelName={modelName} />
-				<AnswersSection />
-				<Suspense fallback={<div>|</div>}>
-					<QuestionCommandSection ref={inputRef} handleInputFocus={handleInputFocus} />
-				</Suspense>
+				<HelpSection modelName={modelName} isAnswering={query.isAnswering} />
+				<AnswersSection answers={query.answers} />
+				<QuestionCommandSection ref={inputRef} {...query} />
 			</VisualTerminal>
 		</div>
 	);

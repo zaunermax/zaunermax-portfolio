@@ -1,8 +1,11 @@
+import { connection } from 'next/server';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { generateSuggestions } from '@/lib/server-only/generate-suggestions';
 
 export const Suggestions = async () => {
+	// Generate only for a real request, never during a production build.
+	await connection();
 	const suggestions = await generateSuggestions('short');
 
 	return (
@@ -14,7 +17,7 @@ export const Suggestions = async () => {
 					<Link
 						key={idx}
 						className="mr-2"
-						href={`/main/query?${query.toString()}`}
+						href={`/query?${query.toString()}`}
 						prefetch={false}
 					>
 						<Badge

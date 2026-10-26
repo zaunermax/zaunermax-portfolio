@@ -4,9 +4,6 @@ import { File } from 'lucide-react';
 import { NotTheFilesYouReLookingFor } from '@/components/file-display';
 import { getPublicTalks } from '@/lib/sanity/get-public-talks';
 
-export const dynamic = 'force-dynamic';
-export const dynamicParams = true;
-
 export const generateStaticParams = async () => {
 	const res = await getPublicTalks();
 
@@ -19,7 +16,7 @@ const Page = async (props: { params: Promise<{ slug: string }> }) => {
 
 	if (!res)
 		return (
-			<div className="mb-20 mt-20 md:mt-28">
+			<div className="mt-20 mb-20 md:mt-28">
 				<NotTheFilesYouReLookingFor filename={params.slug} />
 			</div>
 		);
@@ -28,12 +25,12 @@ const Page = async (props: { params: Promise<{ slug: string }> }) => {
 		<div className="mb-20 space-y-10">
 			<div className="container mx-auto mt-24 px-4 md:mt-28 md:px-10 lg:px-20">
 				<div>
-					<h1 className="mb-4 mt-6 text-center text-4xl font-bold md:text-6xl">
+					<h1 className="mt-6 mb-4 text-center text-4xl font-bold md:text-6xl">
 						{res.event}
 					</h1>
 					<p className="text-center text-lg md:text-xl">{res.date}</p>
 					<blockquote className="my-4 text-center">
-						<span className="inline-block border-l-4 border-gray-200 bg-gray-100 px-2 py-4 text-lg font-semibold italic text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 md:px-8 md:text-xl">
+						<span className="inline-block border-l-4 border-gray-200 bg-gray-100 px-2 py-4 text-lg font-semibold text-gray-600 italic md:px-8 md:text-xl dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
 							&quot;{res.talk}&quot;
 						</span>
 					</blockquote>

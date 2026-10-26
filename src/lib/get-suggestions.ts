@@ -1,26 +1,16 @@
-import { globalRevalidate } from '@/lib/global-revalidate';
-import { doFetch } from '@/lib/fetch-utils';
-import { SuggestionMode } from '@/types/suggestion-mode';
+import type { SuggestionMode } from '@/types/suggestion-mode';
 
-type Params = {
-	baseUrl?: string;
-	mode?: SuggestionMode;
-	revalidate?: number;
-};
-
-export const getSuggestions = async ({
+export async function getSuggestions({
 	mode = 'short',
-	revalidate = globalRevalidate,
-}: Params): Promise<string[]> => {
-	const searchParams = new URLSearchParams();
-
-	searchParams.append('mode', mode);
-
-	const res: { suggestions: string[] } = await doFetch({
-		url: `/api/suggestions?${searchParams.toString()}`,
-		defaultValue: { suggestions: [] },
-		revalidate,
+	refresh = false,
+}: {
+	mode?: SuggestionMode;
+	refresh?: boolean;
+}): Promise<string[]> {
+	const response = await fetch(`/api/suggestions?mode=${mode}`, {
+		method: refresh ? 'POST' : 'GET',
 	});
-
-	return res.suggestions;
-};
+	if (!response.ok) throw new Error('Unable to load suggestions');
+	const data: { suggestions: string[] } = await response.json();
+	return data.suggestions;
+}

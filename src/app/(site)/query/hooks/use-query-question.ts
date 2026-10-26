@@ -1,97 +1,99 @@
+'use client';
+
 import { useSearchParams } from 'next/navigation';
-import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from 'react';
-import { answersAtom, isAnsweringAtom } from '../atoms/answers.atom';
-import { useSetAtom } from 'jotai';
+import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useCompletion } from '@ai-sdk/react';
+import { useAnswerHistory } from '../components/answer-history';
+import { questionSchema } from '@/lib/question-schema';
 
-const safeJsonParse = <T>(json: string) => {
+function errorMessage(error: Error) {
 	try {
-		return JSON.parse(json) as T;
+		const body = JSON.parse(error.message);
+		if (typeof body.message === 'string') return body.message;
 	} catch {
-		return null;
+		/* A stream error need not contain JSON. */
 	}
-};
+	return 'Something went wrong. Please try again 😭';
+}
 
-export const useQueryQuestion = () => {
-	const rawSearchParams = useSearchParams();
-	const searchParams = new URLSearchParams(rawSearchParams ?? '');
-	const queryQuestion = searchParams.get('q') ?? '';
-
-	const setIsAnswering = useSetAtom(isAnsweringAtom);
-	const setAnswers = useSetAtom(answersAtom);
-
+export function useQueryQuestion() {
+	const queryQuestion = useSearchParams().get('q') ?? '';
 	const [question, setQuestion] = useState('');
-	const [error, setError] = useState('');
-
-	const resetState = useCallback(() => {
-		setQuestion('');
-		setError('');
-		setIsAnswering(false);
-	}, [setIsAnswering]);
-
-	const onResponse = useCallback(() => {
-		setIsAnswering(true);
-	}, [setIsAnswering]);
-
-	const onFinish = useCallback(
-		(prompt: string, completion: string) => {
-			setAnswers((answers) => answers.concat({ question: prompt, answer: completion }));
-			resetState();
+	const [submittedQuestion, setSubmittedQuestion] = useState('');
+	const { answers, setAnswers } = useAnswerHistory();
+	const inFlight = useRef(false);
+	const lastQuery = useRef<string | null>(null);
+	const activePrompt = useRef('');
+	const { completion, complete, stop, isLoading } = useCompletion({
+		streamProtocol: 'text',
+		onError(error) {
+			setAnswers((previous) => [
+				...previous,
+				{ question: activePrompt.current, answer: errorMessage(error) },
+			]);
 		},
-		[resetState, setAnswers],
-	);
-
-	const onError = useCallback((error: Error) => {
-		const parsedError = safeJsonParse<{ message: string }>(error?.message ?? '');
-		setError(parsedError?.message ?? 'Something went wrong 😭');
-	}, []);
-
-	const {
-		completion,
-		isLoading: isAnswering,
-		complete,
-		stop,
-	} = useCompletion({
-		onResponse,
-		onFinish,
-		onError,
 	});
 
-	const handleSetQuestion = useCallback((e: ChangeEvent<HTMLInputElement>) => {
-		setQuestion(e.target.value);
-	}, []);
-
-	const handleSubmit = useCallback(
-		(event: FormEvent<HTMLFormElement>) => {
-			event.preventDefault();
-			console.log(`question? ${question}`);
-			complete(question);
+	const ask = useCallback(
+		async (rawQuestion: string) => {
+			if (inFlight.current) return;
+			const parsed = questionSchema.safeParse(rawQuestion);
+			if (!parsed.success) {
+				setAnswers((previous) => [
+					...previous,
+					{ question: rawQuestion, answer: parsed.error.issues[0].message },
+				]);
+				return;
+			}
+			const prompt = parsed.data;
+			inFlight.current = true;
+			activePrompt.current = prompt;
+			setSubmittedQuestion(prompt);
+			setQuestion('');
+			try {
+				// useCompletion submits only this prompt; the transcript stays in this component.
+				const answer = await complete(prompt);
+				if (answer != null)
+					setAnswers((previous) => [...previous, { question: prompt, answer }]);
+			} catch (error) {
+				setAnswers((previous) => [
+					...previous,
+					{
+						question: prompt,
+						answer: errorMessage(error instanceof Error ? error : new Error()),
+					},
+				]);
+			} finally {
+				inFlight.current = false;
+			}
 		},
-		[question, complete],
+		[complete, setAnswers],
 	);
 
 	useEffect(() => {
-		if (!queryQuestion) return;
-		setQuestion(queryQuestion);
-		complete(queryQuestion);
-	}, [queryQuestion, complete, setQuestion]);
+		if (!queryQuestion || lastQuery.current === queryQuestion || inFlight.current) return;
+		// Defer initial auto-submit so Strict Mode can clean up its first effect.
+		const timer = setTimeout(() => {
+			lastQuery.current = queryQuestion;
+			void ask(queryQuestion);
+		}, 0);
+		return () => clearTimeout(timer);
+	}, [queryQuestion, ask, isLoading]);
 
-	useEffect(() => {
-		if (!error) return;
-		stop();
-		setAnswers((answers) => answers.concat({ question, answer: error }));
-		resetState();
-	}, [error, question, resetState, setAnswers, stop]);
+	useEffect(() => () => stop(), [stop]);
 
-	useEffect(() => {
-		return () => stop();
-	}, [stop]);
+	const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+		event.preventDefault();
+		void ask(question);
+	};
 
 	return {
 		question,
+		setQuestion,
+		submittedQuestion,
 		handleSubmit,
-		handleSetQuestion,
-		isAnswering,
+		isAnswering: isLoading,
 		completion,
+		answers,
 	};
-};
+}
