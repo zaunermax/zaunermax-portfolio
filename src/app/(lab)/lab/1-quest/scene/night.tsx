@@ -4,10 +4,9 @@ import { useFrame } from '@react-three/fiber';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { COUNTER_TOP, DESK_TOP, STAGE_TOP } from '../world/catalog';
-import { hIndex, vIndex } from '../world/furnish';
-import { EDGE, type CompiledWorld } from '../world/types';
+import type { CompiledWorld } from '../world/types';
 import { radialTexture } from './materials';
-import type { WallCut } from './office';
+import { windowPanes, type WallCut } from './office';
 import type { Lighting } from './palette';
 
 /*
@@ -228,18 +227,19 @@ function rainTexture() {
 
 /** Streaks running down the inside view of every window while it rains. */
 export function RainOnGlass({ world, cut }: { world: CompiledWorld; cut: WallCut }) {
-	const panes = useMemo(() => {
-		const out: { axis: 'h' | 'v'; ex: number; ey: number; x: number; z: number; rot: number }[] = [];
-		for (let x = 0; x < world.width; x++)
-			if (world.hEdge[hIndex(x, 0)] === EDGE.window) out.push({ axis: 'h', ex: x, ey: 0, x: x + 0.5, z: 0.03, rot: 0 });
-		for (let y = 0; y < world.height; y++) {
-			if (world.vEdge[vIndex(0, y)] === EDGE.window)
-				out.push({ axis: 'v', ex: 0, ey: y, x: 0.03, z: y + 0.5, rot: Math.PI / 2 });
-			if (world.vEdge[vIndex(world.width, y)] === EDGE.window)
-				out.push({ axis: 'v', ex: world.width, ey: y, x: world.width - 0.03, z: y + 0.5, rot: -Math.PI / 2 });
-		}
-		return out;
-	}, [world]);
+	const panes = useMemo(
+		() =>
+			windowPanes(world).map((p) => ({
+				axis: p.axis,
+				ex: p.ex,
+				ey: p.ey,
+				x: p.x + p.inX * 0.03,
+				z: p.z + p.inZ * 0.03,
+				// Facing into the building.
+				rot: p.axis === 'h' ? (p.inZ > 0 ? 0 : Math.PI) : p.inX > 0 ? Math.PI / 2 : -Math.PI / 2,
+			})),
+		[world],
+	);
 	const ref = useRef<THREE.InstancedMesh>(null);
 	useFrame((state) => {
 		const mesh = ref.current;

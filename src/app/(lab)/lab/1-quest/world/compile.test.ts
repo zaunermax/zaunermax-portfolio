@@ -3,7 +3,7 @@ import { SKIN } from './character-parts';
 import { compileWorld, findPath, meetupAttendance, reachable } from './compile';
 import { defaultBrief, DEFAULT_SEED } from './default-world';
 import { assignZones, DOUBLE_ZONES, planFloor } from './floorplan';
-import { cellIndex, EVENT_AUDIENCE, podPlan, RIGHT, runAssets, topHalf } from './furnish';
+import { cellIndex, deskLayout, EVENT_AUDIENCE, RIGHT, runAssets, topHalf } from './furnish';
 import { DESK_TOP, SEAT_FORWARD, SEAT_TOP } from './catalog';
 import { mulberry32, pick, randInt, shuffle } from './random';
 import { briefSteps } from './replay';
@@ -124,7 +124,10 @@ describe('compileWorld', () => {
 				const names = world.rooms.filter((r) => r.kind === twins[0]).map((r) => r.name);
 				expect(new Set(names).size, `seed ${seed}`).toBe(2);
 			}
-			expect(world.rooms.find((r) => r.kind === 'reception')!.y + world.rooms.find((r) => r.kind === 'reception')!.h).toBe(world.height);
+			// Reception opens onto the street: its front door is in its south wall, with outdoors beyond.
+			const lobby = world.rooms.find((r) => r.kind === 'reception')!;
+			expect(world.entrance.y).toBe(lobby.y + lobby.h);
+			expect(world.entrance.y === world.height || world.roomAt[cellIndex(world.entrance.x, world.entrance.y)] === -1).toBe(true);
 		}
 		// Occasional, not never and not always.
 		expect(doubled).toBeGreaterThan(0);
@@ -334,7 +337,7 @@ describe('autotiling', () => {
 			expect(seated.length, `seed ${seed}`).toBeGreaterThanOrEqual(meetupAttendance(chairs.length));
 			// No banks of empty chairs: at most a couple are spare.
 			expect(chairs.length - seated.length, `seed ${seed}`).toBeLessThanOrEqual(3);
-			if (seed === DEFAULT_SEED) expect(seated.length).toBeGreaterThanOrEqual(18);
+			if (seed === DEFAULT_SEED) expect(seated.length).toBeGreaterThanOrEqual(8);
 			if (world.furniture.some((f) => f.room === room && f.asset === 'stage_block'))
 				expect(world.npcs.some((n) => n.room === room && n.pose === 'present'), `seed ${seed}`).toBe(true);
 		}
@@ -348,9 +351,11 @@ describe('autotiling', () => {
 		for (const seed of [DEFAULT_SEED, ...SEEDS.slice(0, 10)]) {
 			const world = compileWorld(defaultBrief, seed);
 			const people = (kind: string) => world.npcs.filter((n) => world.rooms[n.room].kind === kind && n.appearance);
-			expect(people('meeting').length, `seed ${seed}`).toBeGreaterThanOrEqual(3);
-			expect(people('lounge').length, `seed ${seed}`).toBeGreaterThanOrEqual(2);
-			expect(people('games').length, `seed ${seed}`).toBeGreaterThanOrEqual(2);
+			// Smaller offices have fewer rooms than the default brief names; check the ones it got.
+			const has = (kind: string) => world.rooms.some((r) => r.kind === kind);
+			if (has('meeting')) expect(people('meeting').length, `seed ${seed}`).toBeGreaterThanOrEqual(3);
+			if (has('lounge')) expect(people('lounge').length, `seed ${seed}`).toBeGreaterThanOrEqual(2);
+			if (has('games')) expect(people('games').length, `seed ${seed}`).toBeGreaterThanOrEqual(2);
 		}
 	});
 
@@ -438,18 +443,37 @@ describe('seating, pods and small stories', () => {
 		}
 	});
 
-	it('varies the open space by seed: pods plus single rows, standing desks or a huddle table', () => {
+	it('lays the open space out on a grid that varies by seed: pods, benches, rows, huddles, standing desks', () => {
 		const kinds = new Set<string>();
-		for (const seed of SEEDS.slice(0, 20)) {
-			const plan = podPlan(seed, 0, 4);
-			expect(plan[0].kind).toBe('pod');
-			plan.forEach((p) => kinds.add(p.kind));
+		const layouts = new Set<string>();
+		for (const seed of SEEDS.slice(0, 30)) {
+			const bands = deskLayout(seed, 0, 1, 3, 12, 10);
+			expect(bands.length).toBeGreaterThan(0);
+			for (const b of bands) {
+				kinds.add(b.kind).add(b.swap ?? b.kind);
+				// Every band fits the room and is centred in it.
+				const span = b.cols * b.n + b.cols - 1;
+				expect(b.x - 1).toBe(Math.floor((12 - span) / 2));
+			}
+			// Bands stack with exactly one aisle between them.
+			for (let i = 1; i < bands.length; i++)
+				expect(bands[i].y - bands[i - 1].y).toBe((bands[i - 1].kind === 'pod' ? 4 : 2) + 1);
+			layouts.add(bands.map((b) => `${b.kind}${b.n}x${b.cols}${b.swap ?? ''}`).join());
 			const world = compileWorld(defaultBrief, seed);
 			expect(checkWorld(world), `seed ${seed}`).toEqual([]);
 		}
 		expect(kinds).toEqual(new Set(['pod', 'row', 'standing', 'huddle']));
-		const layouts = new Set(SEEDS.slice(0, 10).map((seed) => podPlan(seed, 0, 4).map((p) => `${p.kind}${p.n}`).join()));
-		expect(layouts.size).toBeGreaterThan(5);
+		expect(layouts.size).toBeGreaterThan(4);
+	});
+
+	it('lines desks up: every desk group in a band starts on the same row', () => {
+		for (const seed of SEEDS.slice(0, 20)) {
+			const world = compileWorld(defaultBrief, seed);
+			const room = world.rooms.find((r) => r.kind === 'desks')!;
+			const rows = new Set(world.furniture.filter((f) => f.room === room.index && /^desk_(end_l|single)$/.test(f.asset) && f.rot === 0).map((f) => f.y));
+			const all = world.furniture.filter((f) => f.room === room.index && /^desk_/.test(f.asset) && f.rot === 0).map((f) => f.y);
+			for (const y of all) expect(rows.has(y), `seed ${seed}`).toBe(true);
+		}
 	});
 
 	it('tells two or three captioned stories and always staffs the coffee bar', () => {

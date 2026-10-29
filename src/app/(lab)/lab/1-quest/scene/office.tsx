@@ -38,7 +38,11 @@ type Segment = {
 	x: number;
 	y: number;
 	kind: number;
+	/** An outside wall: the building is on one side only. */
 	outer: boolean;
+	/** Outward normal of an outside wall (0, 0 inside the building). */
+	nx: number;
+	nz: number;
 	/** Centre on the floor. */
 	cx: number;
 	cz: number;
@@ -51,6 +55,11 @@ type Segment = {
 const SOLID = new Set<number>([EDGE.wall, EDGE.window, EDGE.door, EDGE.entrance]);
 const GLASSY = new Set<number>([EDGE.glass, EDGE.glassdoor]);
 
+/** Whether a cell is part of the building (the grid's outline need not be a rectangle). */
+export function indoors(world: Pick<CompiledWorld, 'width' | 'height' | 'roomAt'>, x: number, y: number) {
+	return x >= 0 && y >= 0 && x < world.width && y < world.height && world.roomAt[y * world.width + x] >= 0;
+}
+
 function segments(world: CompiledWorld): Segment[] {
 	const { width: W, height: H, hEdge, vEdge } = world;
 	const out: Segment[] = [];
@@ -60,20 +69,24 @@ function segments(world: CompiledWorld): Segment[] {
 		for (let x = 0; x < W; x++) {
 			const kind = hEdge[hIndex(x, y)];
 			if (!SOLID.has(kind) && !GLASSY.has(kind)) continue;
-			const outer = y === 0 || y === H;
+			const above = indoors(world, x, y - 1);
+			const below = indoors(world, x, y);
+			const outer = above !== below;
+			// Outside walls stand just outside the floor, so rooms keep their full width.
+			const nz = outer ? (above ? 1 : -1) : 0;
 			// Overlap into a corner where a side wall meets this one.
 			const west = solidV(x, y - 1) || solidV(x, y) ? T / 2 : 0;
 			const east = solidV(x + 1, y - 1) || solidV(x + 1, y) ? T / 2 : 0;
-			const off = outer ? (y === 0 ? -T / 2 : T / 2) : 0;
-			out.push({ axis: 'h', x, y, kind, outer, cx: x + 0.5, cz: y + off, len: 1 + west + east, shift: (east - west) / 2 });
+			out.push({ axis: 'h', x, y, kind, outer, nx: 0, nz, cx: x + 0.5, cz: y + (nz * T) / 2, len: 1 + west + east, shift: (east - west) / 2 });
 		}
 	for (let y = 0; y < H; y++)
 		for (let x = 0; x <= W; x++) {
 			const kind = vEdge[vIndex(x, y)];
 			if (!SOLID.has(kind) && !GLASSY.has(kind)) continue;
-			const outer = x === 0 || x === W;
-			const off = outer ? (x === 0 ? -T / 2 : T / 2) : 0;
-			out.push({ axis: 'v', x, y, kind, outer, cx: x + off, cz: y + 0.5, len: 1, shift: 0 });
+			const left = indoors(world, x - 1, y);
+			const outer = left !== indoors(world, x, y);
+			const nx = outer ? (left ? 1 : -1) : 0;
+			out.push({ axis: 'v', x, y, kind, outer, nx, nz: 0, cx: x + (nx * T) / 2, cz: y + 0.5, len: 1, shift: 0 });
 		}
 	return out;
 }
@@ -118,11 +131,7 @@ function targetHeight(s: Segment, fx: number, fz: number, dirX: number, dirZ: nu
 	const glass = GLASSY.has(s.kind);
 	// Outer walls on the far side of the building stand tall as a backdrop, whichever way the
 	// camera faces (north and west by default).
-	if (s.outer) {
-		const nx = s.axis === 'v' ? (s.x === 0 ? -1 : 1) : 0;
-		const nz = s.axis === 'h' ? (s.y === 0 ? -1 : 1) : 0;
-		if (nx * dirX + nz * dirZ > 0.5) return TALL_OUTER;
-	}
+	if (s.outer && s.nx * dirX + s.nz * dirZ > 0.5) return TALL_OUTER;
 	const ahead = (s.cx - fx) * dirX + (s.cz - fz) * dirZ;
 	if (overview) {
 		if (s.outer) return ahead > 6 ? TALL_OUTER : ahead > -6 ? TALL : LOW;
@@ -468,15 +477,19 @@ export function Floors({ world, spawns }: { world: CompiledWorld; spawns: Spawns
 
 	return (
 		<group>
-			{/* The plinth the office stands on. */}
-			<mesh position={[world.width / 2, -0.16, world.height / 2]} receiveShadow>
-				<boxGeometry args={[world.width + 0.8, 0.3, world.height + 0.8]} />
-				<meshLambertMaterial color="#a39a8c" />
-			</mesh>
-			<mesh position={[world.width / 2, -0.001, world.height / 2]} rotation-x={-Math.PI / 2} receiveShadow>
-				<planeGeometry args={[world.width, world.height]} />
-				<meshLambertMaterial color="#c8c2b6" />
-			</mesh>
+			{/* The plinth the office stands on, following the building's outline. */}
+			{world.footprint.map((r, i) => (
+				<group key={`plinth-${i}-${r.x},${r.y},${r.w},${r.h}`}>
+					<mesh position={[r.x + r.w / 2, -0.16, r.y + r.h / 2]} receiveShadow>
+						<boxGeometry args={[r.w + 0.8, 0.3, r.h + 0.8]} />
+						<meshLambertMaterial color="#a39a8c" />
+					</mesh>
+					<mesh position={[r.x + r.w / 2, -0.001, r.y + r.h / 2]} rotation-x={-Math.PI / 2} receiveShadow>
+						<planeGeometry args={[r.w, r.h]} />
+						<meshLambertMaterial color="#c8c2b6" />
+					</mesh>
+				</group>
+			))}
 			{planes.map((plane, i) => (
 				<mesh
 					key={plane.id}
@@ -493,19 +506,34 @@ export function Floors({ world, spawns }: { world: CompiledWorld; spawns: Spawns
 	);
 }
 
+/**
+ * Every outside window: the middle of its edge, which way the building lies from it and the edge
+ * it sits on (for the wall cut).
+ */
+export function windowPanes(world: CompiledWorld) {
+	const out: { axis: 'h' | 'v'; ex: number; ey: number; x: number; z: number; inX: number; inZ: number }[] = [];
+	for (let y = 0; y <= world.height; y++)
+		for (let x = 0; x < world.width; x++)
+			if (world.hEdge[hIndex(x, y)] === EDGE.window)
+				out.push({ axis: 'h', ex: x, ey: y, x: x + 0.5, z: y, inX: 0, inZ: indoors(world, x, y) ? 1 : -1 });
+	for (let y = 0; y < world.height; y++)
+		for (let x = 0; x <= world.width; x++)
+			if (world.vEdge[vIndex(x, y)] === EDGE.window)
+				out.push({ axis: 'v', ex: x, ey: y, x, z: y + 0.5, inX: indoors(world, x, y) ? 1 : -1, inZ: 0 });
+	return out;
+}
+
 /** Planes that pool the light from each window on the floor. */
 export function WindowLight({ world, lighting }: { world: CompiledWorld; lighting: Lighting }) {
-	const spots = useMemo(() => {
-		const out: { x: number; z: number; rot: number }[] = [];
-		for (let x = 0; x < world.width; x++)
-			if (world.hEdge[hIndex(x, 0)] === EDGE.window) out.push({ x: x + 0.5, z: 0.9, rot: 0 });
-		for (let y = 0; y < world.height; y++) {
-			if (world.vEdge[vIndex(0, y)] === EDGE.window) out.push({ x: 0.9, z: y + 0.5, rot: Math.PI / 2 });
-			if (world.vEdge[vIndex(world.width, y)] === EDGE.window)
-				out.push({ x: world.width - 0.9, z: y + 0.5, rot: Math.PI / 2 });
-		}
-		return out;
-	}, [world]);
+	const spots = useMemo(
+		() =>
+			windowPanes(world).map((p) => ({
+				x: p.x + p.inX * 0.9,
+				z: p.z + p.inZ * 0.9,
+				rot: p.axis === 'h' ? 0 : Math.PI / 2,
+			})),
+		[world],
+	);
 	const material = useMemo(
 		() =>
 			new THREE.MeshBasicMaterial({

@@ -100,6 +100,7 @@ export const WORLD_INSTRUCTIONS = `You are the office manager of a cute, whimsic
 # Zones
 Pick zones from this catalogue. Include all required ones, plus exactly the number of optional ones you are asked for. Each kind at most once, and give each a fun in-world name (e.g. "The Bean Counter" for the coffee bar).
 ${zoneList}
+Keep it a believable workplace: pick at most two of lounge, games and garden (the game uses only the first two you list), and give the team somewhere to eat or get coffee and somewhere to meet before adding more fun. The game sizes and furnishes every room itself, so leisure corners stay small next to the open-space desks.
 
 # Landmarks
 Five functional places always exist. Give each a short in-world name:

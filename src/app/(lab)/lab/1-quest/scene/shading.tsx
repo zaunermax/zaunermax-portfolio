@@ -10,6 +10,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ASSETS } from '../world/catalog';
 import { hIndex, vIndex } from '../world/furnish';
 import { EDGE, type CompiledWorld } from '../world/types';
+import { indoors } from './office';
 
 /*
  * Grounding and depth. Two layers, so low-quality mode still reads well:
@@ -91,7 +92,7 @@ export function ContactShade({ world }: { world: CompiledWorld }) {
 		[world],
 	);
 	const walls = useMemo(() => {
-		// Each wall edge shades the floor on both sides (outer walls only inside).
+		// Each wall edge shades the floor on both sides, where there is floor.
 		const out: { x: number; z: number; rot: number; len: number; soft: number }[] = [];
 		const { width: W, height: H } = world;
 		for (let y = 0; y <= H; y++)
@@ -100,16 +101,16 @@ export function ContactShade({ world }: { world: CompiledWorld }) {
 				if (!WALLS.has(kind)) continue;
 				const soft = kind === EDGE.glass || kind === EDGE.glassdoor ? 0.5 : 1;
 				if (kind === EDGE.door || kind === EDGE.glassdoor || kind === EDGE.entrance) continue;
-				if (y < H) out.push({ x: x + 0.5, z: y, rot: 0, len: 1, soft });
-				if (y > 0) out.push({ x: x + 0.5, z: y, rot: Math.PI, len: 1, soft });
+				if (indoors(world, x, y)) out.push({ x: x + 0.5, z: y, rot: 0, len: 1, soft });
+				if (indoors(world, x, y - 1)) out.push({ x: x + 0.5, z: y, rot: Math.PI, len: 1, soft });
 			}
 		for (let y = 0; y < H; y++)
 			for (let x = 0; x <= W; x++) {
 				const kind = world.vEdge[vIndex(x, y)];
 				if (!WALLS.has(kind) || kind === EDGE.door || kind === EDGE.glassdoor) continue;
 				const soft = kind === EDGE.glass ? 0.5 : 1;
-				if (x < W) out.push({ x, z: y + 0.5, rot: Math.PI / 2, len: 1, soft });
-				if (x > 0) out.push({ x, z: y + 0.5, rot: -Math.PI / 2, len: 1, soft });
+				if (indoors(world, x, y)) out.push({ x, z: y + 0.5, rot: Math.PI / 2, len: 1, soft });
+				if (indoors(world, x - 1, y)) out.push({ x, z: y + 0.5, rot: -Math.PI / 2, len: 1, soft });
 			}
 		return out;
 	}, [world]);

@@ -10,7 +10,7 @@ import {
 	TABLE_TOP,
 	type AssetId,
 } from './catalog';
-import { fbm, lattice, pick, randInt, rngFor, shuffle, type Rng } from './random';
+import { fbm, lattice, pick, rngFor, shuffle, type Rng } from './random';
 import type { LandmarkId, ZoneKind } from './schema';
 import {
 	EDGE,
@@ -121,9 +121,7 @@ export function runAssets(
 	}
 }
 
-
 const NON_BLOCKING = new Set<AssetId>(['rug_round', 'rug_rect']);
-
 
 // ---------------------------------------------------------------------------------------------
 // Room context
@@ -230,6 +228,23 @@ export class RoomCtx {
 		return `${prefix}${this.rect.index}-${this.count++}`;
 	}
 
+	/** Whether a group's pieces would land on free floor (a quick check, no connectivity test). */
+	fits(group: Group) {
+		const seen = new Set<number>();
+		for (const p of group.pieces ?? []) {
+			const [fw, fd] = footprint(p.asset);
+			const [w, d] = p.rot % 2 ? [fd, fw] : [fw, fd];
+			for (let y = p.y; y < p.y + d; y++)
+				for (let x = p.x; x < p.x + w; x++) {
+					if (!this.isFree(x, y) && !(NON_BLOCKING.has(p.asset) && this.inRoom(x, y))) return false;
+					const i = cellIndex(x, y);
+					if (seen.has(i)) return false;
+					seen.add(i);
+				}
+		}
+		return true;
+	}
+
 	/** Places a group atomically; false (and no change) if it does not fit. */
 	place(group: Group): boolean {
 		const { blocked, reserved } = this.grid;
@@ -257,12 +272,15 @@ export class RoomCtx {
 		for (const spot of group.spots ?? []) {
 			if (spot.sit || !this.inRoom(spot.x, spot.y)) continue;
 			const i = cellIndex(spot.x, spot.y);
-			if (!blocked[i] && !cells.has(i) && !reserved[i] && !fresh.includes(i)) fresh.push(i);
+			if (!blocked[i] && !cells.has(i) && !reserved[i] && !fresh.includes(i))
+				fresh.push(i);
 		}
 		// Every seat keeps a free cell next to it, so whoever sits there can be walked up to.
 		for (const spot of group.spots ?? []) {
 			if (!spot.sit) continue;
-			const around = FACE.map((f) => ({ x: spot.x + f.x, y: spot.y + f.y })).filter((c) => this.inRoom(c.x, c.y));
+			const around = FACE.map((f) => ({ x: spot.x + f.x, y: spot.y + f.y })).filter((c) =>
+				this.inRoom(c.x, c.y),
+			);
 			const index = (c: Cell) => cellIndex(c.x, c.y);
 			if (around.some((c) => reserved[index(c)] || fresh.includes(index(c)))) continue;
 			const open = around.find((c) => !blocked[index(c)] && !cells.has(index(c)));
@@ -362,7 +380,10 @@ export class RoomCtx {
 	/** The run's cells from local left to local right. */
 	runCells(start: Cell, n: number, rot: Rot): Cell[] {
 		const r = RIGHT[rot];
-		return Array.from({ length: n }, (_, i) => ({ x: start.x + r.x * i, y: start.y + r.y * i }));
+		return Array.from({ length: n }, (_, i) => ({
+			x: start.x + r.x * i,
+			y: start.y + r.y * i,
+		}));
 	}
 
 	run(family: Family, start: Cell, n: number, rot: Rot, elev = 0): PieceDraft[] {
@@ -396,7 +417,9 @@ export class RoomCtx {
 				if (corners ? onX && onY : onX || onY) out.push({ x, y });
 			}
 		const salt = this.rect.index * 7919;
-		return out.sort((a, b) => lattice(this.seed + salt, a.x, a.y) - lattice(this.seed + salt, b.x, b.y));
+		return out.sort(
+			(a, b) => lattice(this.seed + salt, a.x, a.y) - lattice(this.seed + salt, b.x, b.y),
+		);
 	}
 
 	/** Puts up to `count` single-tile pieces against the room's boundary, facing in. */
@@ -412,28 +435,13 @@ export class RoomCtx {
 		return placed;
 	}
 
-	/** Puts single-tile pieces in free cells anywhere, keeping one tile of air around them. */
-	sprinkle(assets: readonly AssetId[], count: number) {
-		let placed = 0;
-		const cells: Cell[] = [];
-		for (let y = this.y0 + 1; y < this.y1; y++)
-			for (let x = this.x0 + 1; x < this.x1; x++) cells.push({ x, y });
-		for (const c of shuffle(this.rng, cells)) {
-			if (placed >= count) break;
-			let clear = true;
-			for (let dy = -1; dy <= 1 && clear; dy++)
-				for (let dx = -1; dx <= 1; dx++)
-					if (!this.isFree(c.x + dx, c.y + dy) || this.keepClear.has(cellIndex(c.x + dx, c.y + dy))) clear = false;
-			if (!clear) continue;
-			const asset = pick(this.rng, assets);
-			if (this.place({ pieces: [{ asset, x: c.x, y: c.y, rot: randInt(this.rng, 0, 3) as Rot }] }))
-				placed++;
-		}
-		return placed;
-	}
-
 	/** Desk-top or counter-top props on a tile, in the tile's local frame. */
-	topItems(cell: Cell, rot: Rot, items: { asset: AssetId; lx: number; lz: number; turn?: number }[], top = DESK_TOP) {
+	topItems(
+		cell: Cell,
+		rot: Rot,
+		items: { asset: AssetId; lx: number; lz: number; turn?: number }[],
+		top = DESK_TOP,
+	) {
 		return items.map((item) => {
 			const [ox, oz] = rotate(item.lx, item.lz, rot);
 			return {
@@ -614,9 +622,15 @@ function wallPiece(
 	ctx: RoomCtx,
 	asset: AssetId,
 	onPlaced: (centre: { x: number; y: number }, front: Cell[]) => void,
-	order: 'centre' | 'edge' = 'centre',
+	order: 'centre' | 'edge' | number = 'centre',
 ) {
-	const xs = order === 'centre' ? centred(ctx.x0, ctx.x1 - 1) : shuffle(ctx.rng, range(ctx.x0, ctx.x1 - 1));
+	// A number: as close to that column as possible.
+	const xs =
+		order === 'centre'
+			? centred(ctx.x0, ctx.x1 - 1)
+			: order === 'edge'
+				? shuffle(ctx.rng, range(ctx.x0, ctx.x1 - 1))
+				: range(ctx.x0, ctx.x1 - 1).sort((a, b) => Math.abs(a - order) - Math.abs(b - order) || a - b);
 	const ys = centred(ctx.y0, ctx.y1 - 1);
 	const options: { x: number; y: number; rot: Rot; front: Cell[] }[] = [
 		...xs.map((x) => ({
@@ -657,25 +671,86 @@ function wallPiece(
 }
 
 export type PodKind = 'pod' | 'row' | 'standing' | 'huddle';
+export const DESK_STYLES = ['pods', 'benches', 'rows', 'mixed'] as const;
+export type DeskStyle = (typeof DESK_STYLES)[number];
+/** One band of the open space: `cols` equal desk groups of `n` desks side by side. */
+export type DeskBand = {
+	kind: 'pod' | 'row';
+	n: number;
+	cols: number;
+	y: number;
+	x: number;
+	swap: PodKind | null;
+};
+
+/** The widest group size (and how many fit) for a band `width` tiles wide, one-tile aisles between. */
+function columns(width: number, sizes: number[]) {
+	let best = { n: 0, cols: 0 };
+	for (const n of sizes) {
+		const cols = Math.floor((width + 1) / (n + 1));
+		if (cols < 1) continue;
+		if (cols * n > best.cols * best.n || (cols * n === best.cols * best.n && n > best.n))
+			best = { n, cols };
+	}
+	return best;
+}
 
 /**
- * The open space's desk groups in placement order: pods first and in between, the rest a
- * seeded mix, so two offices never get the same grid of identical pods.
+ * The open space as an office manager would plan it: bands of identical desk groups on one
+ * grid, so desks line up in tidy columns with straight aisles between them and a walkway round
+ * the edge. A seed picks the style (back-to-back pods, long benches, rows facing the windows
+ * the camera, or pods in front with rows behind) and now and then swaps one slot
+ * for a huddle table or a band for standing desks; the grid itself never wobbles.
+ * The band area is the rectangle (x, y, width, height) below the front strip with Max's desk.
  */
-export function podPlan(seed: number, room: number, len: number): { kind: PodKind; n: number }[] {
-	const rng = rngFor(seed, 'pods', room);
-	const pod = () => ({ kind: 'pod' as PodKind, n: rng() < 0.35 ? Math.max(2, len - 1) : len });
-	const mix = shuffle(rng, [
-		{ kind: 'row' as PodKind, n: len },
-		{ kind: 'row' as PodKind, n: Math.max(2, len - 1) },
-		{ kind: 'standing' as PodKind, n: 2 },
-		{ kind: 'huddle' as PodKind, n: 2 },
-	]).slice(0, 2 + Math.floor(rng() * 2));
-	const plan = [pod()];
-	for (const m of mix) plan.push(m, pod());
-	// Pods fill whatever floor is left.
-	while (plan.length < 9) plan.push(pod());
-	return plan;
+export function deskLayout(
+	seed: number,
+	room: number,
+	x: number,
+	y: number,
+	width: number,
+	height: number,
+	only?: DeskStyle,
+): DeskBand[] {
+	const rng = rngFor(seed, 'desk-layout', room);
+	const picked = pick(rng, ['pods', 'pods', 'benches', 'rows', 'mixed'] as const);
+	const style = only ?? picked;
+	const podSize = columns(
+		width,
+		style === 'benches' ? [Math.min(7, width), Math.floor((width - 1) / 2)] : [4, 3, 2],
+	);
+	const rowSize = columns(width, style === 'benches' ? [Math.min(7, width)] : [4, 3, 2]);
+	const bands: Omit<DeskBand, 'y' | 'x'>[] = [];
+	let used = 0;
+	const add = (kind: 'pod' | 'row') => {
+		const tall = kind === 'pod' ? 4 : 2;
+		const size = kind === 'pod' ? podSize : rowSize;
+		if (!size.cols || used + (bands.length ? 1 : 0) + tall > height) return false;
+		used += (bands.length ? 1 : 0) + tall;
+		bands.push({ kind, ...size, swap: null });
+		return true;
+	};
+	const first = style === 'rows' ? 'row' : 'pod';
+	while (add(style === 'mixed' && bands.length >= 1 ? 'row' : first));
+	// A short room still gets its rows.
+	while (add('row'));
+	// At most one huddle table per office, never in place of a bench, and standing desks in a row.
+	let huddles = 0;
+	for (const band of bands) {
+		const roll = rng();
+		if (band.kind === 'pod' && style !== 'benches' && band.cols >= 3 && !huddles && roll < 0.35) {
+			band.swap = 'huddle';
+			huddles++;
+		} else if (band.kind === 'row' && roll < 0.3) band.swap = 'standing';
+	}
+	// Centred in the room, the spare rows split above and below.
+	let top = y + Math.floor((height - used) / 2);
+	return bands.map((band) => {
+		const span = band.cols * band.n + band.cols - 1;
+		const out = { ...band, y: top, x: x + Math.floor((width - span) / 2) };
+		top += (band.kind === 'pod' ? 4 : 2) + 1;
+		return out;
+	});
 }
 
 /**
@@ -747,10 +822,16 @@ function deskGroup(ctx: RoomCtx, kind: PodKind, px: number, py: number, n: numbe
 }
 
 const desks: Placer = (ctx) => {
-	// Max's desk on the north wall if possible, his chair in front, the visitor's spot behind it.
+	// Max's desk at the front by the north wall, a little off-centre, his chair in front and the
+	// visitor's spot behind it. The team's desks fill the room below in a tidy grid.
+	const side =
+		rngFor(ctx.seed, 'max-side', ctx.rect.index)() < 0.5 ? ctx.x0 + 1 : ctx.x1 - 2;
+	const xs = range(ctx.x0, ctx.x1 - 1).sort(
+		(a, b) => Math.abs(a - side) - Math.abs(b - side) || a - b,
+	);
 	const maxRows = range(ctx.y0, Math.max(ctx.y0, ctx.y1 - 3));
-	first(
-		maxRows.flatMap((y) => centred(ctx.x0, ctx.x1 - 1).map((x) => ({ x, y }))),
+	const maxAt = first(
+		maxRows.flatMap((y) => xs.map((x) => ({ x, y }))),
 		({ x, y }) => {
 			const ok = ctx.place({
 				pieces: [
@@ -762,7 +843,9 @@ const desks: Placer = (ctx) => {
 					{ x, y: y + 2 },
 					{ x: x + 1, y: y + 2 },
 				],
-				decor: ctx.topItems({ x: x + 1, y }, 0, [{ asset: 'mug_boss', lx: 0.3, lz: 0.2 }]),
+				decor: ctx.topItems({ x: x + 1, y }, 0, [
+					{ asset: 'mug_boss', lx: 0.3, lz: 0.2 },
+				]),
 			});
 			if (!ok) return false;
 			ctx.landmark('max', x + 1, y + 0.5, { x, y: y + 2 }, 1.5);
@@ -782,25 +865,59 @@ const desks: Placer = (ctx) => {
 	wallPiece(
 		ctx,
 		'kanban_board',
-		(c, front) => ctx.landmark('questboard', c.x, c.y, front[0], 2.1),
-		'edge',
+		(c, front) => {
+			ctx.landmark('questboard', c.x, c.y, front[0], 2.1);
+			// Floor kept clear in front of the board for the daily stand-up.
+			const dx = front[0].x + 0.5 - c.x;
+			const dy = front[0].y + 0.5 - c.y;
+			const out = Math.abs(dx) > Math.abs(dy) ? { x: Math.sign(dx), y: 0 } : { x: 0, y: Math.sign(dy) };
+			const huddle = [...front.map((f) => ({ x: f.x + out.x, y: f.y + out.y })), { x: front[0].x + out.x * 2, y: front[0].y + out.y * 2 }];
+			ctx.reserve(huddle.filter((h) => ctx.isFree(h.x, h.y)));
+		},
+		// Beside Max's desk, towards the middle of the room: the stand-up happens by the lead's desk.
+		maxAt ? (maxAt.x < ctx.cx ? maxAt.x + 2 : maxAt.x - 2) : 'edge',
 	);
 
-	// Desk groups, an aisle all around each: mostly back-to-back pods, with a seeded mix of
-	// shorter pods, single rows facing the camera, standing desks and a huddle table.
-	const len = ctx.w >= 12 ? 4 : ctx.w >= 8 ? 3 : 2;
-	const plan = podPlan(ctx.seed, ctx.rect.index, len);
+	// The desk grid: a walkway along every wall and in front of Max's desk, starting right under
+	// the front strip only when that fits more desks. A group in the slot under his desk or the
+	// board shortens to keep clear of them.
+	const front = maxAt && maxAt.y === ctx.y0;
+	/** Each slot's group, longest first, then shorter ones flush with either side of the slot. */
+	const slots = (bands: DeskBand[]) =>
+		bands.flatMap((band) =>
+			range(0, band.cols - 1).map((c) => {
+				const px = band.x + c * (band.n + 1);
+				const kind: PodKind =
+					band.swap === 'huddle' && c === band.cols - 1 ? 'huddle' : band.swap === 'standing' ? 'standing' : band.kind;
+				const py = band.y - (band.kind === 'row' ? 1 : 0);
+				const tries =
+					kind === 'huddle'
+						? [{ x: px + Math.floor((band.n - 2) / 2), n: 2 }]
+						: range(2, band.n)
+								.reverse()
+								.flatMap((n) => (n === band.n ? [{ x: px, n }] : [{ x: px, n }, { x: px + band.n - n, n }]));
+				return { kind, py, tries };
+			}),
+		);
+	/** Desks that would really fit around Max, the board and the doorways. */
+	const fitted = (bands: DeskBand[]) =>
+		slots(bands).reduce((sum, slot) => {
+			const t = slot.tries.find((t) => ctx.fits(deskGroup(ctx, slot.kind, t.x, slot.py, t.n)));
+			return sum + (t && slot.kind !== 'huddle' ? t.n * (slot.kind === 'pod' ? 2 : 1) : 0);
+		}, 0);
+	// The seed's own style and grid start, unless another fits clearly more desks: a grid that
+	// mostly collides with the doorways becomes a different, fuller one.
+	const tops = front ? [ctx.y0 + 3, ctx.y0 + 2] : [ctx.y0 + 1];
+	const plans = [undefined, ...DESK_STYLES].flatMap((style) =>
+		tops.map((top) => deskLayout(ctx.seed, ctx.rect.index, ctx.x0 + 1, top, ctx.w - 2, ctx.y1 - top, style)),
+	);
+	const scored = plans.map((bands, i) => ({ bands, desks: fitted(bands), own: i < tops.length }));
+	const own = scored.filter((p) => p.own).reduce((a, b) => (b.desks > a.desks ? b : a));
+	const best = scored.reduce((a, b) => (b.desks > a.desks ? b : a));
+	const bands = best.desks > own.desks * 1.25 ? best.bands : own.bands;
 	let pods = 0;
-	for (let py = ctx.y0 + 1; py <= ctx.y1 - 4 && pods < plan.length; py++)
-		for (let px = ctx.x0 + 1; px <= ctx.x1 - 2 && pods < plan.length; px++) {
-			const { kind, n: want } = plan[pods];
-			const n = Math.min(want, ctx.x1 - px);
-			if (n < (kind === 'huddle' ? 2 : Math.min(2, want))) continue;
-			if (ctx.place(deskGroup(ctx, kind, px, py, n))) {
-				pods++;
-				px += n;
-			}
-		}
+	for (const slot of slots(bands))
+		if (slot.tries.some((t) => ctx.place(deskGroup(ctx, slot.kind, t.x, slot.py, t.n)))) pods++;
 
 	// Small rooms: single rows facing the camera.
 	if (pods === 0)
@@ -810,23 +927,55 @@ const desks: Placer = (ctx) => {
 			const row = ctx.run('desk', { x: ctx.x0 + 1, y }, n, 0);
 			const cells = ctx.runCells({ x: ctx.x0 + 1, y }, n, 0);
 			ctx.place({
-				pieces: [...row, ...cells.map((c) => ({ asset: 'office_chair' as AssetId, x: c.x, y: y + 1, rot: 2 as Rot }))],
+				pieces: [
+					...row,
+					...cells.map((c) => ({
+						asset: 'office_chair' as AssetId,
+						x: c.x,
+						y: y + 1,
+						rot: 2 as Rot,
+					})),
+				],
 				reserve: cells.map((c) => ({ x: c.x, y: y + 2 })),
-				spots: cells.map((c) => ({ kind: 'desk' as SpotKind, x: c.x, y: y + 1, rot: 2 as Rot, sit: true, elev: 7 / 16 })),
+				spots: cells.map((c) => ({
+					kind: 'desk' as SpotKind,
+					x: c.x,
+					y: y + 1,
+					rot: 2 as Rot,
+					sit: true,
+					elev: 7 / 16,
+				})),
 				decor: runClutter(ctx, cells, 0),
 			});
 		}
 
-	ctx.scatter(FLOOR_PLANTS, 3, true);
+	ctx.scatter(FLOOR_PLANTS, 2, true);
 	// The open space always gets its printer (and its jams), then a few of the usual things.
 	ctx.scatter(['printer'], 1);
-	ctx.scatter(['whiteboard', 'filing_cabinet', 'water_cooler', 'trash_bin', 'plant_monstera', 'recycle_bins', 'coat_rack'], 4);
-	if (ctx.w * ctx.h >= 60) phoneBooths(ctx, 1);
+	ctx.scatter(
+		[
+			'whiteboard',
+			'filing_cabinet',
+			'water_cooler',
+			'trash_bin',
+			'recycle_bins',
+			'coat_rack',
+		],
+		3,
+	);
+	if (ctx.w * ctx.h >= 120) phoneBooths(ctx, 1);
 };
 
 const meetup: Placer = (ctx) => {
-	const sw = Math.max(2, Math.min(5, ctx.w - 4));
-	const stage = first(centred(ctx.x0 + 1, ctx.x1 - sw).flatMap((x) => [{ x, y: ctx.y0 }, { x, y: ctx.y0 + 1 }]), (s) => {
+	// The widest stage that fits between the doorways, centred on the north wall: a narrower
+	// stage beats a podium on its own.
+	const widest = Math.max(2, Math.min(5, ctx.w - 4));
+	const stage = first(
+		range(2, widest)
+			.reverse()
+			.flatMap((sw) => centred(ctx.x0 + 1, ctx.x1 - sw).flatMap((x) => [{ x, y: ctx.y0, sw }, { x, y: ctx.y0 + 1, sw }])),
+		(s) => {
+		const sw = s.sw;
 		const mid = s.x + Math.floor(sw / 2);
 		const blocks: PieceDraft[] = [];
 		for (let dy = 0; dy < 2; dy++) blocks.push(...ctx.run('stage', { x: s.x, y: s.y + dy }, sw, 0));
@@ -842,7 +991,9 @@ const meetup: Placer = (ctx) => {
 		});
 		if (ok) ctx.landmark('stage', mid + 0.5, s.y + 1, { x: mid, y: s.y + 2 }, 2.8);
 		return ok;
-	});
+		},
+	);
+	const sw = stage?.sw ?? widest;
 
 	// A small block of audience chairs; an event fills more of the room (see seatAudience), so
 	// filler furniture stays out of the area its chairs will need.
@@ -875,9 +1026,12 @@ export function seatAudience(ctx: RoomCtx, total: number) {
 	);
 	const aisle = stage ? Math.floor(stage.x) : ctx.cx;
 	const top = stage ? Math.floor(stage.y) + 2 : ctx.y0 + 2;
-	let seats = ctx.out.spots.filter((s) => s.kind === 'audience' && s.room === room).length;
-	// A walkway between rows keeps the crowd readable from above and everyone reachable.
-	for (let y = top; y <= ctx.y1 - 1 && seats < total; y += 2) {
+	let seats = ctx.out.spots.filter(
+		(s) => s.kind === 'audience' && s.room === room,
+	).length;
+	// Rows in pairs with a walkway after each pair keep the crowd readable from above and
+	// everyone reachable from the side aisles.
+	for (let y = top; y <= ctx.y1 - 1 && seats < total; y += (y - top) % 3 === 0 ? 1 : 2) {
 		const xs = range(ctx.x0 + 1, ctx.x1 - 1)
 			.filter((x) => Math.abs(x - aisle) % 3 !== 0)
 			.sort((a, b) => Math.abs(a - aisle) - Math.abs(b - aisle) || a - b);
@@ -889,7 +1043,12 @@ export function seatAudience(ctx: RoomCtx, total: number) {
 				ctx.place({
 					pieces: [{ asset: 'folding_chair', x, y, rot: 2 }],
 					spots: [{ kind: 'audience', x, y, rot: 2, sit: true, elev: 7 / 16 }],
-					reserve: ctx.inRoom(gap, y) ? [{ x: aisle, y }, { x: gap, y }] : [{ x: aisle, y }],
+					reserve: ctx.inRoom(gap, y)
+						? [
+								{ x: aisle, y },
+								{ x: gap, y },
+							]
+						: [{ x: aisle, y }],
 				})
 			)
 				seats++;
@@ -902,28 +1061,40 @@ const library: Placer = (ctx) => {
 	// Shelves along the north wall, one long unit broken only by doorways.
 	let shelves: Cell[] = [];
 	for (const x of range(ctx.x0, ctx.x1))
-		if (ctx.place({ pieces: [{ asset: x % 2 ? 'bookshelf_b' : 'bookshelf', x, y: ctx.y0, rot: 0 }], reserve: ctx.h > 2 ? [{ x, y: ctx.y0 + 1 }] : [] }))
+		if (
+			ctx.place({
+				pieces: [{ asset: x % 2 ? 'bookshelf_b' : 'bookshelf', x, y: ctx.y0, rot: 0 }],
+				reserve: ctx.h > 2 ? [{ x, y: ctx.y0 + 1 }] : [],
+			})
+		)
 			shelves.push({ x, y: ctx.y0 });
-	if (shelves.length < 3)
-		for (const y of range(ctx.y0 + 1, ctx.y1 - 1))
-			if (ctx.place({ pieces: [{ asset: y % 2 ? 'bookshelf_b' : 'bookshelf', x: ctx.x0, y, rot: 1 }], reserve: [{ x: ctx.x0 + 1, y }] }))
-				shelves.push({ x: ctx.x0, y });
-	shelves = shelves.sort((a, b) => Math.abs(a.x - ctx.cx) - Math.abs(b.x - ctx.cx) || a.x - b.x);
+	shelves = shelves.sort(
+		(a, b) => Math.abs(a.x - ctx.cx) - Math.abs(b.x - ctx.cx) || a.x - b.x,
+	);
 	const main = shelves[0];
 	if (main) {
-		const front = main.y === ctx.y0 ? { x: main.x, y: main.y + 1 } : { x: main.x + 1, y: main.y };
+		const front =
+			main.y === ctx.y0 ? { x: main.x, y: main.y + 1 } : { x: main.x + 1, y: main.y };
 		ctx.landmark('library', main.x + 0.5, main.y + 0.5, front, 2.4);
 		ctx.place({ spots: [{ kind: 'shelf', ...front, rot: main.y === ctx.y0 ? 2 : 3 }] });
 	}
 	for (const s of shelves.slice(1))
 		if (ctx.rng() < 0.35)
 			ctx.decorate([
-				{ asset: 'plant_pothos_shelf', x: s.x + 0.5, z: s.y + 0.5, y: ASSETS.bookshelf.h, heading: 0 },
+				{
+					asset: 'plant_pothos_shelf',
+					x: s.x + 0.5,
+					z: s.y + 0.5,
+					y: ASSETS.bookshelf.h,
+					heading: 0,
+				},
 			]);
 
 	// A reading corner: two armchairs around a chess table on a round rug.
-	first(
-		centred(ctx.y0 + 2, ctx.y1 - 1).flatMap((y) => centred(ctx.x0 + 1, ctx.x1 - 2).map((x) => ({ x, y }))),
+	const corner = first(
+		centred(ctx.y0 + 2, ctx.y1 - 1).flatMap((y) =>
+			centred(ctx.x0 + 1, ctx.x1 - 2).map((x) => ({ x, y })),
+		),
 		({ x, y }) =>
 			ctx.place({
 				pieces: [
@@ -939,7 +1110,33 @@ const library: Placer = (ctx) => {
 				],
 			}),
 	);
-	ctx.scatter(['floor_lamp', 'plant_ficus', 'armchair'], 3, true);
+	if (!corner)
+		// A narrow room turns the reading corner north-south.
+		first(
+			centred(ctx.y0 + 3, ctx.y1 - 1).flatMap((y) => centred(ctx.x0 + 1, ctx.x1 - 1).map((x) => ({ x, y }))),
+			({ x, y }) =>
+				ctx.place({
+					pieces: [
+						{ asset: 'armchair', x, y: y - 1, rot: 0 },
+						{ asset: 'chess_table', x, y, rot: 0 },
+						{ asset: 'armchair', x, y: y + 1, rot: 2 },
+					],
+					reserve: [{ x: x + 1, y }],
+					spots: [
+						{ kind: 'reading', x, y: y - 1, rot: 0, sit: true, elev: 6 / 16 },
+						{ kind: 'reading', x, y: y + 1, rot: 2, sit: true, elev: 6 / 16 },
+					],
+				}),
+		);
+	// Then down the west wall too, around the reading corner, when the north wall is short or the
+	// room runs north-south.
+	if (shelves.length < 3 || ctx.h >= ctx.w + 2)
+		for (const y of range(ctx.y0 + 1, ctx.y1 - 1))
+			ctx.place({
+				pieces: [{ asset: y % 2 ? 'bookshelf_b' : 'bookshelf', x: ctx.x0, y, rot: 1 }],
+				reserve: [{ x: ctx.x0 + 1, y }],
+			});
+	ctx.scatter(['floor_lamp', 'plant_ficus', 'plant_snake'], 3, true);
 	ctx.scatter(['bookshelf', 'plant_snake', 'filing_cabinet'], 2);
 };
 
@@ -1108,64 +1305,171 @@ const kitchen: Placer = (ctx) => {
 			decor: ctx.topItems(cells[0], 0, [{ asset: 'espresso_machine', lx: 0, lz: -0.15 }, { asset: 'mug', lx: 0.32, lz: 0.2 }], COUNTER_TOP),
 		});
 	});
+	// Every kitchen has its counter: where doorways crowd the north wall, a shorter run down
+	// a side wall instead (its cells run south to north on the west wall, north to south on the east).
+	if (!ctx.out.furniture.some((f) => f.room === ctx.rect.index && f.asset.startsWith('counter')))
+		first(
+			range(2, Math.min(4, ctx.h - 2))
+				.reverse()
+				.flatMap((len) =>
+					centred(ctx.y0 + 1, ctx.y1 - len).flatMap((y) => [
+						{ x: ctx.x0, y: y + len - 1, rot: 1 as Rot, len, inX: ctx.x0 + 1, top: y },
+						{ x: ctx.x1, y, rot: 3 as Rot, len, inX: ctx.x1 - 1, top: y },
+					]),
+				),
+			(o) =>
+				ctx.place({
+					pieces: ctx.run('counter', { x: o.x, y: o.y }, o.len, o.rot),
+					reserve: range(o.top, o.top + o.len - 1).map((y) => ({ x: o.inX, y })),
+					spots: [{ kind: 'counter', x: o.inX, y: o.top, rot: turn(o.rot, 2) }],
+					decor: ctx.topItems({ x: o.x, y: o.top }, o.rot, [{ asset: 'mug', lx: 0.2, lz: 0.1 }], COUNTER_TOP),
+				}),
+		);
 	// The canteen table, or café tables where it does not fit.
 	if (!diningTable(ctx, Math.min(5, ctx.w - 4))) cafeTables(ctx, ctx.w * ctx.h > 40 ? 2 : 1);
 	ctx.scatter(['vending_machine', 'water_cooler', 'recycle_bins', 'trash_bin', 'plant_snake'], 4);
 };
 
+/**
+ * The lounge's L-shaped sectional, backed into the room's north-east or north-west corner round
+ * a coffee table on a rug. The corner piece's backrests are on its local north and west: turned
+ * to face west they close the L's north and east sides, unturned its north and west.
+ */
+function sectional(ctx: RoomCtx, east: boolean): Group | null {
+	const y = ctx.y0;
+	const c = east ? ctx.x1 : ctx.x0;
+	const d = east ? -1 : 1;
+	if (ctx.w < 5 || ctx.h < 4) return null;
+	return {
+		pieces: [
+			{ asset: 'rug_rect', x: east ? c - 3 : c + 1, y: y + 1, rot: 0 },
+			{ asset: 'sofa_corner', x: c, y, rot: east ? 3 : 0 },
+			{ asset: 'sofa_mid', x: c + d, y, rot: 0 },
+			{ asset: 'sofa_mid', x: c + 2 * d, y, rot: 0 },
+			{ asset: east ? 'sofa_end_l' : 'sofa_end_r', x: c + 3 * d, y, rot: 0 },
+			{ asset: 'sofa_mid', x: c, y: y + 1, rot: east ? 3 : 1 },
+			{ asset: east ? 'sofa_end_r' : 'sofa_end_l', x: c, y: y + 2, rot: east ? 3 : 1 },
+			{ asset: 'coffee_table', x: east ? c - 2 : c + 1, y: y + 2, rot: 0 },
+		],
+		reserve: [
+			{ x: c + d, y: y + 1 },
+			{ x: c + 2 * d, y: y + 1 },
+			{ x: c + 3 * d, y: y + 1 },
+			{ x: c + 3 * d, y: y + 2 },
+			{ x: c + 2 * d, y: y + 3 },
+		],
+		spots: [
+			{ kind: 'sofa', x: c + 3 * d, y, rot: 0, sit: true, elev: 6 / 16 },
+			{ kind: 'sofa', x: c + d, y, rot: 0, sit: true, elev: 6 / 16 },
+			{ kind: 'sofa', x: c, y: y + 2, rot: east ? 3 : 1, sit: true, elev: 6 / 16 },
+		],
+		decor: ctx.topItems(
+			{ x: east ? c - 2 : c + 1, y: y + 2 },
+			0,
+			[
+				{ asset: 'mug', lx: 0.1, lz: 0.05 },
+				{ asset: 'headphones', lx: 0.8, lz: -0.05 },
+			],
+			COFFEE_TABLE_TOP,
+		),
+	};
+}
+
+/** A sofa with its back to the north wall, a coffee table in front and an armchair beside it. */
+function wallSofa(ctx: RoomCtx, x: number): Group {
+	const y = ctx.y0;
+	return {
+		pieces: [
+			...ctx.run('sofa', { x, y }, 3, 0),
+			{ asset: 'coffee_table', x, y: y + 2, rot: 0 },
+			{ asset: 'armchair', x: x + 2, y: y + 2, rot: 3 },
+		],
+		reserve: [0, 1, 2].map((i) => ({ x: x + i, y: y + 1 })),
+		spots: [
+			{ kind: 'sofa', x, y, rot: 0, sit: true, elev: 6 / 16 },
+			{ kind: 'sofa', x: x + 2, y, rot: 0, sit: true, elev: 6 / 16 },
+			{ kind: 'sofa', x: x + 2, y: y + 2, rot: 3, sit: true, elev: 6 / 16 },
+		],
+		decor: ctx.topItems(
+			{ x, y: y + 2 },
+			0,
+			[{ asset: 'mug', lx: 0.3, lz: 0.1 }],
+			COFFEE_TABLE_TOP,
+		),
+	};
+}
+
+/**
+ * A sofa with its back to the west or east wall, the coffee table turned in front of it and an
+ * armchair at the table's south end, facing north.
+ */
+function sideSofa(ctx: RoomCtx, east: boolean, y: number): Group {
+	const x = east ? ctx.x1 : ctx.x0;
+	const d = east ? -1 : 1;
+	const rot: Rot = east ? 3 : 1;
+	return {
+		pieces: [
+			...ctx.run('sofa', { x, y: east ? y : y + 2 }, 3, rot),
+			{ asset: 'coffee_table', x: x + 2 * d, y, rot },
+			{ asset: 'armchair', x: x + 2 * d, y: y + 2, rot: 2 },
+		],
+		reserve: [0, 1, 2].map((i) => ({ x: x + d, y: y + i })),
+		spots: [
+			{ kind: 'sofa', x, y, rot, sit: true, elev: 6 / 16 },
+			{ kind: 'sofa', x, y: y + 2, rot, sit: true, elev: 6 / 16 },
+			{ kind: 'sofa', x: x + 2 * d, y: y + 2, rot: 2, sit: true, elev: 6 / 16 },
+		],
+		decor: ctx.topItems(
+			{ x: x + 2 * d, y },
+			rot,
+			[{ asset: 'mug', lx: 0.3, lz: 0.1 }],
+			COFFEE_TABLE_TOP,
+		),
+	};
+}
+
 const lounge: Placer = (ctx) => {
-	// An L-shaped sectional around a coffee table on a rug.
-	first(
-		centred(ctx.y0, ctx.y1 - 3).flatMap((y) => centred(ctx.x0, ctx.x1 - 3).map((x) => ({ x, y }))),
-		({ x, y }) =>
-			ctx.place({
-				pieces: [
-					{ asset: 'rug_rect', x, y: y + 1, rot: 0 },
-					{ asset: 'sofa_end_l', x, y, rot: 0 },
-					{ asset: 'sofa_mid', x: x + 1, y, rot: 0 },
-					{ asset: 'sofa_mid', x: x + 2, y, rot: 0 },
-					// The corner's backrests are on its local north and west; turned to face west they
-					// close the L's north and east sides.
-					{ asset: 'sofa_corner', x: x + 3, y, rot: 3 },
-					{ asset: 'sofa_mid', x: x + 3, y: y + 1, rot: 3 },
-					{ asset: 'sofa_end_r', x: x + 3, y: y + 2, rot: 3 },
-					{ asset: 'coffee_table', x: x + 1, y: y + 2, rot: 0 },
-				],
-				reserve: [
-					{ x, y: y + 1 },
-					{ x: x + 1, y: y + 1 },
-					{ x: x + 2, y: y + 1 },
-					{ x, y: y + 2 },
-					{ x: x + 1, y: y + 3 },
-				],
-				spots: [
-					{ kind: 'sofa', x, y, rot: 0, sit: true, elev: 6 / 16 },
-					{ kind: 'sofa', x: x + 2, y, rot: 0, sit: true, elev: 6 / 16 },
-					{ kind: 'sofa', x: x + 3, y: y + 2, rot: 3, sit: true, elev: 6 / 16 },
-				],
-				decor: ctx.topItems({ x: x + 1, y: y + 2 }, 0, [
-					{ asset: 'mug', lx: 0.1, lz: 0.05 },
-					{ asset: 'headphones', lx: 0.8, lz: -0.05 },
-				], COFFEE_TABLE_TOP),
-			}),
+	// Sofas stand against walls, never adrift in the middle of the room: a corner sectional, or
+	// a sofa against the north wall, or failing that against a side wall.
+	const east = rngFor(ctx.seed, 'sectional', ctx.rect.index)() < 0.5;
+	const corner = [sectional(ctx, east), sectional(ctx, !east)].find(
+		(g) => g && ctx.place(g),
 	);
+	if (!corner && !first(centred(ctx.x0, ctx.x1 - 2), (x) => ctx.place(wallSofa(ctx, x))))
+		first(
+			[east, !east].flatMap((side) =>
+				centred(ctx.y0, ctx.y1 - 2).map((y) => ({ side, y })),
+			),
+			({ side, y }) => ctx.place(sideSofa(ctx, side, y)),
+		);
 	let bags = 0;
 	for (const c of shuffle(ctx.rng, ctx.edgeCells())) {
 		if (bags >= 2) break;
 		const rot = ctx.inward(c.x, c.y) ?? 0;
 		const asset: AssetId = bags % 2 ? 'beanbag_teal' : 'beanbag_coral';
-		if (ctx.place({ pieces: [{ asset, x: c.x, y: c.y, rot }], spots: [{ kind: 'beanbag', ...c, rot, sit: true, elev: 4 / 16 }] }))
+		if (
+			ctx.place({
+				pieces: [{ asset, x: c.x, y: c.y, rot }],
+				spots: [{ kind: 'beanbag', ...c, rot, sit: true, elev: 4 / 16 }],
+			})
+		)
 			bags++;
 	}
 	ctx.scatter(['floor_lamp', 'plant_monstera', 'plant_ficus', 'bookshelf'], 3, true);
-	ctx.scatter(['plant_hanging', 'armchair', 'dog_bed'], 2);
+	ctx.scatter(['plant_hanging', 'dog_bed'], 2);
 };
 
 const games: Placer = (ctx) => {
-	// Ping-pong runs along Z; players stand at the short ends.
+	// Ping-pong runs along Z; players stand at the short ends. It wants a clear tile all round
+	// to play in, and settles for the ends and the middle of each side in a tight room.
+	const area = ctx.w * ctx.h;
 	first(
-		centred(ctx.y0 + 1, ctx.y1 - 3).flatMap((y) => centred(ctx.x0 + 1, ctx.x1 - 2).map((x) => ({ x, y }))),
-		({ x, y }) =>
+		[true, false].flatMap((roomy) =>
+			centred(ctx.y0 + 1, ctx.y1 - 3).flatMap((y) =>
+				centred(ctx.x0 + 1, ctx.x1 - 2).map((x) => ({ x, y, roomy })),
+			),
+		),
+		({ x, y, roomy }) =>
 			ctx.place({
 				pieces: [{ asset: 'ping_pong_table', x, y, rot: 0 }],
 				reserve: [
@@ -1175,6 +1479,12 @@ const games: Placer = (ctx) => {
 					{ x: x + 1, y: y + 3 },
 					{ x: x - 1, y: y + 1 },
 					{ x: x + 2, y: y + 1 },
+					...(roomy
+						? [y, y + 2, y - 1, y + 3].flatMap((ry) => [
+								{ x: x - 1, y: ry },
+								{ x: x + 2, y: ry },
+							])
+						: []),
 				],
 				spots: [
 					{ kind: 'game', x, y: y - 1, rot: 0 },
@@ -1222,64 +1532,87 @@ const games: Placer = (ctx) => {
 		)
 			arcades++;
 	}
-	first(
-		centred(ctx.y0 + 1, ctx.y1 - 1).flatMap((y) => centred(ctx.x0 + 1, ctx.x1 - 2).map((x) => ({ x, y }))),
-		({ x, y }) =>
-			ctx.place({
-				pieces: [{ asset: 'foosball_table', x, y, rot: 0 }],
-				reserve: [
-					{ x, y: y - 1 },
-					{ x: x + 1, y: y + 1 },
-				],
-				spots: [
-					{ kind: 'game', x, y: y - 1, rot: 0 },
-					{ kind: 'game', x: x + 1, y: y + 1, rot: 2 },
-				],
-			}),
-	);
-	first(
-		centred(ctx.y0 + 1, ctx.y1 - 1).flatMap((y) => centred(ctx.x0 + 1, ctx.x1 - 1).map((x) => ({ x, y }))),
-		({ x, y }) =>
-			ctx.place({
-				pieces: [
-					{ asset: 'stool', x: x - 1, y, rot: 1 },
-					{ asset: 'chess_table', x, y, rot: 0 },
-					{ asset: 'stool', x: x + 1, y, rot: 3 },
-				],
-				reserve: [{ x, y: y + 1 }],
-				spots: [
-					{ kind: 'seat', x: x - 1, y, rot: 1, sit: true, elev: 7 / 16 },
-					{ kind: 'seat', x: x + 1, y, rot: 3, sit: true, elev: 7 / 16 },
-				],
-			}),
-	);
+	// A small game corner keeps to ping-pong, the console and the arcades.
+	if (area >= 48)
+		first(
+			centred(ctx.y0 + 1, ctx.y1 - 1).flatMap((y) =>
+				centred(ctx.x0 + 1, ctx.x1 - 2).map((x) => ({ x, y })),
+			),
+			({ x, y }) =>
+				ctx.place({
+					pieces: [{ asset: 'foosball_table', x, y, rot: 0 }],
+					reserve: [
+						{ x, y: y - 1 },
+						{ x: x + 1, y: y + 1 },
+					],
+					spots: [
+						{ kind: 'game', x, y: y - 1, rot: 0 },
+						{ kind: 'game', x: x + 1, y: y + 1, rot: 2 },
+					],
+				}),
+		);
+	if (area >= 60)
+		first(
+			centred(ctx.y0 + 1, ctx.y1 - 1).flatMap((y) =>
+				centred(ctx.x0 + 1, ctx.x1 - 1).map((x) => ({ x, y })),
+			),
+			({ x, y }) =>
+				ctx.place({
+					pieces: [
+						{ asset: 'stool', x: x - 1, y, rot: 1 },
+						{ asset: 'chess_table', x, y, rot: 0 },
+						{ asset: 'stool', x: x + 1, y, rot: 3 },
+					],
+					reserve: [{ x, y: y + 1 }],
+					spots: [
+						{ kind: 'seat', x: x - 1, y, rot: 1, sit: true, elev: 7 / 16 },
+						{ kind: 'seat', x: x + 1, y, rot: 3, sit: true, elev: 7 / 16 },
+					],
+				}),
+		);
 	ctx.scatter(['plant_snake', 'trash_bin', 'gaming_chair'], 2);
 };
 
-/** One meeting table of `n` tiles starting `start` tiles into the room along its long axis. */
-function meetingTable(ctx: RoomCtx, alongX: boolean, start: number, n: number, bare = true) {
+/**
+ * One meeting table of `n` tiles starting `start` tiles into the room along one axis, on the
+ * row (or column) `cross`.
+ */
+function meetingTable(
+	ctx: RoomCtx,
+	alongX: boolean,
+	start: number,
+	n: number,
+	cross: number,
+	bare = true,
+) {
 	const cells: Cell[] = [];
 	const pieces: PieceDraft[] = [];
 	const spots: SpotDraft[] = [];
 	if (alongX) {
-		const y = ctx.cy;
+		const y = cross;
 		pieces.push(...ctx.run('meeting', { x: ctx.x0 + start, y }, n, 0));
 		for (const c of ctx.runCells({ x: ctx.x0 + start, y }, n, 0)) {
 			cells.push(c);
-			pieces.push({ asset: 'office_chair', x: c.x, y: y - 1, rot: 0 }, { asset: 'office_chair', x: c.x, y: y + 1, rot: 2 });
+			pieces.push(
+				{ asset: 'office_chair', x: c.x, y: y - 1, rot: 0 },
+				{ asset: 'office_chair', x: c.x, y: y + 1, rot: 2 },
+			);
 			spots.push(
 				{ kind: 'meeting', x: c.x, y: y - 1, rot: 0, sit: true, elev: 7 / 16 },
 				{ kind: 'meeting', x: c.x, y: y + 1, rot: 2, sit: true, elev: 7 / 16 },
 			);
 		}
 	} else {
-		const x = ctx.cx;
+		const x = cross;
 		// Turned to run north-south: the rounded end at the north is local left.
 		pieces.push(...ctx.run('meeting', { x, y: ctx.y0 + start + n - 1 }, n, 1));
 		for (let i = 0; i < n; i++) {
 			const y = ctx.y0 + start + i;
 			cells.push({ x, y });
-			pieces.push({ asset: 'office_chair', x: x - 1, y, rot: 1 }, { asset: 'office_chair', x: x + 1, y, rot: 3 });
+			pieces.push(
+				{ asset: 'office_chair', x: x - 1, y, rot: 1 },
+				{ asset: 'office_chair', x: x + 1, y, rot: 3 },
+			);
 			spots.push(
 				{ kind: 'meeting', x: x - 1, y, rot: 1, sit: true, elev: 7 / 16 },
 				{ kind: 'meeting', x: x + 1, y, rot: 3, sit: true, elev: 7 / 16 },
@@ -1287,30 +1620,67 @@ function meetingTable(ctx: RoomCtx, alongX: boolean, start: number, n: number, b
 		}
 	}
 	const decor = cells.flatMap((c, i) =>
-		ctx.topItems(c, 0, [{ asset: i % 2 ? 'laptop' : 'paper_stack', lx: 0, lz: 0, turn: i * 1.3 }]),
+		ctx.topItems(c, 0, [
+			{ asset: i % 2 ? 'laptop' : 'paper_stack', lx: 0, lz: 0, turn: i * 1.3 },
+		]),
 	);
 	// Someone presenting stands at the head of the table, facing along it.
 	const head = alongX
-		? { x: ctx.x0 + start + n, y: ctx.cy, rot: 3 as Rot }
-		: { x: ctx.cx, y: ctx.y0 + start - 1, rot: 0 as Rot };
+		? { x: ctx.x0 + start + n, y: cross, rot: 3 as Rot }
+		: { x: cross, y: ctx.y0 + start - 1, rot: 0 as Rot };
 	if (
 		ctx.inRoom(head.x, head.y) &&
-		ctx.place({ pieces, spots: [...spots, { kind: 'stand', ...head }], reserve: [{ x: head.x, y: head.y }], decor })
+		ctx.place({
+			pieces,
+			spots: [...spots, { kind: 'stand', ...head }],
+			reserve: [{ x: head.x, y: head.y }],
+			decor,
+		})
 	)
 		return true;
 	if (ctx.place({ pieces, spots, decor })) return true;
 	// Too tight for chairs on both sides: just the table.
-	return bare && ctx.place({ pieces: pieces.filter((p) => p.asset !== 'office_chair'), decor });
+	return (
+		bare && ctx.place({ pieces: pieces.filter((p) => p.asset !== 'office_chair'), decor })
+	);
 }
 
 /**
  * The longest meeting table that still gets its chairs, starting between `from` and `to - n`
- * along the room; a bare table only as a last resort.
+ * along the room, on the middle row or column or next to it (doorways permitting), in either
+ * direction if need be; a bare table only as a last resort.
  */
-function meetingTableIn(ctx: RoomCtx, alongX: boolean, from: number, to: number, longest: number) {
-	for (let n = longest; n >= 2; n--)
-		for (const start of centred(from, to - n)) if (meetingTable(ctx, alongX, start, n, false)) return true;
-	return meetingTable(ctx, alongX, Math.max(from, Math.floor((from + to - longest) / 2)), longest);
+function meetingTableIn(
+	ctx: RoomCtx,
+	alongX: boolean,
+	from: number,
+	to: number,
+	longest: number,
+) {
+	const crosses = (along: boolean, all: boolean) => {
+		const list = along
+			? centred(ctx.y0 + 1, ctx.y1 - 1)
+			: centred(ctx.x0 + 1, ctx.x1 - 1);
+		return all ? list : list.slice(0, 3);
+	};
+	// The planned spot first; then, where doorways get in the way, anywhere in the room.
+	const passes = [
+		{ along: alongX, start: from, end: to, all: false },
+		{ along: alongX, start: 0, end: alongX ? ctx.w : ctx.h, all: true },
+		{ along: !alongX, start: 0, end: alongX ? ctx.h : ctx.w, all: true },
+	];
+	for (const pass of passes)
+		for (let n = Math.min(longest, pass.end - pass.start); n >= 2; n--)
+			for (const cross of crosses(pass.along, pass.all))
+				for (const s of centred(pass.start, pass.end - n))
+					if (meetingTable(ctx, pass.along, s, n, cross, false)) return true;
+	return meetingTable(
+		ctx,
+		alongX,
+		Math.max(from, Math.floor((from + to - longest) / 2)),
+		longest,
+		alongX ? ctx.cy : ctx.cx,
+	);
 }
 
 const meeting: Placer = (ctx) => {
@@ -1434,7 +1804,8 @@ const garden: Placer = (ctx) => {
 	for (let y = ctx.y0 + 2; y <= ctx.y1 - 2; y += 3) {
 		const n = Math.min(5, ctx.w - 4);
 		if (n < 2) break;
-		const x = ctx.x0 + 2 + randInt(ctx.rng, 0, Math.max(0, ctx.w - 4 - n));
+		// Planter beds in a column down the middle of the room, like a greenhouse.
+		const x = ctx.x0 + Math.floor((ctx.w - n) / 2);
 		ctx.place({
 			pieces: ctx.run('planter', { x, y }, n, 0),
 			spots: [{ kind: 'stand', x, y: y + 1, rot: 2 }],
@@ -1443,27 +1814,16 @@ const garden: Placer = (ctx) => {
 	wallPiece(ctx, 'fish_tank', () => {}, 'edge');
 	ctx.scatter(FLOOR_PLANTS, 4, true);
 	ctx.scatter(['plant_hanging', 'plant_cactus', 'plant_monstera', 'dog_bed', 'stool'], 5);
-	ctx.sprinkle(['plant_ficus', 'plant_fiddle'], 2);
 };
 
 /** How a company dresses its corridor. */
-export const HALL_STYLES = ['plain', 'rugs', 'planters', 'track'] as const;
+export const HALL_STYLES = ['plain', 'planters', 'track'] as const;
 export type HallStyle = (typeof HALL_STYLES)[number];
 
 const hall: Placer = (ctx, { hall: style = 'plain' }) => {
 	const vertical = ctx.h > ctx.w;
 	const length = vertical ? ctx.h : ctx.w;
 	const across = vertical ? ctx.w : ctx.h;
-	if (style === 'rugs' && across >= 2)
-		// Runner rugs down the middle, a few tiles apart.
-		for (let i = 1; i + 3 <= length - 1; i += 5)
-			ctx.place({
-				pieces: [
-					vertical
-						? { asset: 'rug_rect', x: ctx.x0 + Math.floor((ctx.w - 2) / 2), y: ctx.y0 + i, rot: 1 }
-						: { asset: 'rug_rect', x: ctx.x0 + i, y: ctx.y0 + Math.floor((ctx.h - 2) / 2), rot: 0 },
-				],
-			});
 	if (style === 'planters' && across >= 3)
 		// Short planter boxes along one long wall, with room to pass.
 		for (let i = 1; i + 3 <= length - 1; i += 5)
@@ -1571,8 +1931,17 @@ export const inGrid = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y <
 type Island = (ctx: RoomCtx, x: number, y: number) => Group;
 
 /** Little furniture groups that fill leftover floor, each with a tile of air around it. */
-const ISLANDS: Record<string, { w: number; h: number; make: Island }> = {
+/**
+ * `wall` islands only stand with their back row against the north wall (shelves, sofas) or, for
+ * plants, in a corner; `free` ones are furniture groups that look planned in the open (a reading
+ * table on a rug, beanbags round a lamp, a café table) and keep a tile of air all round.
+ */
+const ISLANDS: Record<
+	string,
+	{ w: number; h: number; anchor: 'wall' | 'corner' | 'free'; make: Island }
+> = {
 	reading: {
+		anchor: 'free',
 		w: 4,
 		h: 2,
 		make: (ctx, x, y) => ({
@@ -1581,7 +1950,7 @@ const ISLANDS: Record<string, { w: number; h: number; make: Island }> = {
 				{ asset: 'armchair', x, y: y + 1, rot: 1 },
 				{ asset: 'chess_table', x: x + 1, y: y + 1, rot: 0 },
 				{ asset: 'armchair', x: x + 2, y: y + 1, rot: 3 },
-				{ asset: pick(ctx.rng, FLOOR_PLANTS), x: x + 3, y: y + 1, rot: 0 },
+				{ asset: 'floor_lamp', x: x + 3, y: y + 1, rot: 0 },
 			],
 			spots: [
 				{ kind: 'seat', x, y: y + 1, rot: 1, sit: true, elev: 6 / 16 },
@@ -1590,6 +1959,7 @@ const ISLANDS: Record<string, { w: number; h: number; make: Island }> = {
 		}),
 	},
 	beanbags: {
+		anchor: 'free',
 		w: 2,
 		h: 2,
 		make: (_ctx, x, y) => ({
@@ -1606,18 +1976,30 @@ const ISLANDS: Record<string, { w: number; h: number; make: Island }> = {
 		}),
 	},
 	plants: {
+		anchor: 'corner',
 		w: 2,
 		h: 2,
 		make: (ctx, x, y) => ({
 			pieces: [
 				{ asset: 'plant_ficus', x, y, rot: 0 },
-				{ asset: pick(ctx.rng, ['plant_monstera', 'plant_fiddle'] as const), x: x + 1, y, rot: 1 },
-				{ asset: pick(ctx.rng, ['plant_snake', 'plant_cactus'] as const), x, y: y + 1, rot: 2 },
+				{
+					asset: pick(ctx.rng, ['plant_monstera', 'plant_fiddle'] as const),
+					x: x + 1,
+					y,
+					rot: 1,
+				},
+				{
+					asset: pick(ctx.rng, ['plant_snake', 'plant_cactus'] as const),
+					x,
+					y: y + 1,
+					rot: 2,
+				},
 			],
 			spots: [{ kind: 'stand', x: x + 1, y: y + 1, rot: 3 }],
 		}),
 	},
 	sofa: {
+		anchor: 'wall',
 		w: 3,
 		h: 2,
 		make: (ctx, x, y) => ({
@@ -1630,18 +2012,28 @@ const ISLANDS: Record<string, { w: number; h: number; make: Island }> = {
 				{ kind: 'sofa', x, y, rot: 0, sit: true, elev: 6 / 16 },
 				{ kind: 'sofa', x: x + 2, y, rot: 0, sit: true, elev: 6 / 16 },
 			],
-			decor: ctx.topItems({ x, y: y + 1 }, 0, [{ asset: 'mug', lx: 0.3, lz: 0.1 }], COFFEE_TABLE_TOP),
+			decor: ctx.topItems(
+				{ x, y: y + 1 },
+				0,
+				[{ asset: 'mug', lx: 0.3, lz: 0.1 }],
+				COFFEE_TABLE_TOP,
+			),
 		}),
 	},
 	shelves: {
+		anchor: 'wall',
 		w: 4,
 		h: 1,
 		make: (ctx, x, y) => ({
-			pieces: [...ctx.run('shelf', { x, y }, 3, 0), { asset: 'floor_lamp', x: x + 3, y, rot: 0 }],
+			pieces: [
+				...ctx.run('shelf', { x, y }, 3, 0),
+				{ asset: 'floor_lamp', x: x + 3, y, rot: 0 },
+			],
 			spots: [{ kind: 'shelf', x: x + 1, y: y + 1, rot: 2 }],
 		}),
 	},
 	cafe: {
+		anchor: 'free',
 		w: 2,
 		h: 3,
 		make: (ctx, x, y) => ({
@@ -1654,7 +2046,12 @@ const ISLANDS: Record<string, { w: number; h: number; make: Island }> = {
 				{ kind: 'table', x, y, rot: 0, sit: true, elev: 7 / 16 },
 				{ kind: 'table', x: x + 1, y: y + 2, rot: 2, sit: true, elev: 7 / 16 },
 			],
-			decor: ctx.topItems({ x, y: y + 1 }, 0, [{ asset: 'coffee_cup_togo', lx: 0.6, lz: 0 }], COFFEE_TABLE_TOP),
+			decor: ctx.topItems(
+				{ x, y: y + 1 },
+				0,
+				[{ asset: 'coffee_cup_togo', lx: 0.6, lz: 0 }],
+				COFFEE_TABLE_TOP,
+			),
 		}),
 	},
 };
@@ -1674,7 +2071,6 @@ const FILLERS: Partial<Record<ZoneKind, (keyof typeof ISLANDS)[]>> = {
 	meetup: ['beanbags', 'plants', 'sofa'],
 };
 
-/** Big rooms for small zones get little furniture islands so they never look empty. */
 /** Things that stand against a wall in each kind of room, for topping up sparse ones. */
 const WALL_FILL: Partial<Record<ZoneKind | 'hall', AssetId[]>> = {
 	library: ['bookshelf', 'bookshelf_b', 'plant_ficus', 'floor_lamp', 'armchair'],
@@ -1683,11 +2079,11 @@ const WALL_FILL: Partial<Record<ZoneKind | 'hall', AssetId[]>> = {
 	meeting: ['whiteboard', 'plant_fiddle', 'filing_cabinet', 'water_cooler'],
 	print: ['filing_cabinet', 'recycle_bins', 'plant_snake'],
 	kitchen: ['vending_machine', 'water_cooler', 'plant_snake', 'recycle_bins'],
-	coffee: ['plant_monstera', 'floor_lamp', 'bookshelf', 'armchair'],
-	lounge: ['floor_lamp', 'plant_ficus', 'bookshelf_b', 'armchair', 'beanbag_teal'],
+	coffee: ['plant_monstera', 'floor_lamp', 'bookshelf'],
+	lounge: ['floor_lamp', 'plant_ficus', 'bookshelf_b', 'beanbag_teal'],
 	games: ['arcade_cabinet', 'plant_snake', 'gaming_chair', 'beanbag_coral'],
 	server: ['server_rack', 'filing_cabinet', 'recycle_bins'],
-	reception: ['plant_monstera', 'umbrella_stand', 'coat_rack', 'armchair', 'plant_fiddle'],
+	reception: ['plant_monstera', 'umbrella_stand', 'coat_rack', 'plant_fiddle'],
 	meetup: ['floor_lamp', 'plant_monstera', 'coat_rack'],
 	desks: ['filing_cabinet', 'plant_monstera', 'whiteboard', 'water_cooler'],
 };
@@ -1700,31 +2096,58 @@ function blockedShare(ctx: RoomCtx) {
 }
 
 /**
- * Big rooms for small zones get little furniture islands, then pieces along the walls, until
- * about a fifth of the floor is furnished, so no room ever looks empty.
+ * Big rooms for small zones get a few furniture islands, then pieces along the walls, until
+ * about a fifth of the floor is furnished, so no room ever looks empty. The house rules hold:
+ * plants and shelves and sofas back onto walls or corners, and only proper furniture groups
+ * stand in the open, the first one in the middle of the room, the next ones around it.
  */
 export function fillSpace(ctx: RoomCtx) {
 	const kinds = FILLERS[ctx.kind as ZoneKind];
 	if (!kinds || ctx.w * ctx.h < 24) return;
-	const cells = shuffle(
-		ctx.rng,
-		range(ctx.y0 + 1, ctx.y1 - 1).flatMap((y) => range(ctx.x0, ctx.x1).map((x) => ({ x, y }))),
-	);
+	const midX = (ctx.x0 + ctx.x1) / 2;
+	const midY = (ctx.y0 + ctx.y1) / 2;
+	const free = range(ctx.y0 + 1, ctx.y1 - 1)
+		.flatMap((y) => range(ctx.x0 + 1, ctx.x1 - 1).map((x) => ({ x, y })))
+		.map((c) => ({ c, d: Math.hypot(c.x - midX, c.y - midY) + ctx.rng() * 1.5 }))
+		.sort((a, b) => a.d - b.d)
+		.map((e) => e.c);
+	const candidates = (island: (typeof ISLANDS)[string]) => {
+		if (island.anchor === 'free')
+			return free.map((c) => ({
+				x: Math.round(c.x - (island.w - 1) / 2),
+				y: Math.round(c.y - (island.h - 1) / 2),
+			}));
+		if (island.anchor === 'wall')
+			return shuffle(ctx.rng, range(ctx.x0, ctx.x1 - island.w + 1)).map((x) => ({
+				x,
+				y: ctx.y0,
+			}));
+		return shuffle(ctx.rng, [
+			{ x: ctx.x0, y: ctx.y0 },
+			{ x: ctx.x1 - island.w + 1, y: ctx.y0 },
+		]);
+	};
 	let placed = 0;
-	for (const { x, y } of cells) {
-		if (placed >= 7 || blockedShare(ctx) > 0.3) break;
-		const island = ISLANDS[kinds[placed % kinds.length]];
-		if (x + island.w - 1 > ctx.x1 || y + island.h > ctx.y1) continue;
-		// Keep a ring of free floor around the island (walls count as free: islands may hug them).
-		let clear = true;
-		for (let dy = -1; dy <= island.h && clear; dy++)
-			for (let dx = -1; dx <= island.w; dx++) {
-				if (!ctx.inRoom(x + dx, y + dy)) continue;
-				const i = cellIndex(x + dx, y + dy);
-				if (ctx.grid.blocked[i] || ctx.keepClear.has(i)) clear = false;
+	for (let k = 0; k < kinds.length * 2 && placed < 3 && blockedShare(ctx) < 0.24; k++) {
+		const island = ISLANDS[kinds[k % kinds.length]];
+		for (const { x, y } of candidates(island)) {
+			if (x < ctx.x0 || y < ctx.y0 || x + island.w - 1 > ctx.x1 || y + island.h > ctx.y1)
+				continue;
+			// Keep a ring of free floor around the island (walls count as free: islands may hug them).
+			let clear = true;
+			for (let dy = -1; dy <= island.h && clear; dy++)
+				for (let dx = -1; dx <= island.w; dx++) {
+					if (!ctx.inRoom(x + dx, y + dy)) continue;
+					const i = cellIndex(x + dx, y + dy);
+					if (ctx.grid.blocked[i] || ctx.keepClear.has(i)) clear = false;
+				}
+			if (clear && ctx.place(island.make(ctx, x, y))) {
+				placed++;
+				break;
 			}
-		if (clear && ctx.place(island.make(ctx, x, y))) placed++;
+		}
 	}
 	const wall = WALL_FILL[ctx.kind];
-	for (let round = 0; wall && round < 4 && blockedShare(ctx) < 0.2; round++) ctx.scatter(wall, 3);
+	for (let round = 0; wall && round < 4 && blockedShare(ctx) < 0.18; round++)
+		ctx.scatter(wall, 3);
 }

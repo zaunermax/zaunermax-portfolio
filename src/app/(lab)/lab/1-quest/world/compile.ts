@@ -120,28 +120,24 @@ function buildEdges(plan: Floorplan, rooms: Room[], roomAt: Int16Array) {
 	const windowRng = rngFor(plan.seed, 'windows');
 	const period = 3 + Math.floor(windowRng() * 2);
 	const offset = Math.floor(windowRng() * period);
+	const at = (x: number, y: number) => (x >= 0 && y >= 0 && x < W && y < H ? roomAt[cellIndex(x, y)] : -1);
+	/** Outside walls: windows at a steady rhythm, solid where privacy matters. */
 	const outer = (along: number, room: Room) =>
 		room.kind === 'server' || room.kind === 'phone' || (along + offset) % period === 0
 			? EDGE.wall
 			: EDGE.window;
-	for (let x = 0; x < W; x++) {
-		hEdge[hIndex(x, 0)] = outer(x, rooms[roomAt[cellIndex(x, 0)]]);
-		hEdge[hIndex(x, H)] = EDGE.wall;
-		for (let y = 1; y < H; y++) {
-			const a = roomAt[cellIndex(x, y - 1)];
-			const b = roomAt[cellIndex(x, y)];
-			if (a !== b) hEdge[hIndex(x, y)] = boundary(rooms[a], rooms[b]);
-		}
-	}
-	for (let y = 0; y < H; y++) {
-		vEdge[vIndex(0, y)] = outer(y, rooms[roomAt[cellIndex(0, y)]]);
-		vEdge[vIndex(W, y)] = outer(y + 1, rooms[roomAt[cellIndex(W - 1, y)]]);
-		for (let x = 1; x < W; x++) {
-			const a = roomAt[cellIndex(x - 1, y)];
-			const b = roomAt[cellIndex(x, y)];
-			if (a !== b) vEdge[vIndex(x, y)] = boundary(rooms[a], rooms[b]);
-		}
-	}
+	const edge = (a: number, b: number, along: number, axis: 'h' | 'v') => {
+		if (a === b) return EDGE.none;
+		if (a < 0 && b < 0) return EDGE.none;
+		// The street side stays solid: the camera looks in from there.
+		if (b < 0 && axis === 'h') return EDGE.wall;
+		if (a < 0 || b < 0) return outer(along, rooms[a < 0 ? b : a]);
+		return boundary(rooms[a], rooms[b]);
+	};
+	for (let y = 0; y <= H; y++)
+		for (let x = 0; x < W; x++) hEdge[hIndex(x, y)] = edge(at(x, y - 1), at(x, y), x, 'h');
+	for (let y = 0; y < H; y++)
+		for (let x = 0; x <= W; x++) vEdge[vIndex(x, y)] = edge(at(x - 1, y), at(x, y), y + (x === W ? 1 : 0), 'v');
 	for (const door of plan.doors) {
 		const array = door.axis === 'h' ? hEdge : vEdge;
 		const i = door.axis === 'h' ? hIndex(door.x, door.y) : vIndex(door.x, door.y);
@@ -154,8 +150,8 @@ function buildEdges(plan: Floorplan, rooms: Room[], roomAt: Int16Array) {
 						? EDGE.none
 						: EDGE.open;
 	}
-	const { x, w } = plan.entrance;
-	for (let i = x; i < x + w; i++) hEdge[hIndex(i, H)] = EDGE.entrance;
+	const { x, y, w } = plan.entrance;
+	for (let i = x; i < x + w; i++) hEdge[hIndex(i, y)] = EDGE.entrance;
 	return { hEdge, vEdge };
 }
 
@@ -893,7 +889,8 @@ function companions(crowd: Crowd, seed: number, furniture: CompiledWorld['furnit
 	roamer('office_hamster', crowd.roomOf(['lounge', 'games', 'reception', 'library']), { radius: 3 });
 	roamer('drone_cam', crowd.roomOf(event?.kind === 'meetup' ? ['meetup', 'desks'] : ['desks', 'meetup']), {
 		radius: 5,
-		elev: 0.7,
+		// Above the monitors and partitions, below the cut-down walls' tops: it never clips a desk.
+		elev: 1.6,
 		flies: true,
 	});
 	roamer('robo_courier', crowd.hall() ?? crowd.roomOf(['reception', 'desks']), { radius: 8 });
@@ -949,14 +946,17 @@ export function compileWorld(brief: Brief, seed: number, options: CompileOptions
 		};
 	});
 
-	const roomAt = new Int16Array(W * H);
+	const roomAt = new Int16Array(W * H).fill(-1);
 	for (const r of rooms)
 		for (let y = r.y; y < r.y + r.h; y++)
 			for (let x = r.x; x < r.x + r.w; x++) roomAt[cellIndex(x, y)] = r.index;
 	const { hEdge, vEdge } = buildEdges(plan, rooms, roomAt);
+	// Outdoors is never walkable.
+	const blocked = new Uint8Array(W * H);
+	for (let i = 0; i < blocked.length; i++) if (roomAt[i] < 0) blocked[i] = 1;
 	const grid: Grid = {
 		roomAt,
-		blocked: new Uint8Array(W * H),
+		blocked,
 		reserved: new Uint8Array(W * H),
 		hEdge,
 		vEdge,
@@ -1061,7 +1061,7 @@ export function compileWorld(brief: Brief, seed: number, options: CompileOptions
 			}
 		: null;
 
-	const root = landmark.max?.interact ?? { x: plan.entrance.x, y: H - 1 };
+	const root = landmark.max?.interact ?? { x: plan.entrance.x, y: plan.entrance.y - 1 };
 	const crowd = new Crowd(
 		{ blocked: grid.blocked, roomAt, hEdge, vEdge },
 		rooms,
@@ -1100,7 +1100,7 @@ export function compileWorld(brief: Brief, seed: number, options: CompileOptions
 			]
 				.map((d) => ({ x: landmark.max!.interact.x + d.x, y: landmark.max!.interact.y + d.y }))
 				.find((c) => inBounds(c.x, c.y) && reach![cellIndex(c.x, c.y)] === 1)) ??
-		landmark.max?.interact ?? { x: plan.entrance.x, y: H - 1 };
+		landmark.max?.interact ?? { x: plan.entrance.x, y: plan.entrance.y - 1 };
 
 	return {
 		version: WORLD_VERSION,
@@ -1117,6 +1117,7 @@ export function compileWorld(brief: Brief, seed: number, options: CompileOptions
 		},
 		rooms,
 		roomAt,
+		footprint: plan.footprint,
 		blocked: grid.blocked,
 		hEdge,
 		vEdge,

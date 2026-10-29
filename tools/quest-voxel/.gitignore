@@ -1,2 +1,6 @@
 __pycache__/
 out/
+panel/
+screens/
+review/*.log
+review/NOTES.md

@@ -20,8 +20,8 @@ import {
  */
 
 export const WORLD_VERSION = 2;
-export const WORLD_WIDTH = 40;
-export const WORLD_HEIGHT = 28;
+export const WORLD_WIDTH = 32;
+export const WORLD_HEIGHT = 22;
 
 export const timesOfDay = ['dawn', 'day', 'dusk', 'night'] as const;
 export const outsides = ['clear', 'cloudy', 'rain', 'snow'] as const;

@@ -208,8 +208,10 @@ export type CompiledWorld = {
 	partial: boolean;
 	meta: WorldMeta;
 	rooms: Room[];
-	/** Room index per cell (y * width + x). */
+	/** Room index per cell (y * width + x); -1 outside the building. */
 	roomAt: Int16Array;
+	/** The building's outline as rectangles that tile it; the rest of the grid is outdoors. */
+	footprint: { x: number; y: number; w: number; h: number }[];
 	/** Furniture blocks the cell. */
 	blocked: Uint8Array;
 	/** Horizontal edges: index y * width + x is the north edge of cell (x, y), y in 0..height. */
@@ -225,5 +227,6 @@ export type CompiledWorld = {
 	npcs: Actor[];
 	event: { kind: EventKind; title: string; room: number } | null;
 	spawn: Cell;
-	entrance: { x: number; w: number };
+	/** The front door: `w` cells of the horizontal edge at row `y`. */
+	entrance: { x: number; y: number; w: number };
 };
