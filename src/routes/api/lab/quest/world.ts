@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { methodNotAllowed } from '@/lib/method-not-allowed';
 
 export const Route = createFileRoute('/api/lab/quest/world')({
 	server: {
@@ -11,6 +12,7 @@ export const Route = createFileRoute('/api/lab/quest/world')({
 				const { POST } = await import('@/server/handlers/quest-world-proxy.server');
 				return POST(request);
 			},
+			ANY: methodNotAllowed('GET', 'HEAD', 'POST'),
 		},
 	},
 });

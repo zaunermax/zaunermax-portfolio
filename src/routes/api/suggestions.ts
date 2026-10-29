@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { methodNotAllowed } from '@/lib/method-not-allowed';
 
 export const Route = createFileRoute('/api/suggestions')({
 	server: {
@@ -11,6 +12,7 @@ export const Route = createFileRoute('/api/suggestions')({
 				const { POST } = await import('@/server/handlers/suggestions.server');
 				return POST(request);
 			},
+			ANY: methodNotAllowed('GET', 'HEAD', 'POST'),
 		},
 	},
 });
