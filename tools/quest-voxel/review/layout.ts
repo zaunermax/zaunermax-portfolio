@@ -5,16 +5,16 @@
  *   SEEDS=3,11,37 OUT=/tmp/me.txt pnpm vitest run --config tools/quest-voxel/review/vitest.layout.mts
  *
  * Writes OUT, by default tools/quest-voxel/review/out/layout.txt (and prints a summary). Each seed uses the same
- * offline brief that /lab/1-quest?seed=N shows, so the map matches the browser.
+ * offline brief that /?seed=N shows, so the map matches the browser.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { compileWorld } from '@/app/(lab)/lab/1-quest/world/compile';
-import { briefForSeed } from '@/app/(lab)/lab/1-quest/world/offline-briefs';
-import { checkWorld } from '@/app/(lab)/lab/1-quest/world/validate';
-import { cellIndex } from '@/app/(lab)/lab/1-quest/world/furnish';
-import { CLOSED_ZONES, planFloor } from '@/app/(lab)/lab/1-quest/world/floorplan';
-import type { CompiledWorld } from '@/app/(lab)/lab/1-quest/world/types';
+import { compileWorld } from '@/quest/world/compile';
+import { briefForSeed } from '@/quest/world/offline-briefs';
+import { checkWorld } from '@/quest/world/validate';
+import { cellIndex } from '@/quest/world/furnish';
+import { CLOSED_ZONES, planFloor } from '@/quest/world/floorplan';
+import type { CompiledWorld } from '@/quest/world/types';
 
 const ZONE_CHAR: Record<string, string> = {
 	reception: 'r',

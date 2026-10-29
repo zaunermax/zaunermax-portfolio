@@ -1,4 +1,4 @@
-// Screenshots of /lab/1-quest offices for reviews.
+// Screenshots of / offices for reviews.
 //
 //   node tools/quest-voxel/review/shoot.mjs --base http://127.0.0.1:3217 --out /tmp/shots \
 //     --seeds 850,3,20 --views overview,play,desks [--size 1440x900] [--dist 19] [--hud hide]
@@ -34,7 +34,7 @@ for (const seed of seeds)
 			q.set('at', view);
 			q.set('dist', args.dist ?? '19');
 		}
-		await page.goto(`${base}/lab/1-quest?${q}`, { waitUntil: 'domcontentloaded' });
+		await page.goto(`${base}/?${q}`, { waitUntil: 'domcontentloaded' });
 		await page.waitForSelector('[data-ready="true"]', { timeout: 120_000 });
 		// The big welcome title shrinks away after 5.5 s.
 		await page.waitForTimeout(Number(args.wait ?? 7000));

@@ -1,9 +1,5 @@
-<!-- BEGIN:nextjs-agent-rules -->
+This is a TanStack Start app on Cloudflare Workers. `pnpm dev` runs Vite with workerd and local Durable Objects; local state persists in `.wrangler/state`. Put local configuration in gitignored `.dev.vars` (see `.dev.vars.example`).
 
-## This is NOT the Next.js you know
+Run `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build` before committing. `src/routeTree.gen.ts` and `worker-configuration.d.ts` are generated. Preserve tabs, single quotes, and existing formatting in moved Quest files; format only new files.
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
-
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
-
-<!-- END:nextjs-agent-rules -->
+Use Wrangler for this setup. Deployment and remote resource changes require explicit owner authorization.
