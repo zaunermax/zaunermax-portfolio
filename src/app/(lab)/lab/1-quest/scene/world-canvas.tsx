@@ -13,7 +13,8 @@ import { KitProvider, useKit } from './kit';
 import { Life } from './life';
 import { materials } from './materials';
 import { EventScreen, NightLights, RainOnGlass } from './night';
-import { Floors, Outside, Seams, WallCut, Walls, WindowLight } from './office';
+import { Grounds } from './grounds';
+import { Floors, Seams, WallCut, Walls, WindowLight } from './office';
 import { LIGHTING, type Lighting } from './palette';
 import { ContactShade, PostFX } from './shading';
 import { Spawns } from './spawn';
@@ -224,7 +225,7 @@ function Scene({
 			<NightLights world={world} lighting={lighting} />
 			<EventScreen world={world} />
 			{world.meta.outside === 'rain' ? <RainOnGlass world={world} cut={cut} /> : null}
-			<Outside world={world} lighting={lighting} />
+			<Grounds world={world} lighting={lighting} />
 			<Floors world={world} spawns={spawns} />
 			<WindowLight world={world} lighting={lighting} />
 			<Seams world={world} />

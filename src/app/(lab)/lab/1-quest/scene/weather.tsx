@@ -9,8 +9,8 @@ import type { CompiledWorld } from '../world/types';
 import type { Lighting } from './palette';
 
 /*
- * The weather the brief asked for, seen through the windows: rain streaks or drifting snow in
- * a band around the building, and light to match (greyer for rain and cloud, a white yard for
+ * The weather the brief asked for, seen through the windows: rain streaks or drifting snow all
+ * around the building (following its outline, so notches get weather too), and light to match (greyer for rain and cloud, a white yard for
  * snow). Subtle on purpose; nothing falls indoors.
  */
 
@@ -50,6 +50,10 @@ const s = new THREE.Vector3();
 const noRaycast = () => null;
 const TOP = 3.4;
 const GROUND = -0.3;
+/** Tiles of weather around the grid. */
+const SPREAD = 6;
+/** Nothing falls this close to the walls (rain drifts and snow sways a little). */
+const CLEAR = 0.35;
 
 export function Weather({
 	world,
@@ -62,24 +66,30 @@ export function Weather({
 }) {
 	const ref = useRef<THREE.InstancedMesh>(null);
 	const rain = outside === 'rain';
-	const count = outside === 'rain' || outside === 'snow' ? (quality === 'high' ? 700 : 260) : 0;
+	const density = outside === 'rain' || outside === 'snow' ? (quality === 'high' ? 1.4 : 0.5) : 0;
 	const drops = useMemo(() => {
 		const rng = mulberry32(world.seed ^ 0x5eed);
-		const { width: W, height: H } = world;
-		return Array.from({ length: count }, () => {
-			// A band 0.3 to 3.5 tiles outside the walls, all the way round.
-			const out = 0.3 + rng() * 3.2;
-			const along = rng();
-			const side = rng() * (2 * (W + H));
-			let x: number;
-			let z: number;
-			if (side < W) [x, z] = [side, -out];
-			else if (side < 2 * W) [x, z] = [side - W, H + out];
-			else if (side < 2 * W + H) [x, z] = [-out, side - 2 * W];
-			else [x, z] = [W + out, side - 2 * W - H];
-			return { x, z, phase: along, speed: 0.8 + rng() * 0.4, sway: rng() * Math.PI * 2 };
-		});
-	}, [world, count]);
+		// Everywhere outdoors within a few tiles of the grid, notches and courtyards included,
+		// at the same density whatever the building's outline.
+		const { width: W, height: H, footprint } = world;
+		const x0 = -SPREAD;
+		const z0 = -SPREAD;
+		const w = W + 2 * SPREAD;
+		const h = H + 2 * SPREAD;
+		const indoors = (x: number, z: number) =>
+			footprint.some((r) => x > r.x - CLEAR && z > r.y - CLEAR && x < r.x + r.w + CLEAR && z < r.y + r.h + CLEAR);
+		const floor = footprint.reduce((sum, r) => sum + (r.w + 2 * CLEAR) * (r.h + 2 * CLEAR), 0);
+		const count = density ? Math.round((w * h - floor) * density) : 0;
+		const out: { x: number; z: number; phase: number; speed: number; sway: number }[] = [];
+		for (let tries = 0; out.length < count && tries < count * 20; tries++) {
+			const x = x0 + rng() * w;
+			const z = z0 + rng() * h;
+			if (indoors(x, z)) continue;
+			out.push({ x, z, phase: rng(), speed: 0.8 + rng() * 0.4, sway: rng() * Math.PI * 2 });
+		}
+		return out;
+	}, [world, density]);
+	const count = drops.length;
 	const material = useMemo(
 		() =>
 			new THREE.MeshBasicMaterial({

@@ -71,7 +71,7 @@ export const LIGHTING: Record<TimeOfDay, Lighting> = {
 	},
 	dusk: {
 		sky: '#f0a58a',
-		ground: '#8a8a62',
+		ground: '#7f9160',
 		hemiSky: '#c9c4f0',
 		hemiGround: '#6a4a50',
 		hemi: 1.0,

@@ -190,39 +190,74 @@ export function NightLights({ world, lighting }: { world: CompiledWorld; lightin
 const SILL = 0.9;
 const LINTEL = 2.2;
 
-let rain: { texture: THREE.CanvasTexture; material: THREE.MeshBasicMaterial } | null = null;
+/** Pixels per pane, about one voxel each (a pane is 0.92 × 1.22 tiles). */
+const GLASS_GRID = [15, 20];
 
-/** One shared, scrolling streak texture for every window. */
+let rain: THREE.ShaderMaterial | null = null;
+
+/**
+ * Water on the glass, drawn on the same 1/16-tile pixel grid as the floors: beads that cling
+ * and now and then swap places, and a few drips per pane that slide down a pixel at a time at
+ * their own pace, leaving a fading trail. Each pane is seeded by where it stands, so no two
+ * windows run in step. Same pale blue as the rain falling outside.
+ */
 function rainGlass() {
 	if (rain) return rain;
-	const texture = rainTexture();
-	rain = {
-		texture,
-		material: new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false, toneMapped: false }),
-	};
+	rain = new THREE.ShaderMaterial({
+		uniforms: {
+			uTime: { value: 0 },
+			uColor: { value: new THREE.Color('#d6e6ff') },
+			uOpacity: { value: 0.75 },
+			uGrid: { value: new THREE.Vector2(...GLASS_GRID) },
+		},
+		vertexShader: /* glsl */ `
+			varying vec2 vUv;
+			varying float vSeed;
+			void main() {
+				vUv = uv;
+				mat4 placed = mat4(1.0);
+				#ifdef USE_INSTANCING
+					placed = instanceMatrix;
+				#endif
+				vSeed = floor(fract(sin(dot(placed[3].xz, vec2(12.9898, 78.233))) * 43758.5453) * 997.0);
+				gl_Position = projectionMatrix * modelViewMatrix * placed * vec4(position, 1.0);
+			}
+		`,
+		fragmentShader: /* glsl */ `
+			uniform float uTime;
+			uniform vec3 uColor;
+			uniform float uOpacity;
+			uniform vec2 uGrid;
+			varying vec2 vUv;
+			varying float vSeed;
+			float hash(vec2 p) {
+				return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+			}
+			void main() {
+				vec2 cell = floor(vUv * uGrid);
+				float a = 0.0;
+				// Beads: each pixel rerolls every few seconds, at its own moment.
+				float epoch = floor(uTime * 0.2 + hash(cell + vSeed) * 5.0);
+				if (hash(cell + vec2(vSeed, epoch * 13.0)) > 0.978) a = 0.32;
+				// Drips: some columns carry one, sliding down a pixel at a time.
+				float lane = hash(vec2(cell.x, vSeed));
+				if (lane < 0.28) {
+					float speed = 0.1 + hash(vec2(cell.x, vSeed + 3.0)) * 0.25;
+					float head = floor((1.0 - fract(uTime * speed + lane * 17.0)) * uGrid.y);
+					float above = cell.y - head;
+					float trail = 2.0 + floor(hash(vec2(cell.x, vSeed + 5.0)) * 5.0);
+					if (above == 0.0) a = 0.75;
+					else if (above > 0.0 && above <= trail) a = max(a, 0.4 * (1.0 - above / (trail + 1.0)));
+				}
+				if (a <= 0.0) discard;
+				gl_FragColor = vec4(uColor, a * uOpacity);
+				#include <colorspace_fragment>
+			}
+		`,
+		transparent: true,
+		depthWrite: false,
+	});
 	return rain;
-}
-
-function rainTexture() {
-	const c = document.createElement('canvas');
-	c.width = 32;
-	c.height = 128;
-	const ctx = c.getContext('2d')!;
-	let seed = 7;
-	const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-	for (let i = 0; i < 26; i++) {
-		const x = Math.floor(rnd() * 32);
-		const y = Math.floor(rnd() * 128);
-		const len = 6 + Math.floor(rnd() * 22);
-		ctx.fillStyle = `rgba(225,238,255,${0.35 + rnd() * 0.4})`;
-		ctx.fillRect(x, y, 1, len);
-		if (y + len < 128) ctx.fillRect(x, y + len, 2, 2);
-	}
-	const t = new THREE.CanvasTexture(c);
-	t.wrapS = t.wrapT = THREE.RepeatWrapping;
-	t.magFilter = THREE.NearestFilter;
-	t.colorSpace = THREE.SRGBColorSpace;
-	return t;
 }
 
 /** Streaks running down the inside view of every window while it rains. */
@@ -244,7 +279,7 @@ export function RainOnGlass({ world, cut }: { world: CompiledWorld; cut: WallCut
 	useFrame((state) => {
 		const mesh = ref.current;
 		if (!mesh) return;
-		rainGlass().texture.offset.y = (state.clock.elapsedTime * 0.9) % 1;
+		rainGlass().uniforms.uTime.value = state.clock.elapsedTime;
 		panes.forEach((pane, i) => {
 			// Only where the window stands at full height; a cut-down wall has no glass to run down.
 			const visible = cut.height(pane.axis, pane.ex, pane.ey) > LINTEL - 0.05;
@@ -261,7 +296,7 @@ export function RainOnGlass({ world, cut }: { world: CompiledWorld; cut: WallCut
 		<instancedMesh
 			key={panes.length}
 			ref={ref}
-			args={[new THREE.PlaneGeometry(1, 1), rainGlass().material, panes.length]}
+			args={[new THREE.PlaneGeometry(1, 1), rainGlass(), panes.length]}
 			frustumCulled={false}
 			raycast={noRaycast}
 			renderOrder={4}

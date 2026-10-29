@@ -559,19 +559,3 @@ export function WindowLight({ world, lighting }: { world: CompiledWorld; lightin
 		</group>
 	);
 }
-
-/** The world outside: a lawn, a pavement around the building and the sky colour. */
-export function Outside({ world, lighting }: { world: CompiledWorld; lighting: Lighting }) {
-	return (
-		<group>
-			<mesh position={[world.width / 2, -0.32, world.height / 2]} rotation-x={-Math.PI / 2} receiveShadow>
-				<planeGeometry args={[400, 400]} />
-				<meshLambertMaterial color={lighting.ground} />
-			</mesh>
-			<mesh position={[world.width / 2, -0.31, world.height / 2]} rotation-x={-Math.PI / 2} receiveShadow>
-				<planeGeometry args={[world.width + 5, world.height + 5]} />
-				<meshLambertMaterial color="#c9c3b7" />
-			</mesh>
-		</group>
-	);
-}
