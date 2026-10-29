@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { StoredWorld, WorldState, WorldStreamEvent } from './contract';
-import type { WorldOp } from './schema';
+import { defaultBrief } from './default-world';
+import { sanitizeBrief } from './sanitize';
+import { WORLD_VERSION, type Brief } from './schema';
 import {
 	follow,
 	initWorldState,
@@ -52,18 +54,17 @@ describe('readNdjson', () => {
 	});
 });
 
-const meta = (name: string): WorldOp => ({
-	type: 'meta',
-	name,
-	tagline: '',
-	biome: 'meadow',
-	timeOfDay: 'day',
-	weather: 'clear',
-	story: `${name} wakes.`,
-});
+const brief = (company: string, zones = 0): Brief =>
+	sanitizeBrief({
+		company,
+		opening: `${company} opens.`,
+		zones: defaultBrief.zones.slice(0, zones),
+	});
 const oldWorld: StoredWorld = {
 	id: 'default',
-	ops: [meta('Old Vale')],
+	version: WORLD_VERSION,
+	seed: 1,
+	brief: brief('Old Co'),
 	createdAt: new Date(0).toISOString(),
 	source: 'default',
 	model: null,
@@ -71,7 +72,8 @@ const oldWorld: StoredWorld = {
 const newWorld: StoredWorld = {
 	...oldWorld,
 	id: 'new-1',
-	ops: [meta('New Vale')],
+	seed: 7,
+	brief: brief('New Co', 2),
 	source: 'generated',
 };
 const initial: WorldState = {
@@ -79,14 +81,8 @@ const initial: WorldState = {
 	nextGenerationAt: null,
 	generating: false,
 };
-const hill: WorldOp = {
-	type: 'hill',
-	x: 1,
-	y: 1,
-	radius: 2,
-	height: 1,
-	story: 'A hill rises.',
-};
+const START: WorldStreamEvent = { type: 'start', id: 'new-1', createdAt: '', seed: 7 };
+const partial: WorldStreamEvent = { type: 'brief', brief: brief('New Co', 1) };
 
 function run(events: WorldStreamEvent[], origin: 'own' | 'follow' = 'own') {
 	return events.reduce(
@@ -96,19 +92,16 @@ function run(events: WorldStreamEvent[], origin: 'own' | 'follow' = 'own') {
 }
 
 describe('reduceWorldState', () => {
-	it('builds the world op by op and switches to it when done', () => {
-		const started = run([{ type: 'start', id: 'new-1', createdAt: '' }]);
-		expect(started).toMatchObject({ status: 'generating', ops: [], streaming: true });
+	it('builds the office as the brief grows and switches to it when done', () => {
+		const started = run([START]);
+		expect(started).toMatchObject({ status: 'generating', seed: 7, streaming: true });
+		expect(started.brief.zones).toEqual([]);
 
-		const building = run([
-			{ type: 'start', id: 'new-1', createdAt: '' },
-			{ type: 'op', op: newWorld.ops[0] },
-			{ type: 'op', op: hill },
-		]);
-		expect(building.ops).toEqual([newWorld.ops[0], hill]);
+		const building = run([START, partial, { type: 'brief', brief: newWorld.brief }]);
+		expect(building.brief).toEqual(newWorld.brief);
 		expect(
 			building.log.filter((entry) => entry.kind === 'story').map((entry) => entry.text),
-		).toEqual(['New Vale wakes.', 'A hill rises.']);
+		).toEqual(['New Co opens.', defaultBrief.zones[0].story, defaultBrief.zones[1].story]);
 		expect(building.committed.id).toBe('default');
 
 		const at = new Date(Date.now() + 3_600_000).toISOString();
@@ -119,24 +112,26 @@ describe('reduceWorldState', () => {
 		});
 		expect(done).toMatchObject({
 			status: 'ready',
-			ops: newWorld.ops,
+			brief: newWorld.brief,
+			seed: 7,
 			nextGenerationAt: at,
 		});
 		expect(done.committed.id).toBe('new-1');
-		expect(done.log.at(-1)).toMatchObject({ kind: 'system', text: 'New Vale is ready.' });
+		expect(done.log.at(-1)).toMatchObject({ kind: 'system', text: 'New Co is open for business.' });
 		expect(new Set(done.log.map((entry) => entry.id)).size).toBe(done.log.length);
 	});
 
 	it('restores the previous world when the stream fails', () => {
 		const failed = run([
-			{ type: 'start', id: 'new-1', createdAt: '' },
-			{ type: 'op', op: hill },
+			START,
+			partial,
 			{ type: 'error', message: 'The forge sputtered.' },
 		]);
 		expect(failed).toMatchObject({
 			status: 'error',
 			error: 'The forge sputtered.',
-			ops: oldWorld.ops,
+			brief: oldWorld.brief,
+			seed: oldWorld.seed,
 			streaming: false,
 		});
 		expect(failed.log.at(-1)).toMatchObject({
@@ -154,7 +149,7 @@ describe('reduceWorldState', () => {
 			busy: false,
 		});
 		expect(cooling).toMatchObject({
-			ops: oldWorld.ops,
+			brief: oldWorld.brief,
 			nextGenerationAt: at,
 			error: 'Not yet.',
 		});
@@ -168,17 +163,14 @@ describe('reduceWorldState', () => {
 
 	it('after losing the stream, restores the world and waits for the result', () => {
 		const lost = reduceWorldState(
-			run([
-				{ type: 'start', id: 'x', createdAt: '' },
-				{ type: 'op', op: hill },
-			]),
+			run([START, partial]),
 			{
 				type: 'lost',
 				message: 'Lost.',
 			},
 		);
 		expect(lost).toMatchObject({
-			ops: oldWorld.ops,
+			brief: oldWorld.brief,
 			othersGenerating: true,
 			status: 'error',
 		});
@@ -187,7 +179,8 @@ describe('reduceWorldState', () => {
 			state: { world: newWorld, nextGenerationAt: null, generating: false },
 		});
 		expect(polled).toMatchObject({
-			ops: newWorld.ops,
+			brief: newWorld.brief,
+			seed: 7,
 			status: 'ready',
 			error: null,
 			othersGenerating: false,
@@ -195,8 +188,8 @@ describe('reduceWorldState', () => {
 		expect(polled.committed.id).toBe('new-1');
 	});
 
-	it('ignores polls while streaming and stray ops while idle', () => {
-		const streaming = run([{ type: 'start', id: 'x', createdAt: '' }]);
+	it('ignores polls while streaming and stray briefs while idle', () => {
+		const streaming = run([START]);
 		const polled = reduceWorldState(streaming, {
 			type: 'polled',
 			state: { world: newWorld, nextGenerationAt: null, generating: true },
@@ -206,7 +199,7 @@ describe('reduceWorldState', () => {
 		expect(
 			reduceWorldState(idle, {
 				type: 'event',
-				event: { type: 'op', op: hill },
+				event: partial,
 				origin: 'follow',
 			}),
 		).toBe(idle);
@@ -244,8 +237,8 @@ describe('network', () => {
 			'fetch',
 			vi.fn(async () =>
 				ndjson(
-					{ type: 'start', id: 'new-1', createdAt: '' },
-					{ type: 'op', op: hill },
+					START,
+					partial,
 					{ type: 'done', world: newWorld, nextGenerationAt: new Date().toISOString() },
 				),
 			),
@@ -256,7 +249,7 @@ describe('network', () => {
 			actions.map((action) =>
 				action.type === 'event' ? action.event.type : action.type,
 			),
-		).toEqual(['start', 'op', 'done']);
+		).toEqual(['start', 'brief', 'done']);
 		expect(rt.busy.current).toBe(false);
 	});
 
@@ -276,7 +269,7 @@ describe('network', () => {
 			busy: false,
 		});
 		expect((actions[0] as { message: string }).message).toMatch(
-			/^Not yet: a new world can be forged at .+\.$/,
+			/^Not yet: the office can be redeployed at .+\.$/,
 		);
 	});
 
@@ -305,7 +298,7 @@ describe('network', () => {
 
 		vi.stubGlobal(
 			'fetch',
-			vi.fn(async () => ndjson({ type: 'start', id: 'x', createdAt: '' })),
+			vi.fn(async () => ndjson(START)),
 		);
 		const lost = runtime();
 		await postGenerate(lost.runtime);

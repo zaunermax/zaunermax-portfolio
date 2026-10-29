@@ -20,29 +20,18 @@ import type {
 	WorldStreamEvent,
 } from '@/app/(lab)/lab/1-quest/world/contract';
 import { WorldGenerationError } from '@/app/(lab)/lab/1-quest/world/generate';
-import type { WorldOp } from '@/app/(lab)/lab/1-quest/world/schema';
+import { defaultBrief } from '@/app/(lab)/lab/1-quest/world/default-world';
+import { sanitizeBrief } from '@/app/(lab)/lab/1-quest/world/sanitize';
 import { createFileWorldStore, setWorldStore } from '@/app/(lab)/lab/1-quest/world/store';
 import { currentJob } from '@/app/(lab)/lab/1-quest/world/forge';
 import { GET, POST } from './route';
 
-const meta: WorldOp = {
-	type: 'meta',
-	name: 'Frostmere',
-	tagline: 'Snow on the lake.',
-	biome: 'winter',
-	timeOfDay: 'night',
-	weather: 'snow',
-	story: 'Snow begins.',
-};
-const hill = (i: number): WorldOp => ({
-	type: 'hill',
-	x: i % 40,
-	y: 4,
-	radius: 3,
-	height: 2,
-	story: `Hill ${i}.`,
-});
-const ops = [meta, ...Array.from({ length: 29 }, (_, i) => hill(i))];
+const final = sanitizeBrief({ ...defaultBrief, company: 'Frost Labs' });
+const briefs = [1, 3, 6, defaultBrief.zones.length].map((zones) => ({
+	...final,
+	zones: final.zones.slice(0, zones),
+	cast: [],
+}));
 
 let dir: string;
 let ip = 0;
@@ -52,16 +41,17 @@ function fakeGeneration({
 	gate,
 	failWith,
 }: { gate?: Promise<void>; failWith?: Error } = {}) {
-	mocks.generateWorld.mockImplementation(async function* () {
-		for (const [index, op] of ops.entries()) {
-			if (index === 3 && gate) await gate;
-			yield op;
+	mocks.generateWorld.mockImplementation(async function* ({ seed }: { seed: number }) {
+		for (const [index, brief] of briefs.entries()) {
+			if (index === 2 && gate) await gate;
+			yield brief;
 		}
 		if (failWith) throw failWith;
 		return {
-			ops,
+			brief: final,
+			seed,
 			model: 'test-model',
-			theme: {},
+			premise: {},
 			usage: null,
 			finishReason: 'stop',
 			durationMs: 5,
@@ -126,7 +116,7 @@ describe('GET', () => {
 });
 
 describe('POST', () => {
-	it('streams start, every op and done, then persists the world', async () => {
+	it('streams start, the growing brief and done, then persists the world', async () => {
 		fakeGeneration();
 		const response = await post();
 		expect(response.status).toBe(200);
@@ -134,19 +124,21 @@ describe('POST', () => {
 		expect(mocks.after).toHaveBeenCalledWith(expect.any(Promise));
 
 		const stream = await events(response);
-		expect(stream[0].type).toBe('start');
-		expect(stream.filter((event) => event.type === 'op')).toHaveLength(ops.length);
+		expect(stream[0]).toMatchObject({ type: 'start', seed: expect.any(Number) });
+		expect(stream.filter((event) => event.type === 'brief')).toHaveLength(briefs.length);
 		const done = stream.at(-1);
 		expect(done?.type).toBe('done');
 		if (done?.type !== 'done') return;
-		expect(done.world.ops).toEqual(ops);
+		expect(done.world.brief).toEqual(final);
+		expect(done.world.seed).toBe(stream[0].type === 'start' ? stream[0].seed : -1);
 		expect(done.world.source).toBe('generated');
 
 		const current = await state();
 		expect(current.world.id).toBe(done.world.id);
 		expect(current.nextGenerationAt).toBe(done.nextGenerationAt);
 		expect(mocks.generateWorld).toHaveBeenCalledWith({
-			previous: expect.objectContaining({ type: 'meta' }),
+			previous: expect.objectContaining({ company: defaultBrief.company }),
+			seed: expect.any(Number),
 		});
 	});
 
@@ -156,7 +148,7 @@ describe('POST', () => {
 		const response = await post();
 		expect(response.status).toBe(429);
 		const body = await response.json();
-		expect(body.message).toMatch(/^A new world can be forged in \d+ minutes\.$/);
+		expect(body.message).toMatch(/^The office can be redeployed in \d+ minutes\.$/);
 		expect(Date.parse(body.nextGenerationAt)).toBeGreaterThan(Date.now());
 		expect(response.headers.get('retry-after')).toMatch(/^\d+$/);
 		expect(mocks.generateWorld).toHaveBeenCalledTimes(1);
@@ -179,7 +171,10 @@ describe('POST', () => {
 
 		open();
 		const [mine, theirs] = await Promise.all([events(first), events(follower)]);
-		expect(theirs).toEqual(mine);
+		// A late follower gets the start, the latest brief so far, then everything live.
+		expect(theirs[0]).toEqual(mine[0]);
+		expect(theirs.at(-1)).toEqual(mine.at(-1));
+		expect(mine.slice(-theirs.length + 1)).toEqual(theirs.slice(1));
 		expect(mocks.generateWorld).toHaveBeenCalledTimes(1);
 	});
 
@@ -206,7 +201,7 @@ describe('POST', () => {
 		expect(last).toEqual({
 			type: 'error',
 			message:
-				'The forge produced too little. The previous world stays; try again in 2 minutes.',
+				'The forge produced too little. The previous office stays; try again in 2 minutes.',
 		});
 		const current = await state();
 		expect(current.world.source).toBe('default');
@@ -235,7 +230,7 @@ describe('POST', () => {
 		const limited = await post(headers);
 		expect(limited.status).toBe(429);
 		expect((await limited.json()).message).toMatch(
-			/You have started a few forges already/,
+			/You have started a few redeploys already/,
 		);
 	});
 
@@ -265,6 +260,6 @@ describe('POST', () => {
 		expect(request.bodyUsed).toBe(false);
 		await events(response);
 		const stored = JSON.parse(await readFile(path.join(dir, 'current.json'), 'utf8'));
-		expect(stored.ops).toEqual(ops);
+		expect(stored.brief).toEqual(final);
 	});
 });

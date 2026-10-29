@@ -1,0 +1,21 @@
+{
+  "floor": [-1, -1, 5, 2],
+  "resolution": 1400,
+  "placements": [
+    {"id": "dining_end", "x": 0, "z": 0},
+    {"id": "dining_mid", "x": 1, "z": 0},
+    {"id": "dining_mid", "x": 2, "z": 0},
+    {"id": "dining_end", "x": 3, "z": 0, "rotation": 180},
+    {"id": "folding_chair", "x": 0, "z": -0.85},
+    {"id": "folding_chair", "x": 1, "z": -0.85},
+    {"id": "folding_chair", "x": 2, "z": -0.85},
+    {"id": "folding_chair", "x": 3, "z": -0.85},
+    {"id": "folding_chair", "x": 0, "z": 0.85, "rotation": 180},
+    {"id": "stool", "x": 1, "z": 0.85},
+    {"id": "stool", "x": 2, "z": 0.85},
+    {"id": "folding_chair", "x": 3, "z": 0.85, "rotation": 180},
+    {"id": "stool", "x": -0.9, "z": 0},
+    {"id": "stool", "x": 3.9, "z": 0},
+    {"id": "birthday_cake", "x": 1.5, "y": 0.75, "z": 0}
+  ]
+}

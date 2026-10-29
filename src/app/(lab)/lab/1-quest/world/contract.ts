@@ -1,10 +1,14 @@
-import type { WorldOp } from './schema';
+import type { Brief } from './schema';
 
 /** A world as persisted by the server and handed to the page. */
 export type StoredWorld = {
 	id: string;
-	/** Already sanitized: clamped, truncated, within LIMITS. */
-	ops: WorldOp[];
+	/** WORLD_VERSION; older formats fall back to the default world. */
+	version: number;
+	/** Drives the floorplan and every placement; compileWorld(brief, seed) is the office. */
+	seed: number;
+	/** Already sanitized. */
+	brief: Brief;
 	createdAt: string;
 	source: 'default' | 'generated';
 	/** Model id for generated worlds. */
@@ -26,10 +30,12 @@ export const WORLD_API = '/api/lab/quest/world';
  * POST WORLD_API -> 429 { message, nextGenerationAt } while cooling down,
  *                   409 { message } while another generation runs,
  *                   200 application/x-ndjson stream of WorldStreamEvent, one JSON object per line.
- * The server persists the world before sending "done"; on "error" the previous world stays.
+ * `brief` events carry the whole settled brief so far (sanitized), so a late follower only
+ * needs the latest one. The server persists the world before sending "done"; on "error" the
+ * previous world stays.
  */
 export type WorldStreamEvent =
-	| { type: 'start'; id: string; createdAt: string }
-	| { type: 'op'; op: WorldOp }
+	| { type: 'start'; id: string; createdAt: string; seed: number }
+	| { type: 'brief'; brief: Brief }
 	| { type: 'done'; world: StoredWorld; nextGenerationAt: string }
 	| { type: 'error'; message: string };

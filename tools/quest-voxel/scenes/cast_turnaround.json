@@ -1,0 +1,79 @@
+{
+  "resolution": 1500,
+  "placements": [
+    {
+      "id": "visitor",
+      "x": 0.0,
+      "z": 0,
+      "rotation": 0
+    },
+    {
+      "id": "barista",
+      "x": 1.3,
+      "z": 0,
+      "rotation": 0
+    },
+    {
+      "id": "dev_slacker",
+      "x": 2.6,
+      "z": 0,
+      "rotation": 0
+    },
+    {
+      "id": "robo_vacuum",
+      "x": 3.9000000000000004,
+      "z": 0,
+      "rotation": 0,
+      "pose": {
+        "top": [
+          0,
+          10,
+          0
+        ]
+      }
+    },
+    {
+      "id": "visitor",
+      "x": 0.0,
+      "z": 2,
+      "rotation": 145
+    },
+    {
+      "id": "barista",
+      "x": 1.3,
+      "z": 2,
+      "rotation": 145
+    },
+    {
+      "id": "dev_slacker",
+      "x": 2.6,
+      "z": 2,
+      "rotation": 145
+    },
+    {
+      "id": "robo_vacuum",
+      "x": 3.9000000000000004,
+      "z": 2,
+      "rotation": 145,
+      "pose": {
+        "top": [
+          0,
+          -10,
+          0
+        ]
+      }
+    },
+    {
+      "id": "max",
+      "x": 5.2,
+      "z": 0,
+      "rotation": 0
+    },
+    {
+      "id": "max",
+      "x": 5.2,
+      "z": 2,
+      "rotation": 145
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import { Alegreya, Alegreya_Sans, Marcellus } from 'next/font/google';
+import { Atkinson_Hyperlegible_Next, Jersey_15 } from 'next/font/google';
 import { Suspense } from 'react';
 import { business, getLabContent } from '../_shared/content';
 import { LoadingVeil, ZoneText } from './ui/hud';
@@ -6,32 +6,33 @@ import styles from './ui/hud.module.css';
 import { QuestApp } from './ui/quest-app';
 import { getWorldState } from './world/store';
 
-const title = Marcellus({
+/**
+ * Pixel type for everything that is HUD chrome: titles, labels, keycaps, nameplates. Jersey 15
+ * keeps B/G, C/O and Z/8 apart at small sizes (Pixelify Sans read "Byte" as "Gyte").
+ */
+const pixel = Jersey_15({
+	subsets: ['latin', 'latin-ext'],
 	weight: '400',
-	subsets: ['latin'],
-	variable: '--q-title',
+	variable: '--q-pixel',
 	display: 'swap',
 });
-const read = Alegreya({
+/** A calm, very legible face for anything you actually read: chat, docs, forms. */
+const read = Atkinson_Hyperlegible_Next({
 	subsets: ['latin'],
-	weight: ['400', '500', '700'],
+	weight: 'variable',
 	style: ['normal', 'italic'],
 	variable: '--q-read',
 	display: 'swap',
+	// next/font has no metrics for the "Next" cut yet; skip the generated fallback instead of warning.
+	adjustFontFallback: false,
+	fallback: ['system-ui', 'sans-serif'],
 });
-const ui = Alegreya_Sans({
-	subsets: ['latin'],
-	weight: ['400', '500', '700'],
-	style: ['normal', 'italic'],
-	variable: '--q-ui',
-	display: 'swap',
-});
-const fontVars = `${title.variable} ${read.variable} ${ui.variable}`;
+const fontVars = `${pixel.variable} ${read.variable}`;
 
 export const metadata = {
 	title: 'Max Zauner – Quest',
 	description:
-		'Hello, I’m Max. Walk around a little valley that an AI rebuilds every hour, talk to me, or post a quest.',
+		'Hello, I’m Max. Wander a tiny voxel office that an AI redeploys every hour, chat with me, or file a ticket for your project.',
 };
 
 export default function QuestPage() {
@@ -53,8 +54,8 @@ async function Quest() {
 function Arriving() {
 	return (
 		<div className={`${styles.root} ${fontVars}`}>
-			<LoadingVeil ready={false} name="the valley" />
-			<ZoneText state="big" worldName="the valley" tagline="" />
+			<LoadingVeil ready={false} name="the office" />
+			<ZoneText state="big" worldName="the office" tagline="" />
 		</div>
 	);
 }

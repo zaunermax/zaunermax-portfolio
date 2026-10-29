@@ -1,5 +1,5 @@
 import type { LandmarkId } from '../world/schema';
-import type { NpcKind } from '../world/compile';
+import type { CharacterId } from '../world/catalog';
 
 /**
  * The seam between the HTML HUD and the 3D scene. Hot data (positions) is plain mutable state
@@ -9,16 +9,17 @@ import type { NpcKind } from '../world/compile';
 
 export type Interactable =
 	| { kind: 'landmark'; id: LandmarkId; name: string }
-	| { kind: 'npc'; id: string; name: string; npc: NpcKind; line: string };
+	| { kind: 'npc'; id: string; name: string; npc: CharacterId; line: string };
 
-export type WalkTarget =
+export type WalkTarget = (
 	| { kind: 'cell'; x: number; y: number }
 	| { kind: 'landmark'; id: LandmarkId }
-	| { kind: 'npc'; id: string };
+	| { kind: 'npc'; id: string }
+) & { warp?: boolean };
 
 type Listener = () => void;
 
-/** Anchor id of Max himself; his camp needs no plate of its own. */
+/** Anchor id of Max himself; his desk needs no plate of its own. */
 export const MAX_ANCHOR = 'max-npc';
 
 export class GameBus {
@@ -110,6 +111,11 @@ export class GameBus {
 	};
 
 	// --- commands (HUD → scene)
+	/** Puts the visitor straight at a target (review tooling and tests). */
+	warpTo(target: WalkTarget) {
+		for (const l of this.walkListeners) l({ ...target, warp: true } as WalkTarget);
+	}
+
 	walkTo(target: WalkTarget) {
 		for (const l of this.walkListeners) l(target);
 	}

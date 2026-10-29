@@ -1,0 +1,1388 @@
+{
+  "arcade_cabinet": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 2.0,
+    "wall": false,
+    "family": "games",
+    "tags": []
+  },
+  "armchair": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.8125,
+    "wall": false,
+    "family": "seating",
+    "tags": [
+      "seat"
+    ]
+  },
+  "bar_stool": {
+    "footprint": [
+      0.75,
+      0.75
+    ],
+    "height": 0.6875,
+    "wall": false,
+    "family": "seating",
+    "tags": [
+      "seat",
+      "counter"
+    ]
+  },
+  "barista": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.6875,
+    "wall": false,
+    "family": "characters",
+    "tags": [
+      "barista",
+      "humanoid"
+    ]
+  },
+  "beanbag_coral": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.6875,
+    "wall": false,
+    "family": "seating",
+    "tags": [
+      "seat",
+      "lounge"
+    ]
+  },
+  "beanbag_teal": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.6875,
+    "wall": false,
+    "family": "seating",
+    "tags": [
+      "seat",
+      "lounge"
+    ]
+  },
+  "big_desk_max": {
+    "footprint": [
+      2,
+      1
+    ],
+    "height": 1.375,
+    "wall": false,
+    "family": "landmarks",
+    "tags": [
+      "landmark",
+      "max"
+    ]
+  },
+  "bike": {
+    "footprint": [
+      2,
+      0.75
+    ],
+    "height": 1.0625,
+    "wall": false,
+    "family": "furniture",
+    "tags": [
+      "transport"
+    ]
+  },
+  "birthday_cake": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.625,
+    "wall": false,
+    "family": "desktop",
+    "tags": [
+      "desktop",
+      "birthday",
+      "cake"
+    ]
+  },
+  "bookshelf": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 2.0,
+    "wall": false,
+    "family": "shelves",
+    "tags": [
+      "connect",
+      "books"
+    ]
+  },
+  "bookshelf_b": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 2.0,
+    "wall": false,
+    "family": "shelves",
+    "tags": [
+      "connect",
+      "books"
+    ]
+  },
+  "chess_table": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.9375,
+    "wall": false,
+    "family": "games",
+    "tags": []
+  },
+  "coat_rack": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.5,
+    "wall": false,
+    "family": "furniture",
+    "tags": [
+      "entry"
+    ]
+  },
+  "coffee_cup_togo": {
+    "footprint": [
+      0.25,
+      0.25
+    ],
+    "height": 0.25,
+    "wall": false,
+    "family": "desktop",
+    "tags": [
+      "desktop",
+      "coffee"
+    ]
+  },
+  "coffee_table": {
+    "footprint": [
+      2,
+      1
+    ],
+    "height": 0.625,
+    "wall": false,
+    "family": "tables",
+    "tags": []
+  },
+  "counter_corner": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.9375,
+    "wall": false,
+    "family": "counter",
+    "tags": [
+      "connect",
+      "corner"
+    ]
+  },
+  "counter_end": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.9375,
+    "wall": false,
+    "family": "counter",
+    "tags": [
+      "connect",
+      "end"
+    ]
+  },
+  "counter_end_l": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.9375,
+    "wall": false,
+    "family": "counter",
+    "tags": [
+      "connect",
+      "end"
+    ]
+  },
+  "counter_end_r": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.9375,
+    "wall": false,
+    "family": "counter",
+    "tags": [
+      "connect",
+      "right"
+    ]
+  },
+  "counter_mid": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.9375,
+    "wall": false,
+    "family": "counter",
+    "tags": [
+      "connect",
+      "mid"
+    ]
+  },
+  "counter_sink": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.1875,
+    "wall": false,
+    "family": "counter",
+    "tags": [
+      "connect",
+      "sink"
+    ]
+  },
+  "designer": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.6875,
+    "wall": false,
+    "family": "characters",
+    "tags": [
+      "designer",
+      "humanoid"
+    ]
+  },
+  "desk_end_l": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.0625,
+    "wall": false,
+    "family": "desks",
+    "tags": [
+      "connect",
+      "west-end"
+    ]
+  },
+  "desk_end_r": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.0625,
+    "wall": false,
+    "family": "desks",
+    "tags": [
+      "connect",
+      "east-end"
+    ]
+  },
+  "desk_lamp": {
+    "footprint": [
+      0.625,
+      0.5
+    ],
+    "height": 0.6875,
+    "wall": false,
+    "family": "desktop",
+    "tags": [
+      "desktop",
+      "light"
+    ]
+  },
+  "desk_mid": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.0625,
+    "wall": false,
+    "family": "desks",
+    "tags": [
+      "connect",
+      "middle"
+    ]
+  },
+  "desk_single": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.0625,
+    "wall": false,
+    "family": "desks",
+    "tags": [
+      "connect",
+      "standalone"
+    ]
+  },
+  "dev_glasses": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.625,
+    "wall": false,
+    "family": "characters",
+    "tags": [
+      "developer",
+      "humanoid"
+    ]
+  },
+  "dev_hoodie": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.6875,
+    "wall": false,
+    "family": "characters",
+    "tags": [
+      "developer",
+      "humanoid"
+    ]
+  },
+  "dev_slacker": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.6875,
+    "wall": false,
+    "family": "characters",
+    "tags": [
+      "developer",
+      "humanoid"
+    ]
+  },
+  "dining_end": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.75,
+    "wall": false,
+    "family": "dining",
+    "tags": [
+      "connect",
+      "west-end"
+    ]
+  },
+  "dining_mid": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.75,
+    "wall": false,
+    "family": "dining",
+    "tags": [
+      "connect",
+      "middle"
+    ]
+  },
+  "dog_bed": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.3125,
+    "wall": false,
+    "family": "furniture",
+    "tags": [
+      "pet"
+    ]
+  },
+  "drone_cam": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.4375,
+    "wall": false,
+    "family": "characters",
+    "tags": [
+      "robot",
+      "hover",
+      "camera"
+    ]
+  },
+  "espresso_machine": {
+    "footprint": [
+      0.875,
+      0.75
+    ],
+    "height": 0.6875,
+    "wall": false,
+    "family": "desktop",
+    "tags": [
+      "desktop",
+      "counter",
+      "coffee"
+    ]
+  },
+  "filing_cabinet": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.375,
+    "wall": false,
+    "family": "storage",
+    "tags": []
+  },
+  "fish_tank": {
+    "footprint": [
+      2,
+      1
+    ],
+    "height": 1.25,
+    "wall": false,
+    "family": "lounge",
+    "tags": []
+  },
+  "floor_lamp": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.875,
+    "wall": false,
+    "family": "furniture",
+    "tags": [
+      "light"
+    ]
+  },
+  "folding_chair": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.875,
+    "wall": false,
+    "family": "seating",
+    "tags": [
+      "seat"
+    ]
+  },
+  "foosball_table": {
+    "footprint": [
+      2,
+      1
+    ],
+    "height": 1.0625,
+    "wall": false,
+    "family": "games",
+    "tags": []
+  },
+  "fridge": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 2.0,
+    "wall": false,
+    "family": "kitchen",
+    "tags": []
+  },
+  "gaming_chair": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.125,
+    "wall": false,
+    "family": "seating",
+    "tags": [
+      "seat"
+    ]
+  },
+  "headphones": {
+    "footprint": [
+      0.5,
+      0.375
+    ],
+    "height": 0.375,
+    "wall": false,
+    "family": "desktop",
+    "tags": [
+      "desktop",
+      "audio"
+    ]
+  },
+  "intern": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.6875,
+    "wall": false,
+    "family": "characters",
+    "tags": [
+      "intern",
+      "humanoid"
+    ]
+  },
+  "kanban_board": {
+    "footprint": [
+      2,
+      1
+    ],
+    "height": 2.0625,
+    "wall": false,
+    "family": "landmarks",
+    "tags": [
+      "landmark",
+      "quests"
+    ]
+  },
+  "keyboard_mouse": {
+    "footprint": [
+      0.875,
+      0.375
+    ],
+    "height": 0.0625,
+    "wall": false,
+    "family": "desktop",
+    "tags": [
+      "desktop"
+    ]
+  },
+  "laptop": {
+    "footprint": [
+      0.625,
+      0.5
+    ],
+    "height": 0.5,
+    "wall": false,
+    "family": "desktop",
+    "tags": [
+      "desktop",
+      "screen"
+    ]
+  },
+  "manager": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.625,
+    "wall": false,
+    "family": "characters",
+    "tags": [
+      "manager",
+      "humanoid"
+    ]
+  },
+  "max": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.875,
+    "wall": false,
+    "family": "characters",
+    "tags": [
+      "host",
+      "humanoid"
+    ]
+  },
+  "meeting_end": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.75,
+    "wall": false,
+    "family": "meeting",
+    "tags": [
+      "connect",
+      "west-end"
+    ]
+  },
+  "meeting_mid": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.75,
+    "wall": false,
+    "family": "meeting",
+    "tags": [
+      "connect",
+      "middle"
+    ]
+  },
+  "monitor": {
+    "footprint": [
+      0.75,
+      0.375
+    ],
+    "height": 0.6875,
+    "wall": false,
+    "family": "desktop",
+    "tags": [
+      "desktop",
+      "screen"
+    ]
+  },
+  "monitor_dual": {
+    "footprint": [
+      1,
+      0.5
+    ],
+    "height": 0.625,
+    "wall": false,
+    "family": "desktop",
+    "tags": [
+      "desktop",
+      "screen"
+    ]
+  },
+  "mug": {
+    "footprint": [
+      0.375,
+      0.25
+    ],
+    "height": 0.1875,
+    "wall": false,
+    "family": "desktop",
+    "tags": [
+      "desktop",
+      "coffee"
+    ]
+  },
+  "mug_boss": {
+    "footprint": [
+      0.375,
+      0.25
+    ],
+    "height": 0.1875,
+    "wall": false,
+    "family": "desktop",
+    "tags": [
+      "desktop",
+      "coffee"
+    ]
+  },
+  "neon_sign": {
+    "footprint": [
+      1.5,
+      0.125
+    ],
+    "height": 0.6875,
+    "wall": true,
+    "family": "wall",
+    "tags": [
+      "wall",
+      "light",
+      "code"
+    ]
+  },
+  "office_cat": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.8125,
+    "wall": false,
+    "family": "characters",
+    "tags": [
+      "animal",
+      "cat"
+    ]
+  },
+  "office_chair": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.9375,
+    "wall": false,
+    "family": "seating",
+    "tags": [
+      "seat"
+    ]
+  },
+  "office_dog": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.0,
+    "wall": false,
+    "family": "characters",
+    "tags": [
+      "animal",
+      "corgi"
+    ]
+  },
+  "office_hamster": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.5,
+    "wall": false,
+    "family": "characters",
+    "tags": [
+      "animal",
+      "hamster",
+      "ball"
+    ]
+  },
+  "office_parrot": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.75,
+    "wall": false,
+    "family": "characters",
+    "tags": [
+      "animal",
+      "bird"
+    ]
+  },
+  "paper_stack": {
+    "footprint": [
+      0.5,
+      0.5
+    ],
+    "height": 0.125,
+    "wall": false,
+    "family": "desktop",
+    "tags": [
+      "desktop"
+    ]
+  },
+  "phone_booth": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 2.25,
+    "wall": false,
+    "family": "office",
+    "tags": [
+      "focus",
+      "phone",
+      "glass"
+    ]
+  },
+  "ping_pong_table": {
+    "footprint": [
+      2,
+      3
+    ],
+    "height": 1.0,
+    "wall": false,
+    "family": "games",
+    "tags": []
+  },
+  "pizza_box": {
+    "footprint": [
+      0.75,
+      0.75
+    ],
+    "height": 0.125,
+    "wall": false,
+    "family": "desktop",
+    "tags": [
+      "desktop",
+      "food"
+    ]
+  },
+  "plant_bot": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.8125,
+    "wall": false,
+    "family": "characters",
+    "tags": [
+      "robot",
+      "plant",
+      "watering"
+    ]
+  },
+  "plant_cactus": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.1875,
+    "wall": false,
+    "family": "plants",
+    "tags": [
+      "plant"
+    ]
+  },
+  "plant_desk": {
+    "footprint": [
+      0.375,
+      0.375
+    ],
+    "height": 0.4375,
+    "wall": false,
+    "family": "plants",
+    "tags": [
+      "plant",
+      "desktop"
+    ]
+  },
+  "plant_ficus": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 2.1875,
+    "wall": false,
+    "family": "plants",
+    "tags": [
+      "plant",
+      "tree"
+    ]
+  },
+  "plant_fiddle": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.3125,
+    "wall": false,
+    "family": "plants",
+    "tags": [
+      "plant"
+    ]
+  },
+  "plant_hanging": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.875,
+    "wall": false,
+    "family": "plants",
+    "tags": [
+      "plant",
+      "stand"
+    ]
+  },
+  "plant_monstera": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.3125,
+    "wall": false,
+    "family": "plants",
+    "tags": [
+      "plant"
+    ]
+  },
+  "plant_pothos_shelf": {
+    "footprint": [
+      0.75,
+      0.75
+    ],
+    "height": 0.5625,
+    "wall": false,
+    "family": "plants",
+    "tags": [
+      "plant",
+      "desktop",
+      "shelf"
+    ]
+  },
+  "plant_snake": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.125,
+    "wall": false,
+    "family": "plants",
+    "tags": [
+      "plant"
+    ]
+  },
+  "planter_end": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.8125,
+    "wall": false,
+    "family": "planter",
+    "tags": [
+      "connect",
+      "west-end"
+    ]
+  },
+  "planter_mid": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.8125,
+    "wall": false,
+    "family": "planter",
+    "tags": [
+      "connect",
+      "middle"
+    ]
+  },
+  "planter_mid_b": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.8125,
+    "wall": false,
+    "family": "planter",
+    "tags": [
+      "connect",
+      "middle"
+    ]
+  },
+  "podium": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.25,
+    "wall": false,
+    "family": "landmarks",
+    "tags": [
+      "landmark",
+      "talks"
+    ]
+  },
+  "poster_motivation": {
+    "footprint": [
+      0.875,
+      0.0625
+    ],
+    "height": 1.125,
+    "wall": true,
+    "family": "wall",
+    "tags": [
+      "wall",
+      "office"
+    ]
+  },
+  "poster_turn_off_on": {
+    "footprint": [
+      0.75,
+      0.0625
+    ],
+    "height": 1.0625,
+    "wall": true,
+    "family": "wall",
+    "tags": [
+      "wall",
+      "it-crowd"
+    ]
+  },
+  "printer": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.4375,
+    "wall": false,
+    "family": "office",
+    "tags": [
+      "copier",
+      "dramatic"
+    ]
+  },
+  "projector_screen": {
+    "footprint": [
+      3,
+      1
+    ],
+    "height": 2.3125,
+    "wall": false,
+    "family": "landmarks",
+    "tags": [
+      "landmark",
+      "talks"
+    ]
+  },
+  "reception_desk": {
+    "footprint": [
+      3,
+      1
+    ],
+    "height": 1.4375,
+    "wall": false,
+    "family": "reception",
+    "tags": []
+  },
+  "recycle_bins": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.4375,
+    "wall": false,
+    "family": "furniture",
+    "tags": [
+      "recycling"
+    ]
+  },
+  "red_stapler": {
+    "footprint": [
+      0.375,
+      0.5
+    ],
+    "height": 0.1875,
+    "wall": false,
+    "family": "desktop",
+    "tags": [
+      "desktop"
+    ]
+  },
+  "robo_barista": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.625,
+    "wall": false,
+    "family": "characters",
+    "tags": [
+      "robot",
+      "coffee"
+    ]
+  },
+  "robo_courier": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.75,
+    "wall": false,
+    "family": "characters",
+    "tags": [
+      "robot",
+      "courier"
+    ]
+  },
+  "robo_vacuum": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.3125,
+    "wall": false,
+    "family": "characters",
+    "tags": [
+      "robot",
+      "vacuum"
+    ]
+  },
+  "rubber_duck": {
+    "footprint": [
+      0.375,
+      0.375
+    ],
+    "height": 0.25,
+    "wall": false,
+    "family": "desktop",
+    "tags": [
+      "desktop",
+      "toy"
+    ]
+  },
+  "rug_rect": {
+    "footprint": [
+      3,
+      2
+    ],
+    "height": 0.0625,
+    "wall": false,
+    "family": "rugs",
+    "tags": [
+      "floor"
+    ]
+  },
+  "rug_round": {
+    "footprint": [
+      2,
+      2
+    ],
+    "height": 0.0625,
+    "wall": false,
+    "family": "rugs",
+    "tags": [
+      "floor"
+    ]
+  },
+  "server_rack": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 2.125,
+    "wall": false,
+    "family": "landmarks",
+    "tags": [
+      "landmark",
+      "forge",
+      "leds"
+    ]
+  },
+  "snack_table": {
+    "footprint": [
+      2,
+      1
+    ],
+    "height": 1.0625,
+    "wall": false,
+    "family": "tables",
+    "tags": []
+  },
+  "sofa_corner": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.9375,
+    "wall": false,
+    "family": "sofa",
+    "tags": [
+      "connect",
+      "corner"
+    ]
+  },
+  "sofa_end_l": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.9375,
+    "wall": false,
+    "family": "sofa",
+    "tags": [
+      "connect",
+      "left"
+    ]
+  },
+  "sofa_end_r": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.9375,
+    "wall": false,
+    "family": "sofa",
+    "tags": [
+      "connect",
+      "right"
+    ]
+  },
+  "sofa_mid": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.9375,
+    "wall": false,
+    "family": "sofa",
+    "tags": [
+      "connect",
+      "mid"
+    ]
+  },
+  "stage_block": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 0.25,
+    "wall": false,
+    "family": "stage",
+    "tags": [
+      "connect"
+    ]
+  },
+  "stool": {
+    "footprint": [
+      0.75,
+      0.75
+    ],
+    "height": 0.4375,
+    "wall": false,
+    "family": "seating",
+    "tags": [
+      "seat"
+    ]
+  },
+  "the_internet": {
+    "footprint": [
+      0.5,
+      0.375
+    ],
+    "height": 0.4375,
+    "wall": false,
+    "family": "desktop",
+    "tags": [
+      "desktop",
+      "it-crowd"
+    ]
+  },
+  "trash_bin": {
+    "footprint": [
+      0.5,
+      0.5
+    ],
+    "height": 0.4375,
+    "wall": false,
+    "family": "furniture",
+    "tags": []
+  },
+  "trophy": {
+    "footprint": [
+      0.5,
+      0.375
+    ],
+    "height": 0.375,
+    "wall": false,
+    "family": "desktop",
+    "tags": [
+      "desktop",
+      "award"
+    ]
+  },
+  "tv_console": {
+    "footprint": [
+      2,
+      1
+    ],
+    "height": 1.6875,
+    "wall": false,
+    "family": "games",
+    "tags": []
+  },
+  "umbrella_stand": {
+    "footprint": [
+      0.75,
+      0.75
+    ],
+    "height": 1.0,
+    "wall": false,
+    "family": "furniture",
+    "tags": [
+      "entry"
+    ]
+  },
+  "vending_machine": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 2.0625,
+    "wall": false,
+    "family": "kitchen",
+    "tags": []
+  },
+  "visitor": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.625,
+    "wall": false,
+    "family": "characters",
+    "tags": [
+      "player",
+      "humanoid"
+    ]
+  },
+  "wall_clock": {
+    "footprint": [
+      0.75,
+      0.125
+    ],
+    "height": 0.75,
+    "wall": true,
+    "family": "wall",
+    "tags": [
+      "wall",
+      "clock"
+    ]
+  },
+  "wall_tv": {
+    "footprint": [
+      1.5,
+      0.125
+    ],
+    "height": 0.9375,
+    "wall": true,
+    "family": "wall",
+    "tags": [
+      "wall",
+      "screen"
+    ]
+  },
+  "water_cooler": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.625,
+    "wall": false,
+    "family": "kitchen",
+    "tags": []
+  },
+  "whiteboard": {
+    "footprint": [
+      1,
+      1
+    ],
+    "height": 1.875,
+    "wall": false,
+    "family": "boards",
+    "tags": []
+  },
+  "window_panel": {
+    "footprint": [
+      1,
+      0.25
+    ],
+    "height": 1.125,
+    "wall": true,
+    "family": "wall",
+    "tags": [
+      "wall",
+      "glass"
+    ]
+  }
+}

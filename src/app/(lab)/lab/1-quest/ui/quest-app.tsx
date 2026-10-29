@@ -12,22 +12,26 @@ import type { LabContent } from '../../_shared/content';
 import { useMaxChat } from '../chat/use-max-chat';
 import { GameBus, type Interactable } from '../scene/bus';
 import { compileWorld } from '../world/compile';
-import { defaultWorldOps } from '../world/default-world';
+import { defaultBrief, DEFAULT_SEED } from '../world/default-world';
+import { briefForSeed } from '../world/offline-briefs';
 import type { WorldState } from '../world/contract';
-import { biomes, timesOfDay, weathers, type LandmarkId } from '../world/schema';
+import { briefSteps } from '../world/replay';
+import { eventKinds, outsides, timesOfDay, vibes, type LandmarkId } from '../world/schema';
 import { useWorld } from '../world/use-world';
 import { ChatLog, ChatLogView } from './chat-log';
 import { Labels } from './labels';
 import styles from './hud.module.css';
-import { Dock, LoadingVeil, Minimap, UnitFrame, ZoneText, type Action } from './hud';
+import { BuildProgress, Dock, LoadingVeil, Minimap, UnitFrame, ZoneText, type Action } from './hud';
 import {
 	isTypingTarget,
 	setSessionFlag,
+	setStoredFlag,
 	useDocumentHidden,
 	useMedia,
 	useNow,
 	useSearch,
 	useSessionFlag,
+	useStoredFlag,
 } from './hooks';
 import { cx, LayerContext } from './window';
 import {
@@ -56,6 +60,7 @@ const LANDMARK_WINDOW: Record<LandmarkId, WindowId> = {
 };
 
 const INTRO_KEY = 'quest-v2-intro-seen';
+const TOUCH_HINT_KEY = 'quest-touch-hint-seen';
 const INTRO_MS = 4200;
 const HOUR = 60 * 60 * 1000;
 
@@ -70,8 +75,10 @@ function levelAt(now: number) {
 }
 
 /**
- * Review helpers: ?time=night&biome=winter&weather=snow previews other moods of the same world,
- * ?world=default shows the hand-built starter world instead of the current one.
+ * Review helpers: ?time=night&vibe=neon&event=deploy previews other moods of the same office,
+ * ?world=default shows the hand-written starter office, ?seed=42 lays out another floorplan with
+ * a hand-written brief picked by the seed (world/offline-briefs.ts),
+ * ?view=overview shows the whole floor from above, ?outside=rain sets the weather, ?build=5 freezes the build replay at step 5.
  */
 function parsePreview(search: string) {
 	const q = new URLSearchParams(search);
@@ -79,15 +86,25 @@ function parsePreview(search: string) {
 		const v = q.get(key);
 		return v && (list as readonly string[]).includes(v) ? (v as T) : undefined;
 	};
-	const meta = {
-		...(pick('time', timesOfDay) ? { timeOfDay: pick('time', timesOfDay)! } : {}),
-		...(pick('biome', biomes) ? { biome: pick('biome', biomes)! } : {}),
-		...(pick('weather', weathers) ? { weather: pick('weather', weathers)! } : {}),
-	};
+	const time = pick('time', timesOfDay);
+	const vibe = pick('vibe', vibes);
+	const event = pick('event', eventKinds);
+	const outside = pick('outside', outsides);
+	const seed = Number(q.get('seed'));
 	return {
-		meta,
-		any: Object.keys(meta).length > 0,
-		starter: q.get('world') === 'default',
+		brief: {
+			...(time ? { timeOfDay: time } : {}),
+			...(vibe ? { vibe } : {}),
+			...(event ? { event: { kind: event, title: 'Preview', story: '' } } : {}),
+			...(outside ? { outside } : {}),
+		},
+		seed: Number.isSafeInteger(seed) && seed > 0 ? seed : null,
+		starter: q.get('world') === 'default' || q.has('seed'),
+		/** ?world=default is always the canonical office; a bare ?seed=N gets a pooled brief. */
+		canonical: q.get('world') === 'default',
+		overview: q.get('view') === 'overview',
+		/** Freeze the build replay at this step. */
+		build: q.has('build') ? Math.max(0, Number(q.get('build')) || 0) : null,
 	};
 }
 
@@ -114,6 +131,7 @@ export function QuestApp({
 	const compact = useMedia('(max-width: 640px)');
 	const hidden = useDocumentHidden();
 	const seenIntro = useSessionFlag(INTRO_KEY);
+	const seenTouchHint = useStoredFlag(TOUCH_HINT_KEY);
 	const search = useSearch();
 	const now = useNow(1000);
 	const nearby = useSyncExternalStore(bus.subscribeNearby, bus.getNearby, () => null);
@@ -134,41 +152,35 @@ export function QuestApp({
 		if (process.env.NODE_ENV !== 'production') Object.assign(window, { __questBus: bus });
 	}, [bus]);
 
-	// --- which ops are on screen: the intro replays the current world quickly, once per session
+	// --- which brief is on screen: the intro replays the current office quickly, once per session
 	const preview = useMemo(() => parsePreview(search), [search]);
 	const generating = world.status === 'generating';
-	const ops = preview.starter && !generating ? defaultWorldOps : world.ops;
+	const starter = preview.starter && !generating;
+	const seed = starter ? (preview.seed ?? DEFAULT_SEED) : world.seed;
+	const baseBrief = starter ? (preview.canonical ? defaultBrief : briefForSeed(seed)) : world.brief;
+	const brief = useMemo(() => ({ ...baseBrief, ...preview.brief }), [baseBrief, preview]);
+	const steps = useMemo(() => briefSteps(brief), [brief]);
 	const introActive =
-		seenIntro === false &&
-		!reducedMotion &&
-		world.status === 'ready' &&
-		ops.length > 0 &&
-		!intro.done;
+		seenIntro === false && !reducedMotion && world.status === 'ready' && !intro.done;
 	const introRunning = introActive && sceneReady;
-	const partial = introActive || generating;
-	const step = introActive ? intro.step : ops.length;
+	const frozen = preview.build !== null && !generating;
+	const partial = introActive || generating || frozen;
+	const step = frozen
+		? Math.min(preview.build!, steps.length - 1)
+		: introActive
+			? Math.min(intro.step, steps.length - 1)
+			: steps.length - 1;
 
-	const compiledRaw = useMemo(
-		() => compileWorld(introActive ? ops.slice(0, step) : ops, { partial }),
-		[ops, step, introActive, partial],
-	);
 	const compiled = useMemo(
-		() =>
-			preview.any
-				? { ...compiledRaw, meta: { ...compiledRaw.meta, ...preview.meta } }
-				: compiledRaw,
-		[compiledRaw, preview],
+		() => compileWorld(introActive || frozen ? steps[step] : brief, seed, { partial }),
+		[steps, step, introActive, frozen, brief, seed, partial],
 	);
-	const finalMeta = useMemo(
-		() => compileWorld(ops, { partial: generating }).meta,
-		[ops, generating],
-	);
-	const worldName = generating ? compiled.meta.name : finalMeta.name;
-	const tagline = generating ? compiled.meta.tagline : finalMeta.tagline;
+	const worldName = brief.company || (generating ? 'A new office' : 'the office');
+	const tagline = brief.tagline;
 
 	useEffect(() => {
 		if (!introRunning) return;
-		const total = ops.length;
+		const total = steps.length;
 		const id = window.setInterval(
 			() =>
 				setIntro((s) =>
@@ -181,7 +193,7 @@ export function QuestApp({
 			Math.max(20, INTRO_MS / total),
 		);
 		return () => window.clearInterval(id);
-	}, [introRunning, ops.length]);
+	}, [introRunning, steps.length]);
 
 	useEffect(() => {
 		if (intro.done) setSessionFlag(INTRO_KEY);
@@ -190,32 +202,29 @@ export function QuestApp({
 	// Any key or click skips the intro.
 	useEffect(() => {
 		if (!introRunning) return;
-		const skip = () => setIntro({ step: ops.length, done: true });
+		const skip = () => setIntro({ step: steps.length, done: true });
 		window.addEventListener('keydown', skip);
 		window.addEventListener('pointerdown', skip);
 		return () => {
 			window.removeEventListener('keydown', skip);
 			window.removeEventListener('pointerdown', skip);
 		};
-	}, [introRunning, ops.length]);
+	}, [introRunning, steps.length]);
 
-	// Narrate the replay with the world's own build log, landmarks only, so it stays readable.
+	// Narrate the replay with the office's own build log, zones only, so it stays readable.
 	useEffect(() => {
-		if (!introRunning || intro.step === 0) return;
-		const op = ops[intro.step - 1];
-		if (op?.type === 'meta')
+		if (!introRunning) return;
+		if (intro.step === 0)
 			log.push({
-				id: `intro-${world.worldId}-meta`,
+				id: `intro-${world.worldId}-start`,
 				kind: 'forge',
-				text: `Replaying how ${op.name} was forged…`,
+				text: `Replaying how ${worldName} was set up…`,
 			});
-		if (op?.type === 'landmark' && op.story)
-			log.push({
-				id: `intro-${world.worldId}-${intro.step}`,
-				kind: 'forge',
-				text: op.story,
-			});
-	}, [introRunning, intro.step, ops, log, world.worldId]);
+		const zone = steps[intro.step]?.zones.at(-1);
+		const before = steps[intro.step - 1]?.zones.length ?? 0;
+		if (zone && steps[intro.step].zones.length > before && zone.story)
+			log.push({ id: `intro-${world.worldId}-${intro.step}`, kind: 'forge', text: zone.story });
+	}, [introRunning, intro.step, steps, log, world.worldId, worldName]);
 
 	// --- zone text: big on arrival, small after a few seconds, again for each new world
 	const zoneKey = world.worldId;
@@ -251,7 +260,7 @@ export function QuestApp({
 				direction: l.role === 'visitor' ? 'out' : 'in',
 				text:
 					clip(l.text, 280) +
-					(l.draft ? ' (A quest scroll is waiting in the conversation.)' : ''),
+					(l.draft ? ' (A ticket draft is waiting in the chat.)' : ''),
 			});
 	}, [chat.lines, log]);
 
@@ -270,8 +279,8 @@ export function QuestApp({
 			id: `welcome-${world.worldId}`,
 			kind: 'system',
 			text: touch
-				? `Welcome to ${worldName}. Tap the ground to walk, tap Max to talk, or use the buttons below.`
-				: `Welcome to ${worldName}. Walk with WASD or click the ground. Press F near Max to talk, or use the action bar.`,
+				? `Welcome to ${worldName}. Tap the floor to walk, tap Max to talk, or use the buttons below.`
+				: `Welcome to ${worldName}. Walk with WASD or click the floor, turn the view with Q and E. Press F near Max to talk, or open an app from the dock.`,
 		});
 	}, [sceneReady, introActive, generating, world.worldId, worldName, touch, log]);
 
@@ -333,17 +342,17 @@ export function QuestApp({
 			title: 'Talk to Max',
 			description:
 				'Ask Max’s echo anything about his work, or tell it about a project you have in mind.',
-			use: 'Opens a conversation with Max.',
+			use: 'Opens a chat with Max.',
 			key: '1',
 			onUse: () => toggle('gossip'),
 		},
 		{
 			id: 'library',
-			label: 'Library',
-			title: landmarkName('library') || 'The Library',
+			label: 'Wiki',
+			title: landmarkName('library') || 'The Wiki Shelf',
 			description:
 				'Max’s wiki: who he is, what he uses, what he thinks. Kept like a git repo, joke commits included.',
-			use: 'Opens the book.',
+			use: 'Opens the wiki.',
 			key: '2',
 			onUse: () => toggle('library'),
 		},
@@ -352,14 +361,14 @@ export function QuestApp({
 			label: 'Stage',
 			title: landmarkName('stage') || 'The Stage',
 			description: 'Talks Max has given at meetups and conferences.',
-			use: 'Opens the list of talks.',
+			use: 'Lists every talk.',
 			key: '3',
 			onUse: () => toggle('stage'),
 		},
 		{
 			id: 'quest',
 			label: 'Hire',
-			title: landmarkName('questboard') || 'The Quest Board',
+			title: landmarkName('questboard') || 'The Ticket Board',
 			description:
 				'Got a project? Max builds web products end to end, AI features included.',
 			use: 'Shows how to hire Max.',
@@ -368,14 +377,14 @@ export function QuestApp({
 		},
 		{
 			id: 'forge',
-			label: 'Forge',
-			title: 'Forge a New World',
+			label: 'Redeploy',
+			title: 'Redeploy the office',
 			description: generating
-				? 'A new world is being forged right now. Watch it rise.'
+				? 'A new office is being deployed right now. Watch it come together.'
 				: cooldownMs > 0
-					? `The waystone is cooling down. Ready ${untilLabel(cooldownMs)}.`
-					: 'Ask the waystone for a brand-new valley. An AI builds it live, block by block.',
-			use: 'Opens the World Forge.',
+					? `The main rack is cooling down. Ready ${untilLabel(cooldownMs)}.`
+					: 'Ask the main rack for a brand-new office. An AI writes it, the office builds itself live.',
+			use: 'Opens the server rack.',
 			key: '5',
 			disabled: !world.canGenerate,
 			busy: generating,
@@ -423,13 +432,13 @@ export function QuestApp({
 				<div
 					className={styles.stage}
 					role="img"
-					aria-label={`A 3D valley called ${worldName}`}
+					aria-label={`A 3D office of ${worldName}`}
 					aria-describedby="quest-world-summary"
 				>
 					<WorldCanvas
 						world={compiled}
 						bus={bus}
-						mode={introActive || generating ? 'overview' : 'play'}
+						mode={introActive || generating || frozen || preview.overview ? 'overview' : 'play'}
 						animate={
 							sceneReady &&
 							(introActive || generating || world.worldId !== initial.world.id)
@@ -441,30 +450,51 @@ export function QuestApp({
 						respawnKey={`${world.worldId}|${generating ? 'gen' : 'live'}|${introActive ? 'intro' : 'play'}`}
 						onReady={() => setSceneReady(true)}
 					/>
-					<Labels world={compiled} bus={bus} />
+					<Labels world={compiled} bus={bus} touch={touch} />
 				</div>
 				<p id="quest-world-summary" className={styles.srOnly}>
 					{worldName}. {tagline} Places: {places || 'still being built'}. Everything here
-					is also reachable with the action bar and the map buttons.
+					is also reachable from the dock and the floor plan.
 				</p>
 				<LoadingVeil ready={sceneReady} name={worldName} />
 				<ZoneText state={zoneState} worldName={worldName} tagline={tagline} />
+				{(generating || frozen || introRunning) && sceneReady ? (
+					<BuildProgress world={compiled} label="Furnishing office" />
+				) : null}
+				{touch && seenTouchHint === false && sceneReady && !introActive && !generating && open === null ? (
+					<div className={styles.touchHint} role="note">
+						<span className={styles.touchHintIcon} aria-hidden="true" />
+						<p>
+							Tap the floor to walk <span aria-hidden="true">&middot;</span> tap people to chat
+						</p>
+						<button type="button" onClick={() => setStoredFlag(TOUCH_HINT_KEY)}>
+							Got it
+						</button>
+					</div>
+				) : null}
 				{introRunning ? (
 					<p className={styles.skipHint} aria-hidden="true">
-						The world is assembling. Press any key or click to skip.
+						The office is setting itself up. Press any key or click to skip.
 					</p>
 				) : null}
-				<UnitFrame level={xp.level} onOpen={() => toggle('character')} />
+				<UnitFrame
+					level={xp.level}
+					compact={compact || zoneState !== 'big'}
+					onOpen={() => toggle('character')}
+				/>
 				<Minimap
 					world={compiled}
 					bus={bus}
 					time={compiled.meta.timeOfDay}
+					outside={compiled.meta.outside}
+					name={worldName}
+					collapsedByDefault={compact}
 					onPin={(id) => {
 						setOpen(null);
 						bus.walkTo({ kind: 'landmark', id });
 					}}
 				/>
-				<ChatLogView log={log} compact={compact} />
+				<ChatLogView log={log} compact={compact} hidden={open === 'gossip'} />
 				<Dock
 					actions={actions}
 					xp={xp}
@@ -485,7 +515,7 @@ export function QuestApp({
 					pages={content.wiki}
 					file={wikiFile}
 					onFile={setWikiFile}
-					name={landmarkName('library') || 'The Library'}
+					name={landmarkName('library') || 'The Wiki Shelf'}
 				/>
 				<StageWindow
 					open={open === 'stage'}
@@ -498,7 +528,7 @@ export function QuestApp({
 					open={open === 'questboard'}
 					onClose={() => setOpen(null)}
 					business={business}
-					name={landmarkName('questboard') || 'The Quest Board'}
+					name={landmarkName('questboard') || 'The Ticket Board'}
 					onTellMax={tellMax}
 				/>
 				<ForgeWindow

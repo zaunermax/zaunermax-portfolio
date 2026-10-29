@@ -14,8 +14,8 @@ import {
 } from '../chat/contract';
 import { sendQuest, type UseMaxChat } from '../chat/use-max-chat';
 import styles from './hud.module.css';
-import { Ability, Diamond, GossipBubble, QuestMark, WaxSeal } from './icons';
-import { cx, WowWindow } from './window';
+import { Ability, GossipBubble, QuestMark, Sparkle, WaxSeal } from './icons';
+import { AppWindow, cx } from './window';
 
 export type Business = typeof businessValue;
 
@@ -28,7 +28,7 @@ function MaxPortrait({ className, size }: { className: string; size: number }) {
 }
 
 // ---------------------------------------------------------------------------
-// Talking to Max: a real conversation, plus a quest scroll when there is a project.
+// Talking to Max: a messenger thread, plus a ticket draft when there is a project.
 
 export function GossipWindow({
 	open,
@@ -65,29 +65,35 @@ export function GossipWindow({
 	}
 
 	return (
-		<WowWindow
+		<AppWindow
 			open={open}
 			onClose={onClose}
 			side="left"
 			width="580px"
+			tone="coral"
 			keepMounted
 			initialFocus={inputRef}
 			portrait={<MaxPortrait className={styles.gossipPortrait} size={64} />}
-			title={<span className={styles.gossipName}>Max Zauner</span>}
-			sub="Independent software engineer · Vienna"
+			title="Max Zauner"
+			sub={
+				<>
+					<span className={styles.onlineDot} aria-hidden="true" />
+					Online as an AI echo, in Vienna
+				</>
+			}
 		>
-			<div className={styles.parchment}>
-				<p style={{ margin: '0 0 14px' }}>
-					Well met, traveller! I&rsquo;m Max&rsquo;s echo, a little AI that knows what Max
-					builds, where he has spoken and how he works. Ask me anything, or tell me about
-					a project you have in mind and I&rsquo;ll write it up as a quest for him.
+			<div className={cx(styles.panelBody, styles.thread)}>
+				<p className={styles.saidByMax}>
+					Hi! I&rsquo;m Max&rsquo;s echo, a little AI that knows what Max builds, where he
+					has spoken and how he works. Ask me anything, or tell me about a project and
+					I&rsquo;ll turn it into a ticket for him.
 				</p>
 				<ol className={styles.transcript} aria-label="Conversation">
 					{chat.lines.map((line) => (
 						<li key={line.id}>
 							<Said line={line} />
 							{line.draft && !dismissed.includes(line.id) ? (
-								<QuestScroll
+								<TicketForm
 									draft={line.draft}
 									onDismiss={() => setDismissed([...dismissed, line.id])}
 								/>
@@ -96,7 +102,7 @@ export function GossipWindow({
 					))}
 					{chat.streaming !== null ? (
 						<li aria-hidden="true" className={styles.saidByMax}>
-							{chat.streaming || 'Max thinks for a moment'}
+							{chat.streaming || 'Max is typing'}
 							<span className={styles.caret} />
 						</li>
 					) : null}
@@ -107,24 +113,21 @@ export function GossipWindow({
 					</p>
 				) : null}
 				{chat.suggestions.length ? (
-					<>
-						<hr className={styles.rule} />
-						<ul className={styles.options} aria-label="Things to say">
-							{chat.suggestions.map((s) => (
-								<li key={s}>
-									<button
-										type="button"
-										className={styles.option}
-										disabled={chat.isBusy}
-										onClick={() => say(s)}
-									>
-										<GossipBubble />
-										{s}
-									</button>
-								</li>
-							))}
-						</ul>
-					</>
+					<ul className={styles.options} aria-label="Things to say">
+						{chat.suggestions.map((s) => (
+							<li key={s}>
+								<button
+									type="button"
+									className={styles.option}
+									disabled={chat.isBusy}
+									onClick={() => say(s)}
+								>
+									<GossipBubble />
+									{s}
+								</button>
+							</li>
+						))}
+					</ul>
 				) : null}
 				<div ref={endRef} />
 			</div>
@@ -140,7 +143,7 @@ export function GossipWindow({
 						value={text}
 						onChange={(e) => setText(e.target.value)}
 						maxLength={CHAT_LIMITS.messageChars}
-						placeholder="What are you working on right now?"
+						placeholder="Message Max"
 						autoComplete="off"
 					/>
 					{chat.isBusy ? (
@@ -164,29 +167,31 @@ export function GossipWindow({
 					</button>
 				</p>
 			</form>
-		</WowWindow>
+		</AppWindow>
 	);
 }
 
 function Said({ line }: { line: ChatLine }) {
 	if (line.role === 'visitor')
 		return (
-			<p className={styles.saidByYou} style={{ margin: 0 }}>
-				<b>You:</b> {line.text}
+			<p className={styles.saidByYou}>
+				<span className={styles.srOnly}>You: </span>
+				{line.text}
 			</p>
 		);
 	return (
-		<p className={styles.saidByMax} style={{ margin: 0 }}>
+		<p className={styles.saidByMax}>
+			<span className={styles.srOnly}>Max: </span>
 			{line.text}
 		</p>
 	);
 }
 
-type ScrollField =
+type TicketField =
 	'title' | 'name' | 'email' | 'company' | 'summary' | 'timeline' | 'budget';
 
-const FIELD_HELP: Record<ScrollField, string> = {
-	title: 'Give the quest a title of 3 to 60 characters.',
+const FIELD_HELP: Record<TicketField, string> = {
+	title: 'Give the ticket a title of 3 to 60 characters.',
 	name: 'Tell Max your name.',
 	email: 'Max needs a valid email address to reply to.',
 	company: 'Keep it under 80 characters.',
@@ -195,8 +200,8 @@ const FIELD_HELP: Record<ScrollField, string> = {
 	budget: 'Keep it under 80 characters.',
 };
 
-/** The editable quest scroll. Nothing is sent until the visitor presses the button. */
-export function QuestScroll({
+/** The editable ticket. Nothing is sent until the visitor presses the button. */
+export function TicketForm({
 	draft,
 	onDismiss,
 }: {
@@ -204,7 +209,7 @@ export function QuestScroll({
 	onDismiss: () => void;
 }) {
 	const id = useId();
-	const [values, setValues] = useState<Record<ScrollField, string>>(() => ({
+	const [values, setValues] = useState<Record<TicketField, string>>(() => ({
 		title: draft?.title ?? '',
 		name: draft?.name ?? '',
 		email: draft?.email ?? '',
@@ -214,7 +219,7 @@ export function QuestScroll({
 		budget: draft?.budget ?? '',
 	}));
 	const [website, setWebsite] = useState('');
-	const [errors, setErrors] = useState<Partial<Record<ScrollField, string>>>({});
+	const [errors, setErrors] = useState<Partial<Record<TicketField, string>>>({});
 	const [status, setStatus] = useState<{
 		state: 'idle' | 'sending' | 'sent' | 'error';
 		message?: string;
@@ -235,13 +240,13 @@ export function QuestScroll({
 			elapsedMs: Math.max(0, Math.round(performance.now() - openedAt.current)),
 		});
 		if (!parsed.success) {
-			const next: Partial<Record<ScrollField, string>> = {};
+			const next: Partial<Record<TicketField, string>> = {};
 			for (const issue of parsed.error.issues) {
-				const key = issue.path[0] as ScrollField;
+				const key = issue.path[0] as TicketField;
 				if (key in FIELD_HELP) next[key] = FIELD_HELP[key];
 			}
 			setErrors(next);
-			const first = (Object.keys(FIELD_HELP) as ScrollField[]).find((k) => next[k]);
+			const first = (Object.keys(FIELD_HELP) as TicketField[]).find((k) => next[k]);
 			if (first) document.getElementById(`${id}-${first}`)?.focus();
 			return;
 		}
@@ -257,12 +262,12 @@ export function QuestScroll({
 		return (
 			<div className={styles.seal} role="status">
 				<WaxSeal />
-				Quest sent. Max will reply by email.
+				Ticket sent. Max will reply by email.
 			</div>
 		);
 
 	const field = (
-		key: ScrollField,
+		key: TicketField,
 		label: string,
 		opts: { wide?: boolean; area?: boolean; type?: string; required?: boolean } = {},
 	) => {
@@ -303,21 +308,24 @@ export function QuestScroll({
 
 	return (
 		<form
-			className={styles.scroll}
+			className={styles.ticket}
 			onSubmit={submit}
 			noValidate
 			aria-labelledby={`${id}-h`}
 		>
-			<h3 id={`${id}-h`} className={styles.scrollTitle}>
-				A quest for Max
+			<h3 id={`${id}-h`} className={styles.ticketTitle}>
+				<span className={styles.ticketTag} aria-hidden="true">
+					New
+				</span>
+				A ticket for Max
 			</h3>
-			<p className={styles.scrollIntro}>
+			<p className={styles.ticketIntro}>
 				{draft
 					? 'Max’s echo wrote this down. Check it, change anything, then send it.'
-					: 'Write it in your own words. Max reads every scroll himself.'}
+					: 'Write it in your own words. Max reads every ticket himself.'}
 			</p>
 			<div className={styles.fields}>
-				{field('title', 'Quest title', { wide: true, required: true })}
+				{field('title', 'Ticket title', { wide: true, required: true })}
 				{field('name', 'Your name', { required: true })}
 				{field('email', 'Your email', { type: 'email', required: true })}
 				{field('company', 'Company (optional)')}
@@ -340,17 +348,17 @@ export function QuestScroll({
 				/>
 			</div>
 			{status.state === 'error' ? (
-				<p className={styles.error} role="alert" style={{ marginTop: 12 }}>
+				<p className={styles.error} role="alert">
 					{status.message}
 				</p>
 			) : null}
-			<div className={styles.buttonRow} style={{ marginTop: 16 }}>
+			<div className={styles.buttonRow}>
 				<button
 					type="submit"
 					className={styles.button}
 					disabled={status.state === 'sending'}
 				>
-					{status.state === 'sending' ? 'Sending…' : 'Send quest to Max'}
+					{status.state === 'sending' ? 'Sending…' : 'Send ticket to Max'}
 				</button>
 				<button
 					type="button"
@@ -365,7 +373,7 @@ export function QuestScroll({
 }
 
 // ---------------------------------------------------------------------------
-// The library: a book with the file list on the left page and the file on the right.
+// The wiki: a little file browser, files on the left and the open page on the right.
 
 export function LibraryWindow({
 	open,
@@ -417,11 +425,13 @@ export function LibraryWindow({
 	};
 	const current = pages.find((p) => p.filename === file) ?? pages[0];
 	return (
-		<WowWindow
+		<AppWindow
 			open={open}
 			onClose={onClose}
 			title={name}
 			sub="Max’s wiki, kept like a git repo"
+			icon="library"
+			tone="teal"
 			width="1040px"
 		>
 			<Tabs.Root
@@ -431,13 +441,14 @@ export function LibraryWindow({
 				className={styles.book}
 			>
 				<div className={cx(styles.page, styles.pageLeft)}>
-					<h3 className={styles.heading} style={{ fontSize: 19 }}>
-						Contents
-					</h3>
+					<h3 className={styles.pageLabel}>Files</h3>
 					<Tabs.List className={styles.files} aria-label="Wiki files">
 						{pages.map((page) => (
 							<Tabs.Tab key={page.filename} value={page.filename} className={styles.file}>
-								<span className={styles.fileName}>{page.filename}</span>
+								<span className={styles.fileName}>
+									<span className={styles.fileGlyph} aria-hidden="true" />
+									{page.filename}
+								</span>
 								<span className={styles.fileMeta}>
 									<code>{page.commitMsg}</code>
 								</span>
@@ -452,11 +463,9 @@ export function LibraryWindow({
 						value={page.filename}
 						className={cx(styles.page, styles.pageRight)}
 					>
-						<h3 className={styles.heading} style={{ fontSize: 26 }}>
-							{page.filename}
-						</h3>
-						<p className={styles.fileMeta} style={{ margin: '0 0 16px' }}>
-							Last commit: <code>{page.commitMsg}</code>, {page.relativeTimeAgo}
+						<h3 className={styles.docTitle}>{page.filename}</h3>
+						<p className={styles.docMeta}>
+							Last commit <code>{page.commitMsg}</code>, {page.relativeTimeAgo}
 						</p>
 						<div className={styles.prose}>
 							<PortableText value={page.content} components={components} />
@@ -464,15 +473,15 @@ export function LibraryWindow({
 					</Tabs.Panel>
 				))}
 				{pages.length ? null : (
-					<p className={styles.page}>The shelves are empty right now.</p>
+					<p className={styles.page}>The wiki is empty right now.</p>
 				)}
 			</Tabs.Root>
-		</WowWindow>
+		</AppWindow>
 	);
 }
 
 // ---------------------------------------------------------------------------
-// The stage: talks as a quest log.
+// The stage: every talk Max has given, newest first.
 
 const MONTHS = [
 	'January',
@@ -512,15 +521,17 @@ export function StageWindow({
 	name: string;
 }) {
 	return (
-		<WowWindow
+		<AppWindow
 			open={open}
 			onClose={onClose}
 			title={name}
-			sub={`Talks given · ${talks.length}`}
+			sub={`${talks.length} talk${talks.length === 1 ? '' : 's'} given so far`}
+			icon="stage"
+			tone="lilac"
 			width="720px"
 		>
-			<div className={styles.parchment}>
-				<p style={{ marginTop: 0 }}>
+			<div className={styles.panelBody}>
+				<p className={styles.lede}>
 					Max speaks at Vienna meetups
 					{events.length ? (
 						<>
@@ -544,7 +555,7 @@ export function StageWindow({
 						return (
 							<li key={talk.slug} className={styles.questItem}>
 								<span className={styles.questMark}>
-									<QuestMark done />
+									<QuestMark />
 								</span>
 								<span>
 									<a className={styles.questTitle} href={`/talks/${talk.slug}`}>
@@ -559,14 +570,14 @@ export function StageWindow({
 						);
 					})}
 				</ol>
-				{talks.length ? null : <p>No talks on the board yet.</p>}
+				{talks.length ? null : <p>No talks listed yet.</p>}
 			</div>
-		</WowWindow>
+		</AppWindow>
 	);
 }
 
 // ---------------------------------------------------------------------------
-// The quest board: hire Max.
+// The ticket board: hire Max.
 
 export function QuestBoardWindow({
 	open,
@@ -582,36 +593,32 @@ export function QuestBoardWindow({
 	onTellMax: () => void;
 }) {
 	const [writing, setWriting] = useState(false);
-	const mailto = `mailto:${business.email}?subject=${encodeURIComponent('A quest for Max')}`;
+	const mailto = `mailto:${business.email}?subject=${encodeURIComponent('A project for Max')}`;
 	return (
-		<WowWindow
+		<AppWindow
 			open={open}
 			onClose={onClose}
 			title={name}
-			sub="Got a project? Max takes quests."
-			width="720px"
+			sub="Got a project? File a ticket."
+			icon="quest"
+			tone="mustard"
+			width="740px"
 		>
 			<div className={styles.board}>
 				{writing ? (
-					<div className={styles.notice} style={{ transform: 'none' }}>
-						<QuestScroll draft={null} onDismiss={() => setWriting(false)} />
-					</div>
+					<TicketForm draft={null} onDismiss={() => setWriting(false)} />
 				) : (
 					<>
 						<article className={styles.notice}>
 							<span className={styles.pin} aria-hidden="true" />
-							<h3 className={styles.heading} style={{ fontSize: 25, marginTop: 6 }}>
-								Wanted: your next product, built well
-							</h3>
-							<p style={{ margin: '0 0 6px', fontWeight: 700 }}>{business.tagline}.</p>
-							<p style={{ margin: '0 0 14px' }}>{business.pitch}</p>
-							<h4 className={styles.heading} style={{ fontSize: 19 }}>
-								Quests Max takes on
-							</h4>
+							<h3 className={styles.noticeTitle}>Wanted: your next product, built well</h3>
+							<p className={styles.noticeTagline}>{business.tagline}.</p>
+							<p>{business.pitch}</p>
+							<h4 className={styles.heading}>What Max builds</h4>
 							<ul className={styles.services}>
 								{business.services.map((s) => (
 									<li key={s}>
-										<Diamond />
+										<Sparkle />
 										{s}
 									</li>
 								))}
@@ -625,14 +632,14 @@ export function QuestBoardWindow({
 									className={cx(styles.button, styles.buttonQuiet)}
 									onClick={() => setWriting(true)}
 								>
-									Write a quest scroll yourself
+									Write the ticket yourself
 								</button>
 							</div>
 						</article>
-						<article className={styles.notice}>
+						<article className={cx(styles.notice, styles.noticeSmall)}>
 							<span className={styles.pin} aria-hidden="true" />
-							<p style={{ margin: '6px 0 0' }}>
-								Prefer a plain letter? Send a raven to{' '}
+							<p>
+								Prefer plain email? Write to{' '}
 								<a href={mailto}>{business.email}</a>. Or find Max on{' '}
 								<a href={business.links.github} target="_blank" rel="noreferrer">
 									GitHub
@@ -647,12 +654,12 @@ export function QuestBoardWindow({
 					</>
 				)}
 			</div>
-		</WowWindow>
+		</AppWindow>
 	);
 }
 
 // ---------------------------------------------------------------------------
-// The world forge.
+// The main server rack: redeploying the office.
 
 function ago(ms: number) {
 	const min = Math.round(ms / 60000);
@@ -662,6 +669,8 @@ function ago(ms: number) {
 	if (h < 48) return `${h} hour${h === 1 ? '' : 's'} ago`;
 	return `${Math.round(h / 24)} days ago`;
 }
+
+const HOUR = 60 * 60 * 1000;
 
 export function untilLabel(ms: number) {
 	const min = Math.ceil(ms / 60000);
@@ -697,48 +706,63 @@ export function ForgeWindow({
 	onForge: () => void;
 }) {
 	const remaining = nextAt && now ? nextAt.getTime() - now : 0;
+	const cooling = !canGenerate && !generating && remaining > 0;
 	const created = createdAt;
 	return (
-		<WowWindow
+		<AppWindow
 			open={open}
 			onClose={onClose}
-			title="The World Forge"
-			sub="A rune-carved waystone"
+			title="Redeploy the office"
+			sub="The main server rack"
+			icon="forge"
+			tone="navy"
 			width="640px"
 		>
-			<div className={styles.parchment}>
-				<span className={styles.forgeArt} aria-hidden="true">
-					<Ability name="forge" />
-				</span>
-				<p style={{ marginTop: 0 }}>
-					Once an hour, anyone can forge a new world. An AI places every building, tree
-					and villager from the same set of blocks, live.
-				</p>
-				<p>Everyone who visits sees the same world until the next one is forged.</p>
+			<div className={styles.panelBody}>
+				<div className={styles.forgeIntro}>
+					<span className={styles.forgeArt} aria-hidden="true">
+						<Ability name="forge" />
+					</span>
+					<div>
+						<p className={styles.lede}>
+							Once an hour, anyone can redeploy the office. An AI dreams up a new company,
+							its rooms, its people and their small dramas; the office then builds itself,
+							live.
+						</p>
+						<p className={styles.lede}>
+							Everyone who visits sees the same office until the next redeploy.
+						</p>
+					</div>
+				</div>
 				<dl className={styles.forgeStat}>
-					<dt>This world</dt>
+					<dt>This office</dt>
 					<dd>{worldName}</dd>
 					{tagline ? (
 						<>
-							<dt>Lore</dt>
+							<dt>Motto</dt>
 							<dd>{tagline}</dd>
 						</>
 					) : null}
-					<dt>Forged</dt>
+					<dt>Deployed</dt>
 					<dd>
 						{source === 'default' || !created
-							? 'By hand, as the starter world'
+							? 'By hand, as the starter office'
 							: now
 								? ago(now - created)
 								: '…'}
 					</dd>
-					<dt>Next forge</dt>
+					<dt>Next redeploy</dt>
 					<dd>
 						{generating
-							? 'A world is being forged right now'
+							? 'A redeploy is running right now'
 							: remaining > 0
 								? untilLabel(remaining)
 								: 'Ready now'}
+						{cooling ? (
+							<span className={styles.cooling} aria-hidden="true">
+								<span style={{ width: `${(1 - Math.min(1, remaining / HOUR)) * 100}%` }} />
+							</span>
+						) : null}
 					</dd>
 				</dl>
 				{error ? (
@@ -753,16 +777,14 @@ export function ForgeWindow({
 						disabled={!canGenerate}
 						onClick={onForge}
 					>
-						{generating ? 'Forging…' : 'Forge a new world'}
+						{generating ? 'Deploying…' : 'Redeploy the office'}
 					</button>
-					{!canGenerate && !generating && remaining > 0 ? (
-						<span style={{ fontFamily: 'var(--q-ui)', fontSize: 16 }}>
-							The waystone is still cooling down.
-						</span>
+					{cooling ? (
+						<span className={styles.buttonNote}>The rack is still cooling down.</span>
 					) : null}
 				</div>
 			</div>
-		</WowWindow>
+		</AppWindow>
 	);
 }
 
@@ -783,44 +805,50 @@ export function CharacterWindow({
 	onHire: () => void;
 }) {
 	return (
-		<WowWindow
+		<AppWindow
 			open={open}
 			onClose={onClose}
-			title={<span className={styles.gossipName}>Max Zauner</span>}
-			sub={`Level ${level} Independent Software Engineer`}
+			title="Max Zauner"
+			sub={`Employee file, level ${level}`}
+			icon="talk"
+			tone="coral"
 			width="720px"
 		>
-			<div className={styles.parchment}>
+			<div className={styles.panelBody}>
 				<div className={styles.sheet}>
-					<MaxPortrait className={styles.sheetPortrait} size={150} />
+					<div className={styles.idCard} aria-hidden="true">
+						<span className={styles.idClip} />
+						<span className={styles.idBand}>Hello, I&rsquo;m Max</span>
+						<MaxPortrait className={styles.sheetPortrait} size={150} />
+						<span className={styles.idName}>Max Zauner</span>
+						<span className={styles.idBarcode} />
+					</div>
 					<div>
-						<p style={{ marginTop: 0 }}>{business.pitch}</p>
+						<p className={styles.lede}>{business.pitch}</p>
 						<dl className={styles.stats}>
-							<dt>Class</dt>
+							<dt>Role</dt>
 							<dd>Independent software engineer</dd>
-							<dt>Home</dt>
+							<dt>Based in</dt>
 							<dd>Vienna, Austria</dd>
-							<dt>Guild</dt>
+							<dt>Team</dt>
 							<dd>A one-person business</dd>
-							<dt>Raven</dt>
+							<dt>Email</dt>
 							<dd>
 								<a href={`mailto:${business.email}`}>{business.email}</a>
 							</dd>
 						</dl>
-						<h3 className={styles.heading} style={{ marginTop: 18, fontSize: 20 }}>
-							Specializations
-						</h3>
+						<h3 className={styles.heading}>Specializations</h3>
 						<ul className={styles.services}>
 							{business.services.map((s) => (
 								<li key={s}>
-									<Diamond />
+									<Sparkle />
 									{s}
 								</li>
 							))}
 						</ul>
 						<div className={styles.buttonRow}>
 							<button type="button" className={styles.button} onClick={onHire}>
-								Post a quest for Max
+								File a ticket for Max
 							</button>
 							<a
 								className={cx(styles.button, styles.buttonQuiet)}
@@ -842,18 +870,17 @@ export function CharacterWindow({
 					</div>
 				</div>
 			</div>
-		</WowWindow>
+		</AppWindow>
 	);
 }
 
 const KEYS: [string[], string][] = [
 	[['W', 'A', 'S', 'D'], 'Walk (arrow keys work too)'],
-	[['Space'], 'Jump'],
 	[['F'], 'Talk, read or use what is in front of you'],
 	[['Click'], 'Walk to a spot, a person or a place'],
-	[['Drag'], 'Turn the camera'],
+	[['Q', 'E'], 'Turn the view by a quarter'],
 	[['Wheel'], 'Zoom in and out (pinch on touch screens)'],
-	[['1', '–', '6'], 'Use the action bar'],
+	[['1', '–', '6'], 'Open an app from the dock'],
 	[['Esc'], 'Close a window'],
 ];
 
@@ -865,14 +892,16 @@ export function ControlsWindow({
 	onClose: () => void;
 }) {
 	return (
-		<WowWindow
+		<AppWindow
 			open={open}
 			onClose={onClose}
 			title="Controls"
-			sub="Everything also works from the action bar"
+			sub="Everything also works from the dock"
+			icon="controls"
+			tone="sage"
 			width="600px"
 		>
-			<div className={styles.parchment}>
+			<div className={styles.panelBody}>
 				<dl className={styles.keys}>
 					{KEYS.map(([keys, what]) => (
 						<div key={what} style={{ display: 'contents' }}>
@@ -891,12 +920,11 @@ export function ControlsWindow({
 						</div>
 					))}
 				</dl>
-				<hr className={styles.rule} />
-				<p style={{ margin: 0 }}>
-					On a phone: tap the ground to walk, tap a person or place to visit it, drag to
-					look around and pinch to zoom.
+				<p className={styles.touchNote}>
+					On a phone: tap the floor to walk, tap a person or place to visit it and pinch
+					to zoom.
 				</p>
 			</div>
-		</WowWindow>
+		</AppWindow>
 	);
 }

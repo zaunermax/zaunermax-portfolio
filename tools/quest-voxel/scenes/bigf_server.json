@@ -1,0 +1,74 @@
+{
+  "floor": [
+    -3,
+    -1,
+    6,
+    5
+  ],
+  "resolution": 1200,
+  "placements": [
+    {
+      "id": "server_rack",
+      "x": 0,
+      "z": 0,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "server_rack",
+      "x": 1,
+      "z": 0,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "server_rack",
+      "x": 2,
+      "z": 0,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "big_desk_max",
+      "x": 1,
+      "z": 2,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "office_chair",
+      "x": 1,
+      "z": 3,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "printer",
+      "x": 4,
+      "z": 1,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "filing_cabinet",
+      "x": 4,
+      "z": 0,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "kanban_board",
+      "x": -2,
+      "z": 1,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "whiteboard",
+      "x": -2,
+      "z": 3,
+      "rotation": 0,
+      "y": 0
+    }
+  ]
+}

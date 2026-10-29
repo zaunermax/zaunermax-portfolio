@@ -99,7 +99,37 @@ export function setSessionFlag(key: string) {
 	}
 }
 
-/** Raw query string, for preview overrides like ?time=night&biome=winter. */
+const storedListeners = new Set<() => void>();
+const subscribeStored = (fn: () => void) => {
+	storedListeners.add(fn);
+	return () => storedListeners.delete(fn);
+};
+
+/** A localStorage flag that survives visits (first-visit hints); null until hydrated. */
+export function useStoredFlag(key: string) {
+	return useSyncExternalStore(
+		subscribeStored,
+		() => {
+			try {
+				return window.localStorage.getItem(key) === '1';
+			} catch {
+				return true;
+			}
+		},
+		() => null,
+	);
+}
+
+export function setStoredFlag(key: string) {
+	try {
+		window.localStorage.setItem(key, '1');
+	} catch {
+		/* Private mode: the hint simply shows again next time. */
+	}
+	for (const fn of storedListeners) fn();
+}
+
+/** Raw query string, for preview overrides like ?time=night&vibe=neon. */
 export function useSearch() {
 	return useSyncExternalStore(
 		noop,

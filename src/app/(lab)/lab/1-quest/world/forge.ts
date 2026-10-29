@@ -2,9 +2,11 @@ import 'server-only';
 import type { StoredWorld, WorldStreamEvent } from './contract';
 import {
 	generateWorld,
+	newSeed,
 	WorldGenerationError,
 	type GenerateWorldOptions,
 } from './generate';
+import { WORLD_VERSION } from './schema';
 import {
 	beginGeneration,
 	completeGeneration,
@@ -27,8 +29,9 @@ type Listener = (event: WorldStreamEvent) => void;
 export type ForgeJob = {
 	id: string;
 	createdAt: string;
-	/** Every event so far, replayed to late followers. */
+	/** The events so far, replayed to late followers (only the latest brief is kept). */
 	readonly events: WorldStreamEvent[];
+	seed: number;
 	readonly listeners: Set<Listener>;
 	finished: boolean;
 	/** Settles when the run has persisted (or failed); never rejects. */
@@ -43,6 +46,11 @@ export function currentJob(): ForgeJob | null {
 }
 
 function emit(job: ForgeJob, event: WorldStreamEvent) {
+	// A brief event carries the whole brief so far, so older ones are redundant.
+	if (event.type === 'brief') {
+		const stale = job.events.findIndex((e) => e.type === 'brief');
+		if (stale >= 0) job.events.splice(stale, 1);
+	}
 	job.events.push(event);
 	for (const listener of job.listeners) {
 		try {
@@ -66,38 +74,36 @@ async function run(
 	lock: ForgeLock,
 	generate: (options: GenerateWorldOptions) => ReturnType<typeof generateWorld>,
 ) {
-	emit(job, { type: 'start', id: job.id, createdAt: job.createdAt });
+	emit(job, { type: 'start', id: job.id, createdAt: job.createdAt, seed: job.seed });
 	try {
-		const previous = (await getCurrentWorld()).ops.find((op) => op.type === 'meta');
-		const generator = generate({ previous });
+		const previous = (await getCurrentWorld()).brief;
+		const generator = generate({ previous, seed: job.seed });
 		let step = await generator.next();
 		while (!step.done) {
-			emit(job, { type: 'op', op: step.value });
+			emit(job, { type: 'brief', brief: step.value });
 			step = await generator.next();
 		}
 		const generated = step.value;
 		const world: StoredWorld = {
 			id: job.id,
-			ops: generated.ops,
+			version: WORLD_VERSION,
+			seed: generated.seed,
+			brief: generated.brief,
 			createdAt: job.createdAt,
 			source: 'generated',
 			model: generated.model,
 		};
 		const details = {
-			theme: generated.theme,
+			premise: generated.premise,
 			usage: generated.usage,
 			finishReason: generated.finishReason,
 			durationMs: generated.durationMs,
+			firstPartMs: generated.firstPartMs,
 		};
 		const { nextGenerationAt } = await completeGeneration(lock, world, details);
 		console.info(
-			`[quest] forged "${generated.ops[0]?.type === 'meta' ? generated.ops[0].name : '?'}"`,
-			JSON.stringify({
-				id: job.id,
-				ops: world.ops.length,
-				model: world.model,
-				...details,
-			}),
+			`[quest] deployed "${world.brief.company}"`,
+			JSON.stringify({ id: job.id, seed: world.seed, model: world.model, ...details }),
 		);
 		emit(job, { type: 'done', world, nextGenerationAt });
 	} catch (error) {
@@ -111,10 +117,10 @@ async function run(
 		const reason =
 			error instanceof WorldGenerationError
 				? error.publicMessage
-				: 'The forge failed unexpectedly.';
+				: 'The redeploy failed unexpectedly.';
 		emit(job, {
 			type: 'error',
-			message: `${reason} The previous world stays; try again ${retry}.`,
+			message: `${reason} The previous office stays; try again ${retry}.`,
 		});
 	} finally {
 		job.finished = true;
@@ -145,6 +151,7 @@ export async function startForge(
 		id: begun.lock.id,
 		createdAt: begun.lock.startedAt,
 		events: [],
+		seed: newSeed(),
 		listeners: new Set(),
 		finished: false,
 		done: Promise.resolve(),

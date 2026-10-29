@@ -1,0 +1,67 @@
+{
+  "floor": [
+    -4,
+    -1,
+    5,
+    5
+  ],
+  "resolution": 1200,
+  "placements": [
+    {
+      "id": "reception_desk",
+      "x": 0,
+      "z": 0,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "fish_tank",
+      "x": 3,
+      "z": 0,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "coffee_table",
+      "x": 0,
+      "z": 3,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "sofa_end_l",
+      "x": -1,
+      "z": 2,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "sofa_mid",
+      "x": 0,
+      "z": 2,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "sofa_end_r",
+      "x": 1,
+      "z": 2,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "snack_table",
+      "x": 3,
+      "z": 3,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "plant_monstera",
+      "x": -3,
+      "z": 0,
+      "rotation": 0,
+      "y": 0
+    }
+  ]
+}

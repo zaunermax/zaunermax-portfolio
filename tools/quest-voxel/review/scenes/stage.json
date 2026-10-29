@@ -1,0 +1,92 @@
+{
+ "floor": [
+  -1,
+  -1,
+  7,
+  3
+ ],
+ "resolution": 1400,
+ "views": [
+  0,
+  90
+ ],
+ "placements": [
+  {
+   "id": "stage_block",
+   "x": 0,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "stage_block",
+   "x": 0,
+   "z": 1,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "stage_block",
+   "x": 1,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "stage_block",
+   "x": 1,
+   "z": 1,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "stage_block",
+   "x": 2,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "stage_block",
+   "x": 2,
+   "z": 1,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "stage_block",
+   "x": 4,
+   "z": 0,
+   "rotation": 90,
+   "y": 0
+  },
+  {
+   "id": "stage_block",
+   "x": 5,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "podium",
+   "x": 1,
+   "z": 1,
+   "rotation": 0,
+   "y": 0.25
+  },
+  {
+   "id": "projector_screen",
+   "x": 1,
+   "z": 0,
+   "rotation": 0,
+   "y": 0.25
+  },
+  {
+   "id": "max",
+   "x": 0,
+   "z": 1,
+   "rotation": 0,
+   "y": 0.25
+  }
+ ]
+}

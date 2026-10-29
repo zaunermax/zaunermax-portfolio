@@ -15,50 +15,18 @@ vi.mock('ai', async (original) => ({
 	streamText: mocks.streamText,
 }));
 
+import { defaultBrief } from './default-world';
+import { optionalRoomCount, planFloor } from './floorplan';
 import {
 	buildRunPrompt,
+	DEFAULT_WORLD_MODEL,
 	generateWorld,
-	LANDMARK_MARGIN,
-	LANDMARK_SPACING,
-	planLayout,
-	MIN_WORLD_OPS,
-	pickTheme,
-	THEME_SEEDS,
+	pickPremise,
 	WORLD_INSTRUCTIONS,
 	WorldGenerationError,
 	type GeneratedWorld,
 } from './generate';
-import {
-	biomes,
-	LIMITS,
-	WORLD_HEIGHT,
-	WORLD_WIDTH,
-	worldOp,
-	type WorldOp,
-} from './schema';
-import { RANGES, TEXT_LIMITS } from './sanitize';
-
-const meta = {
-	type: 'meta',
-	name: 'Frostmere',
-	tagline: 'Snow on the lake.',
-	biome: 'winter',
-	timeOfDay: 'night',
-	weather: 'snow',
-	story: 'Snow begins.',
-};
-const hill = (i: number) => ({
-	type: 'hill',
-	x: i,
-	y: 4,
-	radius: 3,
-	height: 2,
-	story: `Hill ${i}.`,
-});
-const world = (count = 40) => [
-	meta,
-	...Array.from({ length: count - 1 }, (_, i) => hill(i)),
-];
+import { optionalZones, requiredZones, type Brief } from './schema';
 
 type StreamOptions = {
 	onError?: (event: { error: unknown }) => void;
@@ -67,26 +35,42 @@ type StreamOptions = {
 	maxOutputTokens?: number;
 	prompt?: string;
 	instructions?: string;
+	reasoning?: string;
 	providerOptions?: unknown;
 };
 
-function fakeStream(elements: unknown[], { error }: { error?: unknown } = {}) {
-	mocks.streamText.mockImplementation((options: StreamOptions) => ({
-		elementStream: (async function* () {
-			for (const element of elements) yield element;
-			if (error) options.onError?.({ error });
-		})(),
-		totalUsage: Promise.resolve({
-			inputTokens: 3000,
-			outputTokens: 5000,
-			totalTokens: 8000,
-		}),
-		finishReason: Promise.resolve('stop'),
-	}));
+/** Partial objects the way the SDK streams them: growing prefixes of the final brief. */
+function prefixes(brief: Record<string, unknown>) {
+	const out: Record<string, unknown>[] = [];
+	const acc: Record<string, unknown> = {};
+	for (const [key, value] of Object.entries(brief)) {
+		if (Array.isArray(value))
+			for (let i = 1; i <= value.length; i++) out.push({ ...acc, [key]: value.slice(0, i) });
+		acc[key] = value;
+		out.push({ ...acc });
+	}
+	return out;
 }
 
-async function drain(generator: AsyncGenerator<WorldOp, GeneratedWorld>) {
-	const streamed: WorldOp[] = [];
+function fakeStream(final: Record<string, unknown> | null, { error, cut }: { error?: unknown; cut?: number } = {}) {
+	mocks.streamText.mockImplementation((options: StreamOptions) => {
+		const parts = final ? prefixes(final).slice(0, cut) : [];
+		const output = error || cut ? Promise.reject(new Error('no output')) : Promise.resolve(final);
+		output.catch(() => {});
+		return {
+			partialOutputStream: (async function* () {
+				for (const part of parts) yield part;
+				if (error) options.onError?.({ error });
+			})(),
+			output,
+			totalUsage: Promise.resolve({ inputTokens: 2000, outputTokens: 2500, totalTokens: 4500 }),
+			finishReason: Promise.resolve('stop'),
+		};
+	});
+}
+
+async function drain(generator: AsyncGenerator<Brief, GeneratedWorld>) {
+	const streamed: Brief[] = [];
 	let step = await generator.next();
 	while (!step.done) {
 		streamed.push(step.value);
@@ -97,213 +81,103 @@ async function drain(generator: AsyncGenerator<WorldOp, GeneratedWorld>) {
 
 beforeEach(() => {
 	vi.clearAllMocks();
-	vi.stubEnv('OPENAI_MODEL', 'base-model');
 	vi.stubEnv('QUEST_WORLD_MODEL', '');
 	mocks.moderate.mockResolvedValue({ results: [{ flagged: false }] });
 });
 
 describe('generateWorld', () => {
-	it('streams sanitized ops and returns the moderated world', async () => {
-		fakeStream([
-			meta,
-			{ ...hill(1), x: 500 },
-			'junk',
-			{ type: 'volcano' },
-			...world(30).slice(1),
-		]);
-		const { streamed, result } = await drain(generateWorld());
-		expect(streamed[1]).toMatchObject({ type: 'hill', x: WORLD_WIDTH - 1 });
-		expect(streamed).toHaveLength(31);
-		for (const op of streamed) expect(worldOp.safeParse(op).success).toBe(true);
-		expect(result.ops).toEqual(streamed);
-		expect(result.model).toBe('base-model');
-		expect(result.usage).toMatchObject({ outputTokens: 5000 });
-		expect(mocks.moderate).toHaveBeenCalledTimes(1);
+	it('streams growing sanitized briefs and returns the moderated one', async () => {
+		fakeStream({ ...defaultBrief, company: 'Byte & Biscuit​' });
+		const { streamed, result } = await drain(generateWorld({ seed: 850 }));
+		expect(streamed.length).toBeGreaterThan(10);
+		// Each streamed brief only grows.
+		for (let i = 1; i < streamed.length; i++) {
+			expect(streamed[i].zones.length).toBeGreaterThanOrEqual(streamed[i - 1].zones.length);
+			expect(streamed[i].cast.length).toBeGreaterThanOrEqual(streamed[i - 1].cast.length);
+		}
+		expect(result.brief).toEqual(defaultBrief);
+		expect(result.seed).toBe(850);
+		expect(result.model).toBe(DEFAULT_WORLD_MODEL);
+		expect(result.usage).toMatchObject({ outputTokens: 2500 });
 		const input = mocks.moderate.mock.calls[0][0].input as string;
-		expect(input).toContain('Frostmere');
-		expect(input).toContain('Hill 1.');
+		expect(input).toContain('Byte & Biscuit');
+		expect(input).toContain('Priya: Oat, soy');
 	});
 
-	it('uses QUEST_WORLD_MODEL, one attempt, bounded output and a timeout signal', async () => {
-		vi.stubEnv('QUEST_WORLD_MODEL', 'world-model');
-		fakeStream(world());
-		await drain(generateWorld({ previous: { name: 'Rosemoor Vale', biome: 'meadow' } }));
-		expect(mocks.responses).toHaveBeenCalledWith('world-model');
+	it('defaults to gpt-6-luna with low reasoning, one attempt, no storage and a timeout', async () => {
+		fakeStream(defaultBrief);
+		await drain(generateWorld({ previous: { company: 'Old Co', vibe: 'cozy' } }));
+		expect(mocks.responses).toHaveBeenCalledWith('gpt-6-luna');
 		const options = mocks.streamText.mock.calls[0][0] as StreamOptions;
+		expect(options.reasoning).toBe('low');
 		expect(options.maxRetries).toBe(0);
-		expect(options.maxOutputTokens).toBeGreaterThan(4000);
 		expect(options.maxOutputTokens).toBeLessThanOrEqual(12_000);
 		expect(options.abortSignal).toBeInstanceOf(AbortSignal);
 		expect(options.providerOptions).toEqual({ openai: { store: false } });
 		expect(options.instructions).toBe(WORLD_INSTRUCTIONS);
-		expect(options.prompt).toContain('"Rosemoor Vale"');
+		expect(options.prompt).toContain('"Old Co"');
 	});
 
-	it('drops npcs and stray landmark names that mention Max', async () => {
-		fakeStream([
-			...world(30),
-			{
-				type: 'npc',
-				kind: 'bard',
-				x: 1,
-				y: 1,
-				name: 'Wren',
-				line: 'Max is great!',
-				wanders: false,
-				story: '',
-			},
-			{
-				type: 'npc',
-				kind: 'dog',
-				x: 1,
-				y: 1,
-				name: 'Max',
-				line: 'Woof.',
-				wanders: true,
-				story: '',
-			},
-			{
-				type: 'npc',
-				kind: 'cat',
-				x: 1,
-				y: 1,
-				name: 'Maxine',
-				line: 'Mrrp.',
-				wanders: true,
-				story: '',
-			},
-			{
-				type: 'landmark',
-				id: 'library',
-				x: 5,
-				y: 5,
-				facing: 'south',
-				name: "Zauner's Books",
-				story: '',
-			},
-			{
-				type: 'landmark',
-				id: 'max',
-				x: 9,
-				y: 9,
-				facing: 'south',
-				name: "Max's Camp",
-				story: 'Max waves.',
-			},
-		]);
+	it('uses QUEST_WORLD_MODEL when set', async () => {
+		vi.stubEnv('QUEST_WORLD_MODEL', 'other-model');
+		fakeStream(defaultBrief);
+		await drain(generateWorld());
+		expect(mocks.responses).toHaveBeenCalledWith('other-model');
+	});
+
+	it('drops cast members and landmark names that mention Max', async () => {
+		fakeStream({
+			...defaultBrief,
+			landmarks: { ...defaultBrief.landmarks, library: "Max's Books", max: "Max's Den" },
+			cast: [
+				...defaultBrief.cast,
+				{ name: 'Zed', character: 'intern', zone: 'desks', activity: 'typing', line: 'Max is great.' },
+			],
+		});
 		const { result } = await drain(generateWorld());
-		const npcs = result.ops.filter((op) => op.type === 'npc');
-		expect(npcs.map((op) => op.name)).toEqual(['Maxine']);
-		expect(result.ops.filter((op) => op.type === 'landmark').map((op) => op.id)).toEqual([
-			'max',
-		]);
+		expect(result.brief.cast.map((c) => c.name)).not.toContain('Zed');
+		expect(result.brief.landmarks.library).toBeUndefined();
+		expect(result.brief.landmarks.max).toBe("Max's Den");
 	});
 
-	it('fails when the moderation flags the text', async () => {
-		fakeStream(world());
-		mocks.moderate.mockResolvedValue({ results: [{ flagged: true }] });
+	it('fails when moderation flags the text or is unavailable', async () => {
+		fakeStream(defaultBrief);
+		mocks.moderate.mockResolvedValueOnce({ results: [{ flagged: true }] });
 		await expect(drain(generateWorld())).rejects.toBeInstanceOf(WorldGenerationError);
-	});
-
-	it('fails closed when the moderation is unavailable', async () => {
-		fakeStream(world());
-		mocks.moderate.mockRejectedValue(new Error('offline'));
+		fakeStream(defaultBrief);
+		mocks.moderate.mockRejectedValueOnce(new Error('down'));
 		await expect(drain(generateWorld())).rejects.toThrow(/could not check/);
 	});
 
-	it.each([
-		['too few ops', world(MIN_WORLD_OPS - 1)],
-		['no meta', world(40).slice(1)],
-		['nothing usable', ['a', 1, null]],
-	])('fails with %s', async (_, elements) => {
-		fakeStream(elements);
-		await expect(drain(generateWorld())).rejects.toThrow(/too little/);
-		expect(mocks.moderate).not.toHaveBeenCalled();
+	it('fails when the model errors, even after part of the brief', async () => {
+		fakeStream(defaultBrief, { error: new Error('boom'), cut: 20 });
+		await expect(drain(generateWorld())).rejects.toThrow(/did not answer/);
 	});
 
-	it('fails when the model call errors, even after some ops', async () => {
-		fakeStream(world(), { error: new Error('500') });
-		await expect(drain(generateWorld())).rejects.toThrow(/AI service failed/);
+	it('refuses a brief too thin to be an office', async () => {
+		fakeStream({ company: 'Tiny', zones: [{ kind: 'desks', name: 'A', story: '' }] });
+		await expect(drain(generateWorld())).rejects.toThrow(/too little/);
 	});
 
 	it('fails when the caller aborts', async () => {
 		const controller = new AbortController();
 		controller.abort();
-		fakeStream(world());
-		await expect(drain(generateWorld({ signal: controller.signal }))).rejects.toThrow(
-			/stopped/,
-		);
+		fakeStream(defaultBrief);
+		await expect(drain(generateWorld({ signal: controller.signal }))).rejects.toThrow(/cancelled/);
 	});
 });
 
 describe('prompt', () => {
-	it('documents every op type, landmark and range from the schema', () => {
-		for (const option of worldOp.options)
-			expect(WORLD_INSTRUCTIONS).toContain(`"${option.shape.type.value}"`);
-		for (const [min, max] of Object.values(RANGES))
-			expect(WORLD_INSTRUCTIONS).toMatch(new RegExp(`${min}\\b[^\\n]*to ${max}\\b`));
-		expect(WORLD_INSTRUCTIONS).toContain(
-			`${WORLD_WIDTH} columns by ${WORLD_HEIGHT} rows`,
-		);
-		expect(WORLD_INSTRUCTIONS).toContain(`max ${TEXT_LIMITS.story} characters`);
-		expect(WORLD_INSTRUCTIONS).toContain(`${LIMITS.ops} ops`);
-		for (const id of ['max', 'library', 'stage', 'questboard', 'worldforge'])
-			expect(WORLD_INSTRUCTIONS).toContain(`- ${id}: `);
+	it('documents every zone and asks for exactly the free rooms', () => {
+		for (const kind of [...requiredZones, ...optionalZones]) expect(WORLD_INSTRUCTIONS).toContain(`- ${kind}`);
+		const premise = pickPremise(850, null, () => 0.5);
+		expect(premise.optionalZones).toBe(optionalRoomCount(planFloor(850)));
+		const prompt = buildRunPrompt(premise, null);
+		expect(prompt).toContain(`exactly ${premise.optionalZones}`);
+		expect(prompt).not.toContain('previous');
 	});
 
-	it('passes the theme and previous name, nothing else', () => {
-		const theme = pickTheme(undefined, () => 0);
-		const prompt = buildRunPrompt(theme, 'Old Vale');
-		expect(prompt).toContain(theme.motif);
-		expect(prompt).toContain(`biome ${theme.biome}`);
-		expect(prompt).toContain(`max (${theme.landmarks.max.x}, ${theme.landmarks.max.y})`);
-		expect(prompt).toContain(`main water around (${theme.water.x}, ${theme.water.y})`);
-		expect(prompt).toContain('"Old Vale"');
-		expect(buildRunPrompt(theme)).not.toContain('previous');
-	});
-});
-
-describe('pickTheme', () => {
-	it('covers every biome and keeps the heart inside the map', () => {
-		expect(new Set(THEME_SEEDS.map((seed) => seed.biome))).toEqual(new Set(biomes));
-		for (const random of [() => 0, () => 0.5, () => 0.999999]) {
-			const theme = pickTheme(undefined, random);
-			expect(theme.heart.x).toBeGreaterThanOrEqual(8);
-			expect(theme.heart.x).toBeLessThan(WORLD_WIDTH - 8);
-			expect(theme.heart.y).toBeGreaterThanOrEqual(8);
-			expect(theme.heart.y).toBeLessThan(WORLD_HEIGHT - 8);
-		}
-	});
-
-	it('plans well-spread landmark cells inside the margins, max near the heart', () => {
-		for (let i = 0; i < 300; i++) {
-			const { heart, landmarks, water } = planLayout();
-			const cells = Object.values(landmarks);
-			for (const cell of [...cells, water]) {
-				expect(cell.x).toBeGreaterThanOrEqual(LANDMARK_MARGIN);
-				expect(cell.x).toBeLessThanOrEqual(WORLD_WIDTH - 1 - LANDMARK_MARGIN);
-				expect(cell.y).toBeGreaterThanOrEqual(LANDMARK_MARGIN);
-				expect(cell.y).toBeLessThanOrEqual(WORLD_HEIGHT - 1 - LANDMARK_MARGIN);
-			}
-			for (const [a, b] of cells.flatMap((a, i) => cells.slice(i + 1).map((b) => [a, b])))
-				expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(LANDMARK_SPACING);
-			expect(
-				Math.hypot(landmarks.max.x - heart.x, landmarks.max.y - heart.y),
-			).toBeLessThan(3);
-			const waterClearance = Math.min(
-				...cells.map((cell) => Math.hypot(cell.x - water.x, cell.y - water.y)),
-			);
-			expect(waterClearance).toBeGreaterThanOrEqual(3);
-		}
-	});
-
-	it('avoids the previous biome and stays consistent with its seed', () => {
-		for (let i = 0; i < 200; i++) {
-			const theme = pickTheme('winter');
-			expect(theme.biome).not.toBe('winter');
-			const seed = THEME_SEEDS.find((candidate) => candidate.motif === theme.motif)!;
-			expect(seed.weathers).toContain(theme.weather);
-			if (seed.times) expect(seed.times).toContain(theme.timeOfDay);
-		}
+	it('avoids the previous vibe', () => {
+		for (let i = 0; i < 20; i++) expect(pickPremise(1, { company: 'X', vibe: 'neon' }).vibe).not.toBe('neon');
 	});
 });

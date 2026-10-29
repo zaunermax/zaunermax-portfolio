@@ -1,325 +1,192 @@
-import type {
-	Biome,
-	GroundKind,
-	TimeOfDay,
-	TreeSpecies,
-	Weather,
-} from '../world/compile';
+import type { CharacterId } from '../world/catalog';
+import { hashString } from '../world/random';
+import type { TimeOfDay, Vibe } from '../world/schema';
+import type { FloorKind } from '../world/types';
 
 /**
- * Hand-picked palettes in the spirit of 2004 Azeroth: saturated, warm, painterly.
- * Colours are sRGB hex; three converts them to linear when they become THREE.Color.
+ * Colours of the office, following the SPEC palette: honey wood, teal, coral, mustard, lilac,
+ * sage; darkest ≈ #2b2433, lightest ≈ #f4efe6.
  */
 
-export type BiomePalette = {
-	ground: Record<GroundKind, [string, string]>;
-	lakebed: string;
-	water: { shallow: string; deep: string; foam: string };
-	/** The mountain rim around the valley: foot, slope, peak. */
-	rim: [string, string, string];
-	tuft: [string, string];
-	flowers: string[];
-	canopy: Partial<Record<TreeSpecies, [string, string]>>;
-	trunk: string;
-	rock: [string, string];
-	/** Snow on roofs, canopies and peaks. */
-	snow: boolean;
-	/** How much the sky and fog lean toward this tint. */
-	airTint: string;
-	airTintAmount: number;
-};
-
-const defaultCanopy: Record<TreeSpecies, [string, string]> = {
-	oak: ['#3f8f2a', '#6bb83a'],
-	pine: ['#1f5a32', '#2f7a3e'],
-	birch: ['#7fbf3f', '#b4dc5a'],
-	autumn: ['#d9622b', '#f2a33a'],
-	palm: ['#3f9a3a', '#7cc44a'],
-	dead: ['#6b5440', '#8a7058'],
-	mushroom: ['#c8322e', '#f0e4d0'],
-};
-
-export const BIOMES: Record<Biome, BiomePalette> = {
-	meadow: {
-		ground: {
-			grass: ['#5da83a', '#6cb43f'],
-			lush: ['#4a9a30', '#57a536'],
-			dry: ['#8ab448', '#9cbd4f'],
-			dirt: ['#a37a4c', '#b48a58'],
-			cobble: ['#a39a8a', '#8e8678'],
-			plaza: ['#b8a888', '#a89878'],
-			sand: ['#dcc58e', '#e6d29c'],
-			water: ['#6b7a4a', '#5b6a40'],
-			rock: ['#8a8176', '#9b9284'],
-		},
-		lakebed: '#6b7a4a',
-		water: { shallow: '#4fc3c9', deep: '#1f6fa8', foam: '#e8fbff' },
-		rim: ['#4f8f34', '#5f7d4a', '#9aa3a8'],
-		tuft: ['#4f9c2c', '#8cc84a'],
-		flowers: ['#f2e14a', '#ffffff', '#e9708f', '#a98bf0'],
-		canopy: {},
-		trunk: '#6b4a2e',
-		rock: ['#8d877d', '#a8a196'],
-		snow: false,
-		airTint: '#ffffff',
-		airTintAmount: 0,
-	},
-	autumn: {
-		ground: {
-			grass: ['#9a9a3a', '#a8a242'],
-			lush: ['#7f8f34', '#8c9a38'],
-			dry: ['#c2a046', '#ccaa4e'],
-			dirt: ['#9b6c42', '#a8784c'],
-			cobble: ['#9d9282', '#8a8070'],
-			plaza: ['#b39f80', '#a28f70'],
-			sand: ['#d8bf86', '#e0c990'],
-			water: ['#6b6a40', '#5e5c38'],
-			rock: ['#8a7d70', '#998b7c'],
-		},
-		lakebed: '#6b6a40',
-		water: { shallow: '#4fb3b0', deep: '#235f8a', foam: '#f5f2e0' },
-		rim: ['#8a7a34', '#7a6a48', '#a39a90'],
-		tuft: ['#b08a30', '#d6a23e'],
-		flowers: ['#f2b84a', '#d9622b', '#f5e6c8'],
-		canopy: { oak: ['#c8501f', '#f0a030'], birch: ['#e3b23c', '#f5d660'] },
-		trunk: '#5e3f28',
-		rock: ['#8a8076', '#a39a8e'],
-		snow: false,
-		airTint: '#ffcf8a',
-		airTintAmount: 0.18,
-	},
-	winter: {
-		ground: {
-			grass: ['#e9eff6', '#dfe8f2'],
-			lush: ['#d4e0ee', '#ccd9e9'],
-			dry: ['#f4f7fb', '#eef3f9'],
-			dirt: ['#9a8d82', '#a89c90'],
-			cobble: ['#8f97a3', '#7f8794'],
-			plaza: ['#b7bec9', '#a9b1bd'],
-			sand: ['#c9d3dc', '#d5dde5'],
-			water: ['#5d7088', '#526479'],
-			rock: ['#7d8794', '#8d97a4'],
-		},
-		lakebed: '#5d7088',
-		water: { shallow: '#8fd3e6', deep: '#3a77a6', foam: '#ffffff' },
-		rim: ['#c9d6e4', '#9aa8b8', '#ffffff'],
-		tuft: ['#b9c8d6', '#e6eef6'],
-		flowers: ['#bfe3ff', '#ffffff'],
-		canopy: {
-			oak: ['#3f6f4a', '#e9f1f8'],
-			birch: ['#8aa6a0', '#eef4f9'],
-			autumn: ['#a85a3a', '#eef4f9'],
-		},
-		trunk: '#5b4636',
-		rock: ['#7d8794', '#9aa4b0'],
-		snow: true,
-		airTint: '#cfe3ff',
-		airTintAmount: 0.3,
-	},
-	desert: {
-		ground: {
-			grass: ['#e2bf7a', '#e9c886'],
-			lush: ['#c9b062', '#d2b96a'],
-			dry: ['#efd096', '#f2d8a2'],
-			dirt: ['#c48b56', '#cf9862'],
-			cobble: ['#c2a27e', '#b0906c'],
-			plaza: ['#d8b88c', '#c9a87c'],
-			sand: ['#f0dba6', '#f5e3b4'],
-			water: ['#8a7a4a', '#7a6a40'],
-			rock: ['#b5714a', '#c58058'],
-		},
-		lakebed: '#8a7a4a',
-		water: { shallow: '#3fd0c0', deep: '#1a8aa0', foam: '#f7fff7' },
-		rim: ['#d9a86a', '#c47a4a', '#e8c39a'],
-		tuft: ['#a8a04a', '#c9b45a'],
-		flowers: ['#f25a7a', '#f2e14a'],
-		canopy: { oak: ['#5f8f2a', '#8cae3a'], palm: ['#3f9a3a', '#86c84a'] },
-		trunk: '#7a5838',
-		rock: ['#b5714a', '#d08a5c'],
-		snow: false,
-		airTint: '#ffd9a0',
-		airTintAmount: 0.3,
-	},
-	swamp: {
-		ground: {
-			grass: ['#4f6b34', '#58763a'],
-			lush: ['#3f5f2f', '#476a33'],
-			dry: ['#6b7a3a', '#748440'],
-			dirt: ['#5a4a33', '#66553b'],
-			cobble: ['#6f6f62', '#5f5f54'],
-			plaza: ['#7a7560', '#6a6552'],
-			sand: ['#7a7a52', '#86865a'],
-			water: ['#3a4a2c', '#334226'],
-			rock: ['#5f625a', '#6e7168'],
-		},
-		lakebed: '#3a4a2c',
-		water: { shallow: '#5f8a5a', deep: '#2f4f3a', foam: '#b8d8a0' },
-		rim: ['#3f5a2f', '#4a5a40', '#7a8478'],
-		tuft: ['#5f7f2f', '#7f9a3f'],
-		flowers: ['#d8f06a', '#9a7af0'],
-		canopy: {
-			oak: ['#2f5f2a', '#4f7f34'],
-			mushroom: ['#8a4ac8', '#d8c8f0'],
-			dead: ['#4a3e30', '#5e5040'],
-		},
-		trunk: '#4a3a28',
-		rock: ['#5f625a', '#7a7d74'],
-		snow: false,
-		airTint: '#a8c890',
-		airTintAmount: 0.35,
-	},
-	highlands: {
-		ground: {
-			grass: ['#6f9a4a', '#7aa452'],
-			lush: ['#5a8a45', '#64934b'],
-			dry: ['#9a8a6a', '#a08f6c'],
-			dirt: ['#8a6a4a', '#977654'],
-			cobble: ['#8f8f88', '#7f7f78'],
-			plaza: ['#a8a08c', '#98907c'],
-			sand: ['#c9b98e', '#d3c49a'],
-			water: ['#5a6a4a', '#4f5e40'],
-			rock: ['#8c8f8a', '#9ea19b'],
-		},
-		lakebed: '#5a6a4a',
-		water: { shallow: '#4fa8c0', deep: '#24597f', foam: '#f0f8ff' },
-		rim: ['#6a8a4a', '#7a7a74', '#e8eef2'],
-		tuft: ['#7a9a4a', '#a88ab0'],
-		flowers: ['#b07ad0', '#e8d0f0', '#f2e14a'],
-		canopy: {},
-		trunk: '#5e4430',
-		rock: ['#8c8f8a', '#aab0aa'],
-		snow: false,
-		airTint: '#d8e4f0',
-		airTintAmount: 0.15,
-	},
-};
-
-export function canopyColors(biome: Biome, species: TreeSpecies): [string, string] {
-	return BIOMES[biome].canopy[species] ?? defaultCanopy[species];
-}
-
 export type Lighting = {
-	skyTop: string;
-	skyHorizon: string;
-	skyBottom: string;
-	fog: string;
-	fogNear: number;
-	fogFar: number;
-	sunColor: string;
-	sunIntensity: number;
-	/** Direction the light comes from (normalised later). */
-	sunDir: [number, number, number];
+	sky: string;
+	/** Outside ground. */
+	ground: string;
 	hemiSky: string;
 	hemiGround: string;
-	hemiIntensity: number;
-	/** 0 by day, 1 at night: windows, lamps and the forge glow. */
+	hemi: number;
+	sun: string;
+	sunIntensity: number;
+	/** Sun direction (towards the sun), roughly. */
+	sunDir: [number, number, number];
+	/** Light pooling under the windows. */
+	windowLight: string;
+	windowStrength: number;
+	/** Glass colour of the windows (the sky seen through them). */
+	windowGlass: string;
+	/** Multiplier for screens, lamps and neon. */
 	glow: number;
-	stars: boolean;
-	moon: boolean;
-	cloud: string;
-	/** Far mountains blend toward this. */
-	haze: string;
+	/** Warm ceiling lights inside. */
+	indoor: number;
+	/** How dark the key light's shadows are (0-1). */
+	shadow: number;
+	/** Strength of the ambient occlusion pass (high quality). */
+	ao: number;
 };
 
 export const LIGHTING: Record<TimeOfDay, Lighting> = {
 	dawn: {
-		skyTop: '#5f7fc8',
-		skyHorizon: '#f7b98a',
-		skyBottom: '#e8a07a',
-		fog: '#e9b894',
-		fogNear: 28,
-		fogFar: 120,
-		sunColor: '#ffc08a',
-		sunIntensity: 1.9,
-		sunDir: [0.9, 0.35, 0.2],
-		hemiSky: '#c9b8f0',
-		hemiGround: '#6b5a4a',
-		hemiIntensity: 1.25,
-		glow: 0.45,
-		stars: false,
-		moon: false,
-		cloud: '#ffd9c8',
-		haze: '#d8a8a0',
+		sky: '#f6c9b0',
+		ground: '#9fb07a',
+		hemiSky: '#e6dcff',
+		hemiGround: '#8a6a5c',
+		hemi: 1.05,
+		sun: '#ffbe8a',
+		sunIntensity: 2.3,
+		sunDir: [-10, 8, 2],
+		windowLight: '#ffb98a',
+		windowStrength: 0.42,
+		windowGlass: '#ffd7bd',
+		glow: 1,
+		indoor: 0.35,
+		shadow: 0.6,
+		ao: 0.9,
 	},
 	day: {
-		skyTop: '#3a86e0',
-		skyHorizon: '#bfe4f7',
-		skyBottom: '#d8eef7',
-		fog: '#c6e3f2',
-		fogNear: 30,
-		fogFar: 140,
-		sunColor: '#fff1d6',
-		sunIntensity: 2.0,
-		sunDir: [0.55, 0.85, 0.35],
-		hemiSky: '#cfe8ff',
-		hemiGround: '#6a7a3a',
-		hemiIntensity: 1.15,
-		glow: 0,
-		stars: false,
-		moon: false,
-		cloud: '#ffffff',
-		haze: '#9fc4dc',
+		sky: '#bfe3f6',
+		ground: '#9cc27a',
+		hemiSky: '#dbe8ff',
+		hemiGround: '#9a8270',
+		hemi: 1.2,
+		sun: '#ffe6bf',
+		sunIntensity: 2.5,
+		sunDir: [-8, 11, 1.5],
+		windowLight: '#fff2c8',
+		windowStrength: 0.3,
+		windowGlass: '#cfeeff',
+		glow: 0.9,
+		indoor: 0.2,
+		shadow: 0.55,
+		ao: 0.9,
 	},
 	dusk: {
-		skyTop: '#33397f',
-		skyHorizon: '#f08a5a',
-		skyBottom: '#c2604a',
-		fog: '#c9806a',
-		fogNear: 26,
-		fogFar: 115,
-		sunColor: '#ff9a5a',
+		sky: '#f0a58a',
+		ground: '#8a8a62',
+		hemiSky: '#c9c4f0',
+		hemiGround: '#6a4a50',
+		hemi: 1.0,
+		sun: '#ff9a62',
 		sunIntensity: 2.1,
-		sunDir: [-0.85, 0.28, 0.3],
-		hemiSky: '#9a8ad8',
-		hemiGround: '#7a5a5a',
-		hemiIntensity: 1.3,
-		glow: 0.75,
-		stars: false,
-		moon: false,
-		cloud: '#ffb08a',
-		haze: '#a86a7a',
+		sunDir: [10, 7, 2],
+		windowLight: '#ff9a62',
+		windowStrength: 0.5,
+		windowGlass: '#ffbf98',
+		glow: 1.15,
+		indoor: 0.5,
+		shadow: 0.6,
+		ao: 0.95,
 	},
 	night: {
-		skyTop: '#060c26',
-		skyHorizon: '#26407a',
-		skyBottom: '#1a2a52',
-		fog: '#1c2c55',
-		fogNear: 22,
-		fogFar: 95,
-		sunColor: '#a8c0ff',
-		sunIntensity: 1.15,
-		sunDir: [-0.4, 0.75, -0.5],
-		hemiSky: '#5a74c0',
-		hemiGround: '#2a3450',
-		hemiIntensity: 1.05,
-		glow: 1,
-		stars: true,
-		moon: true,
-		cloud: '#3a4a7a',
-		haze: '#24345e',
+		sky: '#1b2140',
+		ground: '#253032',
+		hemiSky: '#7a84cc',
+		hemiGround: '#4a3a48',
+		// Bright enough that fixtures and people keep their silhouettes between the lamps.
+		hemi: 0.85,
+		sun: '#9fb2ff',
+		sunIntensity: 0.5,
+		sunDir: [-6, 10, 2],
+		windowLight: '#6f86ff',
+		windowStrength: 0.15,
+		windowGlass: '#33407a',
+		glow: 1.5,
+		indoor: 1,
+		shadow: 0.45,
+		ao: 1,
 	},
 };
 
-export const WEATHER_FOG: Record<
-	Weather,
-	{ near: number; far: number; tint: string; amount: number }
-> = {
-	clear: { near: 1, far: 1, tint: '#ffffff', amount: 0 },
-	rain: { near: 0.6, far: 0.6, tint: '#7a8696', amount: 0.45 },
-	snow: { near: 0.65, far: 0.65, tint: '#e6eef8', amount: 0.4 },
-	fog: { near: 0.25, far: 0.38, tint: '#cfd6dc', amount: 0.55 },
-	fireflies: { near: 1, far: 1, tint: '#ffffff', amount: 0 },
-	leaves: { near: 1, far: 1, tint: '#ffffff', amount: 0 },
+/** Wall paint and accent colours per company vibe. */
+export const VIBES: Record<Vibe, { wall: string; trim: string; carpet: string[]; accent: string }> = {
+	cozy: { wall: '#efe2cc', trim: '#b9875a', carpet: ['#5fa59c', '#6aae9f', '#589a92'], accent: '#e8836b' },
+	startup: { wall: '#f1ece2', trim: '#8a96a8', carpet: ['#7b88c9', '#8693cf', '#7280bf'], accent: '#f2b84b' },
+	corporate: { wall: '#e4e4dc', trim: '#6f7a8a', carpet: ['#7a8597', '#838ea0', '#717c8e'], accent: '#5f8fd0' },
+	retro: { wall: '#f0dcb8', trim: '#a8643e', carpet: ['#c27d4a', '#b9734a', '#cc8853'], accent: '#5a9a8a' },
+	eco: { wall: '#e6ead2', trim: '#8a9a5a', carpet: ['#8aae6a', '#93b671', '#80a462'], accent: '#d9a441' },
+	neon: { wall: '#e2dcef', trim: '#5a4a8a', carpet: ['#6a5aa8', '#7462b2', '#62539e'], accent: '#ff6fb1' },
 };
 
-export const ROOF_COLORS: Record<string, string> = {
-	red: '#b8432f',
-	blue: '#3f62ad',
-	slate: '#56606f',
-	thatch: '#cfa64a',
-	rose: '#db7093',
+/** Base colours of each floor kind; carpets take the vibe's colours instead. */
+export const FLOORS: Record<FloorKind, string[]> = {
+	wood: ['#d9a35f', '#cf9855', '#e0ad6a', '#c98f4e'],
+	carpet: ['#5fa59c', '#6aae9f', '#589a92'],
+	checker: ['#f2ead8', '#7fb5ae'],
+	concrete: ['#b8b4ad', '#bfbbb3', '#b1ada6'],
+	raised: ['#9aa3b5', '#a6aec0', '#8c95a8'],
+	cozy: ['#d98a72', '#e0957c', '#cf8068'],
+	tile: ['#e8dcc6', '#dfd2ba', '#efe4d0'],
+	moss: ['#93ad6a', '#9cb672', '#88a362'],
+	bare: ['#cfc9bd', '#c8c2b6', '#d5cfc3'],
+	/** Corridor concrete with a painted robot track (the third colour is the paint). */
+	track: ['#b8b4ad', '#b1ada6', '#f2c14b'],
 };
 
-/** Shared signature colours. */
-export const MAX_PINK = '#db7093';
-export const GOLD = '#f2c94c';
+/**
+ * Floor palette sets: each office gets one, so two companies never share the same planks,
+ * café tiles and lounge carpet. Kinds a set leaves out keep the base colours.
+ */
+const FLOOR_SETS: Partial<Record<FloorKind, string[]>>[] = [
+	{},
+	{
+		wood: ['#b98250', '#ad7646', '#c48c58', '#a66f40'],
+		cozy: ['#8fbfa6', '#97c6ad', '#86b69d'],
+		checker: ['#f4ecdc', '#e7a0a0'],
+		tile: ['#dfe3ea', '#d5dae2', '#e8ebf0'],
+	},
+	{
+		wood: ['#e6c48e', '#dcb983', '#edcd9a', '#d5b07a'],
+		cozy: ['#b4a2d2', '#bcaad8', '#ab99ca'],
+		checker: ['#f4ecdc', '#9fb0dc'],
+		concrete: ['#c3bdb2', '#cac4b9', '#bbb5aa'],
+	},
+	{
+		wood: ['#c99a6a', '#bf905f', '#d3a575', '#b88858'],
+		cozy: ['#e3b06a', '#e8b874', '#dba862'],
+		checker: ['#f4ecdc', '#9bc79a'],
+		tile: ['#efe0d2', '#e6d5c5', '#f4e8dc'],
+	},
+];
+
+/** The floor colours of an office: its palette set, and its vibe's carpet. */
+export function floorColors(world: { seed: number; meta: { company: string; vibe: Vibe } }): Record<FloorKind, string[]> {
+	const set = FLOOR_SETS[(hashString(world.meta.company) + world.seed) % FLOOR_SETS.length];
+	return { ...FLOORS, ...set, carpet: VIBES[world.meta.vibe].carpet };
+}
+
+/** Pastel colour for a missing asset's placeholder box. */
+export function placeholderColor(id: string) {
+	const hues = ['#f6c6b8', '#f5dfa6', '#c8e3b4', '#b8dfe0', '#c9c8ee', '#efc4dc', '#f3d0b0'];
+	return hues[hashString(id) % hues.length];
+}
+
+/** Placeholder character colours: skin, hair, top, legs. */
+export const CHARACTER_COLORS: Record<CharacterId, [string, string, string, string]> = {
+	max: ['#f1c7a0', '#6b4a32', '#e8836b', '#4a5a7a'],
+	visitor: ['#f0c39c', '#3a3040', '#5fa59c', '#3e4a66'],
+	dev_hoodie: ['#d9a07a', '#2f2a33', '#7b88c9', '#3a3f55'],
+	dev_glasses: ['#f3d0b0', '#4a3a2a', '#c2b26a', '#6a5a4a'],
+	dev_slacker: ['#e6b48c', '#2b2433', '#5a5f6a', '#3e4a66'],
+	manager: ['#f0c8a8', '#8a6a4a', '#e8e4dc', '#3a3f55'],
+	designer: ['#c98f6a', '#a84a5a', '#f2b84b', '#5a4a7a'],
+	barista: ['#e9b893', '#5a3a2a', '#6a8a5a', '#4a3a33'],
+	intern: ['#f3cba6', '#c2843e', '#9fd0c8', '#5a6a8a'],
+	office_dog: ['#e3a35c', '#f4efe6', '#e3a35c', '#c98f4e'],
+	office_cat: ['#8a8a96', '#f4efe6', '#8a8a96', '#6a6a76'],
+	robo_vacuum: ['#5a6070', '#8a92a6', '#3a4050', '#ff6a5a'],
+	robo_courier: ['#e8e2d6', '#54a8aa', '#3a4050', '#ffd23a'],
+	robo_barista: ['#e8e2d6', '#de8271', '#3a4050', '#ffd23a'],
+	plant_bot: ['#dbb659', '#7fb069', '#3a4050', '#54a8aa'],
+	drone_cam: ['#667b8d', '#2b2433', '#3a4050', '#ff6a5a'],
+	office_parrot: ['#5fae6a', '#e8603c', '#3f8ad0', '#e0a93a'],
+	office_hamster: ['#e3a35c', '#f4efe6', '#bfe6ff', '#c98f4e'],
+};

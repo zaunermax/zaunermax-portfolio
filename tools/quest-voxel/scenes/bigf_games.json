@@ -1,0 +1,67 @@
+{
+  "floor": [
+    -3,
+    -2,
+    7,
+    7
+  ],
+  "resolution": 1200,
+  "placements": [
+    {
+      "id": "ping_pong_table",
+      "x": 0,
+      "z": 1,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "foosball_table",
+      "x": 3,
+      "z": 0,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "chess_table",
+      "x": 3,
+      "z": 2,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "arcade_cabinet",
+      "x": 5,
+      "z": 0,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "tv_console",
+      "x": 5,
+      "z": 3,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "sofa_end_l",
+      "x": 4.5,
+      "z": 5,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "sofa_end_r",
+      "x": 3.5,
+      "z": 5,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "vending_machine",
+      "x": -2,
+      "z": 0,
+      "rotation": 0,
+      "y": 0
+    }
+  ]
+}

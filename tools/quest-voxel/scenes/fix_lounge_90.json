@@ -1,0 +1,47 @@
+{
+  "placements": [
+    {
+      "id": "fish_tank",
+      "x": 0,
+      "z": 0,
+      "rotation": 90
+    },
+    {
+      "id": "plant_hanging",
+      "x": 0,
+      "z": -2,
+      "rotation": 90
+    },
+    {
+      "id": "floor_lamp",
+      "x": 0,
+      "z": -3.5,
+      "rotation": 90
+    },
+    {
+      "id": "beanbag_teal",
+      "x": 2,
+      "z": 0,
+      "rotation": 90
+    },
+    {
+      "id": "beanbag_coral",
+      "x": 2,
+      "z": -1.5,
+      "rotation": 90
+    },
+    {
+      "id": "max",
+      "x": 2,
+      "z": -3,
+      "rotation": 90
+    }
+  ],
+  "resolution": 1200,
+  "floor": [
+    -1,
+    -5,
+    4,
+    2
+  ]
+}

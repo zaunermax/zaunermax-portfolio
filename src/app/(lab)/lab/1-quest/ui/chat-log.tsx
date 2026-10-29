@@ -35,59 +35,68 @@ export class ChatLog {
 	};
 }
 
-function Line({ entry }: { entry: LogEntry }) {
-	switch (entry.kind) {
-		case 'forge':
-			return (
-				<>
-					<span className={styles.speaker}>[World Forge]</span> {entry.text}
-				</>
-			);
-		case 'npc':
-			return (
-				<>
-					<span className={styles.speaker}>[{entry.speaker}]</span> says: {entry.text}
-				</>
-			);
-		case 'whisper':
-			return entry.direction === 'out' ? (
-				<>
-					To <span className={styles.speaker}>[{entry.speaker}]</span>: {entry.text}
-				</>
-			) : (
-				<>
-					<span className={styles.speaker}>[{entry.speaker}]</span> whispers: {entry.text}
-				</>
-			);
-		case 'discovery':
-			return <>Discovered: {entry.text}</>;
-		default:
-			return <>{entry.text}</>;
-	}
+/** Who a line is from: a small coloured name chip, like a messenger. */
+function From({ entry }: { entry: LogEntry }) {
+	const name =
+		entry.kind === 'forge'
+			? 'Deploy'
+			: entry.kind === 'npc'
+				? entry.speaker
+				: entry.kind === 'whisper'
+					? entry.direction === 'out'
+						? `To ${entry.speaker}`
+						: entry.speaker
+					: entry.kind === 'discovery'
+						? 'Found'
+						: entry.kind === 'error'
+							? 'Error'
+							: 'Office';
+	return (
+		<span className={styles.speaker} data-kind={entry.kind} data-direction={entry.direction}>
+			{name}
+		</span>
+	);
 }
 
-export function ChatLogView({ log, compact }: { log: ChatLog; compact: boolean }) {
+/**
+ * #general: on desktop a short strip with the latest few lines fading out at the top, which
+ * grows into a scrollable log on demand; on phones a button that opens the log.
+ */
+export function ChatLogView({
+	log,
+	compact,
+	hidden = false,
+}: {
+	log: ChatLog;
+	compact: boolean;
+	/** Out of the way while the Talk window shows the same conversation. */
+	hidden?: boolean;
+}) {
 	const entries = useSyncExternalStore(log.subscribe, log.get, log.get);
 	const body = useRef<HTMLDivElement>(null);
 	const stick = useRef(true);
 	const [open, setOpen] = useState(false);
+	const [expanded, setExpanded] = useState(false);
 	const [seen, setSeen] = useState(0);
 	const unread = compact && !open ? Math.max(0, entries.length - seen) : 0;
 
 	useEffect(() => {
 		const el = body.current;
-		if (el && stick.current) el.scrollTop = el.scrollHeight;
-	}, [entries, open]);
+		if (el && (stick.current || !expanded)) el.scrollTop = el.scrollHeight;
+	}, [entries, open, expanded]);
 
 	return (
 		<section
 			className={styles.chat}
+			hidden={hidden}
 			data-open={compact ? String(open) : 'true'}
+			data-expanded={expanded}
+			data-hud=""
 			aria-label="Chat log"
 		>
 			<div className={styles.chatHead}>
 				<span className={styles.chatTab} aria-hidden="true">
-					General
+					<span className={styles.chatHash}>#</span>general
 				</span>
 				<button
 					type="button"
@@ -99,6 +108,17 @@ export function ChatLogView({ log, compact }: { log: ChatLog; compact: boolean }
 					}}
 				>
 					{open ? 'Hide chat' : unread ? `Chat (${unread} new)` : 'Chat'}
+				</button>
+				<button
+					type="button"
+					className={styles.chatMore}
+					aria-expanded={expanded}
+					onClick={() => {
+						stick.current = true;
+						setExpanded(!expanded);
+					}}
+				>
+					{expanded ? 'Less' : 'More'}
 				</button>
 			</div>
 			<div
@@ -118,7 +138,7 @@ export function ChatLogView({ log, compact }: { log: ChatLog; compact: boolean }
 				>
 					{entries.map((entry) => (
 						<li key={entry.id} className={styles.chatLine} data-kind={entry.kind}>
-							<Line entry={entry} />
+							<From entry={entry} /> <span className={styles.chatText}>{entry.text}</span>
 						</li>
 					))}
 				</ol>

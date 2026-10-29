@@ -4,8 +4,9 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { connection } from 'next/server';
 import type { StoredWorld, WorldState } from './contract';
-import { defaultWorldOps } from './default-world';
-import { sanitizeOps } from './sanitize';
+import { defaultBrief, DEFAULT_SEED } from './default-world';
+import { sanitizeBrief } from './sanitize';
+import { WORLD_VERSION } from './schema';
 
 /**
  * Persistence for the current world and the global forge state (cooldown + single-flight lock).
@@ -169,23 +170,31 @@ export const DEFAULT_WORLD_ID = 'default';
 export function defaultWorld(): StoredWorld {
 	return {
 		id: DEFAULT_WORLD_ID,
-		ops: sanitizeOps(defaultWorldOps),
+		version: WORLD_VERSION,
+		seed: DEFAULT_SEED,
+		brief: sanitizeBrief(defaultBrief),
 		createdAt: new Date(0).toISOString(),
 		source: 'default',
 		model: null,
 	};
 }
 
-function parseWorld(raw: unknown): StoredWorld | null {
+/** A stored world of the current format, sanitized; anything else (old fantasy worlds) is null. */
+export function parseWorld(raw: unknown): StoredWorld | null {
 	if (typeof raw !== 'object' || raw === null) return null;
 	const value = raw as Record<string, unknown>;
-	const ops = sanitizeOps(value.ops);
 	const createdAt = isoOrNull(value.createdAt);
 	if (typeof value.id !== 'string' || !WORLD_ID.test(value.id) || !createdAt) return null;
-	if (ops[0]?.type !== 'meta') return null;
+	if (value.version !== WORLD_VERSION) return null;
+	const seed = value.seed;
+	if (typeof seed !== 'number' || !Number.isSafeInteger(seed) || seed < 0) return null;
+	const brief = sanitizeBrief(value.brief);
+	if (!brief.company) return null;
 	return {
 		id: value.id,
-		ops,
+		version: WORLD_VERSION,
+		seed,
+		brief,
 		createdAt,
 		source: value.source === 'generated' ? 'generated' : 'default',
 		model: typeof value.model === 'string' ? value.model : null,

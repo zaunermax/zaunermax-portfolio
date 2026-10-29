@@ -7,7 +7,8 @@ import {
 	type WorldState,
 	type WorldStreamEvent,
 } from './contract';
-import type { WorldOp } from './schema';
+import { DEFAULT_ZONE_NAMES, sanitizeBrief } from './sanitize';
+import type { Brief } from './schema';
 
 export type WorldLogEntry = {
 	id: string;
@@ -17,8 +18,9 @@ export type WorldLogEntry = {
 
 export type UseWorld = {
 	worldId: string;
-	/** Ops of the world on screen. While generating, this starts empty and grows op by op. */
-	ops: WorldOp[];
+	/** Brief of the office on screen. While generating, this starts empty and grows. */
+	brief: Brief;
+	seed: number;
 	status: 'ready' | 'generating' | 'error';
 	error: string | null;
 	/** Build narration and system messages for the chat log, oldest first. */
@@ -26,7 +28,7 @@ export type UseWorld = {
 	nextGenerationAt: Date | null;
 	/** False while cooling down or while any generation runs. */
 	canGenerate: boolean;
-	/** Starts a generation and streams ops into `ops`. */
+	/** Starts a generation and streams the brief into `brief`. */
 	generate: () => Promise<void>;
 };
 
@@ -40,8 +42,9 @@ const IDLE_POLL_MS = 20_000;
 
 type State = {
 	/** The persisted world, restored when a generation fails midway. */
-	committed: { id: string; ops: WorldOp[] };
-	ops: WorldOp[];
+	committed: { id: string; brief: Brief; seed: number };
+	brief: Brief;
+	seed: number;
 	status: UseWorld['status'];
 	error: string | null;
 	log: WorldLogEntry[];
@@ -67,8 +70,9 @@ type Action =
 /** Exported for tests. */
 export function initWorldState(initial: WorldState): State {
 	return {
-		committed: { id: initial.world.id, ops: initial.world.ops },
-		ops: initial.world.ops,
+		committed: { id: initial.world.id, brief: initial.world.brief, seed: initial.world.seed },
+		brief: initial.world.brief,
+		seed: initial.world.seed,
 		status: 'ready',
 		error: null,
 		log: [],
@@ -85,23 +89,38 @@ function append(state: State, kind: WorldLogEntry['kind'], text: string): State 
 	return { ...state, logSeq, log: [...state.log, { id: `world-${logSeq}`, kind, text }] };
 }
 
-function worldName(ops: WorldOp[]) {
-	const meta = ops.find((op) => op.type === 'meta');
-	return meta?.type === 'meta' ? meta.name : 'The new world';
+const EMPTY_BRIEF = sanitizeBrief({});
+
+/** Build-log lines for what a newer brief adds: zones, the event, arrivals, the closing. */
+export function briefStories(prev: Brief, next: Brief): string[] {
+	const out: string[] = [];
+	if (next.opening && !prev.opening) out.push(next.opening);
+	for (const zone of next.zones.slice(prev.zones.length))
+		out.push(zone.story || `${zone.name} opens its doors.`);
+	if (next.event.kind !== 'none' && prev.event.kind === 'none')
+		out.push(next.event.story || `Today: ${next.event.title}`);
+	for (const member of next.cast.slice(prev.cast.length)) {
+		const zone = next.zones.find((z) => z.kind === member.zone)?.name ?? DEFAULT_ZONE_NAMES[member.zone];
+		const pet = member.character === 'office_dog' || member.character === 'office_cat';
+		out.push(pet ? `${member.name} trots into ${zone}.` : `${member.name} clocks in at ${zone}.`);
+	}
+	if (next.closing && !prev.closing) out.push(next.closing);
+	return out;
 }
 
 function swapIn(state: State, world: StoredWorld): State {
 	return append(
 		{
 			...state,
-			committed: { id: world.id, ops: world.ops },
-			ops: world.ops,
+			committed: { id: world.id, brief: world.brief, seed: world.seed },
+			brief: world.brief,
+			seed: world.seed,
 			status: 'ready',
 			error: null,
 			streaming: false,
 		},
 		'system',
-		`${worldName(world.ops)} is ready.`,
+		`${world.brief.company || 'The new office'} is open for business.`,
 	);
 }
 
@@ -109,7 +128,8 @@ function fail(state: State, message: string): State {
 	return append(
 		{
 			...state,
-			ops: state.streaming ? state.committed.ops : state.ops,
+			brief: state.streaming ? state.committed.brief : state.brief,
+			seed: state.streaming ? state.committed.seed : state.seed,
 			status: 'error',
 			error: message,
 			streaming: false,
@@ -129,7 +149,8 @@ export function reduceWorldState(state: State, action: Action): State {
 					return append(
 						{
 							...state,
-							ops: [],
+							brief: EMPTY_BRIEF,
+							seed: event.seed,
 							status: 'generating',
 							error: null,
 							streaming: true,
@@ -137,13 +158,15 @@ export function reduceWorldState(state: State, action: Action): State {
 						},
 						'system',
 						action.origin === 'own'
-							? 'The forge awakens. A new world takes shape…'
-							: 'Another traveller is forging a new world. Watch it take shape…',
+							? 'Redeploying the office… watch it come together.'
+							: 'Someone else is redeploying the office. Watch it come together…',
 					);
-				case 'op': {
+				case 'brief': {
 					if (!state.streaming) return state;
-					const next = { ...state, ops: [...state.ops, event.op] };
-					return event.op.story ? append(next, 'story', event.op.story) : next;
+					return briefStories(state.brief, event.brief).reduce(
+						(next, text) => append(next, 'story', text),
+						{ ...state, brief: event.brief },
+					);
 				}
 				case 'done':
 					return {
@@ -214,11 +237,13 @@ function isEvent(value: unknown): value is WorldStreamEvent {
 	const event = value as Record<string, unknown>;
 	switch (event.type) {
 		case 'start':
-			return typeof event.id === 'string';
-		case 'op':
-			return typeof event.op === 'object' && event.op !== null;
-		case 'done':
-			return Array.isArray((event.world as StoredWorld | undefined)?.ops);
+			return typeof event.id === 'string' && Number.isSafeInteger(event.seed);
+		case 'brief':
+			return typeof event.brief === 'object' && event.brief !== null;
+		case 'done': {
+			const world = event.world as StoredWorld | undefined;
+			return typeof world?.brief === 'object' && Number.isSafeInteger(world.seed);
+		}
 		case 'error':
 			return typeof event.message === 'string';
 		default:
@@ -234,7 +259,7 @@ export type Runtime = {
 };
 
 const LOST_MESSAGE =
-	'Lost the connection to the forge. The new world will appear here once it is finished.';
+	'Lost the connection to the redeploy. The new office will appear here once it is finished.';
 
 async function consume(
 	runtime: Runtime,
@@ -288,7 +313,7 @@ export function postGenerate(runtime: Runtime) {
 				runtime.dispatch({
 					type: 'rejected',
 					busy: false,
-					message: 'The forge could not be reached. Check your connection and try again.',
+					message: 'The deploy server could not be reached. Check your connection and try again.',
 				});
 			return;
 		}
@@ -308,8 +333,8 @@ export function postGenerate(runtime: Runtime) {
 			nextGenerationAt,
 			message:
 				response.status === 429 && nextGenerationAt
-					? `Not yet: a new world can be forged at ${clockTime(nextGenerationAt)}.`
-					: (serverMessage ?? 'The forge failed. Please try again later.'),
+					? `Not yet: the office can be redeployed at ${clockTime(nextGenerationAt)}.`
+					: (serverMessage ?? 'The redeploy failed. Please try again later.'),
 		});
 	});
 }
@@ -391,7 +416,8 @@ export function useWorld(initial: WorldState): UseWorld {
 
 	return {
 		worldId: state.committed.id,
-		ops: state.ops,
+		brief: state.brief,
+		seed: state.seed,
 		status: state.status,
 		error: state.error,
 		log: state.log,

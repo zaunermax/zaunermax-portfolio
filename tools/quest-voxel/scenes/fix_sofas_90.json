@@ -1,0 +1,139 @@
+{
+  "placements": [
+    {
+      "id": "sofa_corner",
+      "x": 0,
+      "z": 0,
+      "rotation": 90,
+      "y": 0
+    },
+    {
+      "id": "sofa_mid",
+      "x": 0,
+      "z": -1,
+      "rotation": 90,
+      "y": 0
+    },
+    {
+      "id": "sofa_end_r",
+      "x": 0,
+      "z": -2,
+      "rotation": 90,
+      "y": 0
+    },
+    {
+      "id": "sofa_mid",
+      "x": 1,
+      "z": 0,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "sofa_end_l",
+      "x": 2,
+      "z": 0,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "coffee_table",
+      "x": 1.5,
+      "z": -1.5,
+      "rotation": 90,
+      "y": 0
+    },
+    {
+      "id": "sofa_corner",
+      "x": 0,
+      "z": -5,
+      "rotation": 90,
+      "y": 0
+    },
+    {
+      "id": "sofa_mid",
+      "x": 0,
+      "z": -6,
+      "rotation": 90,
+      "y": 0
+    },
+    {
+      "id": "sofa_corner",
+      "x": 0,
+      "z": -8,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "sofa_mid",
+      "x": 1,
+      "z": -5,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "sofa_end_l",
+      "x": 2,
+      "z": -5,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "sofa_mid",
+      "x": 1,
+      "z": -8,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "sofa_end_r",
+      "x": 2,
+      "z": -8,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "coffee_table",
+      "x": 1.5,
+      "z": -6.5,
+      "rotation": 90,
+      "y": 0
+    },
+    {
+      "id": "sofa_mid",
+      "x": 0,
+      "z": -7,
+      "rotation": 90
+    },
+    {
+      "id": "max",
+      "x": 1,
+      "z": -3,
+      "rotation": 90
+    },
+    {
+      "id": "sofa_end_l",
+      "x": 4,
+      "z": 0,
+      "rotation": 90
+    },
+    {
+      "id": "sofa_mid",
+      "x": 4,
+      "z": -1,
+      "rotation": 90
+    },
+    {
+      "id": "sofa_end_r",
+      "x": 4,
+      "z": -2,
+      "rotation": 90
+    }
+  ],
+  "resolution": 1200,
+  "floor": [
+    -1,
+    -9,
+    6,
+    2
+  ]
+}

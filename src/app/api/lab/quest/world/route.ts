@@ -21,7 +21,7 @@ import {
  * The request body is never read: visitors cannot put text in front of the model.
  */
 
-// Generation is capped at 120 s plus moderation; keep the function alive until it persisted.
+// Generation is capped at 90 s plus moderation; keep the function alive until it persisted.
 export const maxDuration = 180;
 
 /**
@@ -46,7 +46,7 @@ function cooldown(nextGenerationAt: string, message?: string) {
 		{
 			message:
 				message ??
-				`A new world can be forged ${relativeTime(Date.parse(nextGenerationAt))}.`,
+				`The office can be redeployed ${relativeTime(Date.parse(nextGenerationAt))}.`,
 			nextGenerationAt,
 		},
 		{
@@ -61,7 +61,10 @@ function cooldown(nextGenerationAt: string, message?: string) {
 
 function busy() {
 	return Response.json(
-		{ message: 'Another visitor is forging a world right now. Watch it take shape!' },
+		{
+			message:
+				'Another visitor is redeploying the office right now. Watch it come together!',
+		},
 		{ status: 409, headers: NO_STORE },
 	);
 }
@@ -69,7 +72,7 @@ function busy() {
 function unavailable(error: unknown) {
 	console.error('[quest] the forge is unavailable', error);
 	return Response.json(
-		{ message: 'The forge is unavailable right now. Please try again later.' },
+		{ message: 'Redeploys are unavailable right now. Please try again later.' },
 		{ status: 503, headers: NO_STORE },
 	);
 }
@@ -105,7 +108,7 @@ export async function POST(request: Request) {
 			const at = new Date(Date.now() + limit.retryAfterSeconds * 1000).toISOString();
 			return cooldown(
 				at,
-				`You have started a few forges already. You can start another ${relativeTime(Date.parse(at))}.`,
+				`You have started a few redeploys already. You can start another ${relativeTime(Date.parse(at))}.`,
 			);
 		}
 

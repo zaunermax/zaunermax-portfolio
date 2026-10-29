@@ -1,9 +1,9 @@
-import { hashString } from '../world/compile';
+import { hashString } from '../world/random';
 
 /**
  * Remembers when each entity id first appeared, so new blocks can pop in with a little
  * grow-and-settle while existing ones stay put. Ids come from the compiler and are stable
- * while ops stream in.
+ * while a brief streams in.
  */
 
 export type Puff = { x: number; y: number; z: number; t0: number; size: number };
@@ -16,15 +16,14 @@ export class Spawns {
 	animate = false;
 	puffs: Puff[] = [];
 
-	register(id: string, x: number, y: number, z: number, size = 1, puff = true) {
+	register(id: string, x: number, y: number, z: number, size = 1, puff = true, delay = 0) {
 		if (this.born.has(id)) return;
 		if (!this.animate) {
 			this.born.set(id, -1e9);
 			return;
 		}
-		// A small, stable stagger so a forest grows tree by tree rather than all at once.
-		const delay = (hashString(id) % 450) / 1000;
-		const t0 = now() + delay;
+		// A small, stable stagger so a room fills piece by piece rather than all at once.
+		const t0 = now() + delay + (hashString(id) % 450) / 1000;
 		this.born.set(id, t0);
 		if (puff) this.puffs.push({ x, y, z, t0, size });
 	}

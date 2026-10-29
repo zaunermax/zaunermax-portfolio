@@ -7,6 +7,8 @@ vi.mock('server-only', () => ({}));
 vi.mock('next/server', () => ({ connection: vi.fn(async () => {}) }));
 
 import type { StoredWorld } from './contract';
+import { defaultBrief, DEFAULT_SEED } from './default-world';
+import { WORLD_VERSION } from './schema';
 import {
 	beginGeneration,
 	checkGeneration,
@@ -26,18 +28,9 @@ let dir: string;
 
 const world = (id: string): StoredWorld => ({
 	id,
-	ops: [
-		{
-			type: 'meta',
-			name: 'Test Vale',
-			tagline: 'A test.',
-			biome: 'winter',
-			timeOfDay: 'night',
-			weather: 'snow',
-			story: 'Snow falls.',
-		},
-		{ type: 'hill', x: 99, y: 3, radius: 3, height: 2, story: 'A hill.' },
-	],
+	version: WORLD_VERSION,
+	seed: 42,
+	brief: { ...defaultBrief, company: 'Test Co', tagline: `Too long ${'x'.repeat(300)}` },
 	createdAt: new Date().toISOString(),
 	source: 'generated',
 	model: 'test-model',
@@ -83,7 +76,8 @@ describe('world store', () => {
 		const state = await getWorldState();
 		expect(state.world.id).toBe(DEFAULT_WORLD_ID);
 		expect(state.world.source).toBe('default');
-		expect(state.world.ops[0].type).toBe('meta');
+		expect(state.world).toMatchObject({ version: WORLD_VERSION, seed: DEFAULT_SEED });
+		expect(state.world.brief.company).toBe(defaultBrief.company);
 		expect(state).toMatchObject({ nextGenerationAt: null, generating: false });
 	});
 
@@ -95,6 +89,19 @@ describe('world store', () => {
 			JSON.stringify({ id: '../../etc', ops: [] }),
 		);
 		expect((await getWorldState()).world.id).toBe(DEFAULT_WORLD_ID);
+	});
+
+	it('falls back to the default world for old fantasy worlds and broken seeds', async () => {
+		const createdAt = new Date().toISOString();
+		await writeFile(
+			path.join(dir, 'current.json'),
+			JSON.stringify({ id: 'old-1', ops: [{ type: 'meta', name: 'Vale' }], createdAt, source: 'generated' }),
+		);
+		expect((await getWorldState()).world.id).toBe(DEFAULT_WORLD_ID);
+		await writeFile(path.join(dir, 'current.json'), JSON.stringify({ ...world('new-1'), seed: -1 }));
+		expect((await getWorldState()).world.id).toBe(DEFAULT_WORLD_ID);
+		await writeFile(path.join(dir, 'current.json'), JSON.stringify(world('new-1')));
+		expect((await getWorldState()).world.id).toBe('new-1');
 	});
 
 	it('runs a generation: lock, persist, cooldown from the start', async () => {
@@ -110,8 +117,9 @@ describe('world store', () => {
 		const state = await getWorldState();
 		expect(state.generating).toBe(false);
 		expect(state.world.id).toBe(lock.id);
-		// Re-sanitized on read: x clamped to the grid.
-		expect(state.world.ops[1]).toMatchObject({ type: 'hill', x: 39 });
+		// Re-sanitized on read: the tagline is cut to its limit.
+		expect(state.world.brief.tagline).toHaveLength(100);
+		expect(state.world.seed).toBe(42);
 		expect(state.nextGenerationAt).toBe(nextGenerationAt);
 
 		const history = JSON.parse(

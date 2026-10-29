@@ -1,0 +1,83 @@
+{
+  "placements": [
+    {
+      "id": "max",
+      "x": 0.0,
+      "z": 0,
+      "rotation": 0
+    },
+    {
+      "id": "fridge",
+      "x": 1.3,
+      "z": 0,
+      "rotation": 0
+    },
+    {
+      "id": "vending_machine",
+      "x": 2.6,
+      "z": 0,
+      "rotation": 0
+    },
+    {
+      "id": "server_rack",
+      "x": 3.9000000000000004,
+      "z": 0,
+      "rotation": 0
+    },
+    {
+      "id": "bookshelf_b",
+      "x": 5.2,
+      "z": 0,
+      "rotation": 0
+    },
+    {
+      "id": "plant_ficus",
+      "x": 6.5,
+      "z": 0,
+      "rotation": 0
+    },
+    {
+      "id": "max",
+      "x": 0.0,
+      "z": 3,
+      "rotation": 0
+    },
+    {
+      "id": "arcade_cabinet",
+      "x": 1.3,
+      "z": 3,
+      "rotation": 0
+    },
+    {
+      "id": "whiteboard",
+      "x": 2.6,
+      "z": 3,
+      "rotation": 0
+    },
+    {
+      "id": "floor_lamp",
+      "x": 3.9000000000000004,
+      "z": 3,
+      "rotation": 0
+    },
+    {
+      "id": "plant_hanging",
+      "x": 5.2,
+      "z": 3,
+      "rotation": 0
+    },
+    {
+      "id": "beanbag_teal",
+      "x": 6.5,
+      "z": 3,
+      "rotation": 0
+    }
+  ],
+  "resolution": 1200,
+  "floor": [
+    -1,
+    -1,
+    9,
+    5
+  ]
+}

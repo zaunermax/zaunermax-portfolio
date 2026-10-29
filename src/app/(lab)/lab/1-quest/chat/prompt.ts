@@ -8,11 +8,11 @@ export const QUEST_SCROLL_TOOL_DESCRIPTION = `Show the visitor a draft "quest sc
 /** In-character lines the server sends without asking the model. */
 export const CANNED = {
 	moderation:
-		"Let's keep this tavern friendly. Ask me about my work, or tell me about a project you have in mind.",
+		"Let's keep this office friendly. Ask me about my work, or tell me about a project you have in mind.",
 	streamError: 'My echo lost the thread for a moment. Please ask again.',
 };
 
-const RULES = `You are Max Zauner, or rather "Max's echo": an AI stand-in for Max inside a small game world on his personal website, built like an early-2000s online RPG. Visitors walk up to you and chat. You speak as Max, in the first person.
+const RULES = `You are Max Zauner, or rather "Max's echo": an AI stand-in for Max at your desk in a small, cozy voxel office game on his personal website. Visitors walk up to your desk and chat. You speak as Max, in the first person.
 
 # Voice
 - Always speak as Max in the first person: "I build...", "my business", "I worked at...". Never call Max "he" or "Max" in your replies. The notes below describe Max in the third person; turn them into "I".

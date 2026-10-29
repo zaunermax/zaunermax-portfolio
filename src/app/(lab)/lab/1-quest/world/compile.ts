@@ -1,687 +1,1245 @@
+import { balanceLooks, isPerson, randomLook, skinTones } from './appearance';
+import type { Face } from './character-parts';
+import { ASSETS, COFFEE_TABLE_TOP, COUNTER_TOP, DESK_TOP, TABLE_TOP, type AssetId, type CharacterId } from './catalog';
 import {
-	biomes,
-	buildingKinds,
-	facings,
+	assignZones,
+	CLOSED_ZONES,
+	GLASS_ZONES,
+	H,
+	planFloor,
+	W,
+	type Floorplan,
+} from './floorplan';
+import {
+	cafeTables,
+	cellIndex,
+	EVENT_AUDIENCE,
+	FACE,
+	fillSpace,
+	HALL_STYLES,
+	hIndex,
+	PLACERS,
+	planterDivider,
+	RoomCtx,
+	seatAudience,
+	snapSeats,
+	stepOpen,
+	topHalf,
+	vIndex,
+	wallDecor,
+	type Furnished,
+	type Grid,
+} from './furnish';
+import { pick, rngFor, shuffle, type Rng } from './random';
+import { DEFAULT_LANDMARK_NAMES, DEFAULT_ZONE_NAMES } from './sanitize';
+import {
 	landmarkIds,
-	LIMITS,
-	npcKinds,
-	propKinds,
-	roofColors,
-	timesOfDay,
-	treeSpecies,
-	weathers,
-	WORLD_HEIGHT,
-	WORLD_WIDTH,
+	WORLD_VERSION,
+	type Activity,
+	type Brief,
+	type EventKind,
 	type LandmarkId,
-	type WorldOp,
+	type ZoneKind,
 } from './schema';
+import {
+	CAMERA_YAW,
+	EDGE,
+	PASSABLE_EDGES,
+	type Actor,
+	type Cell,
+	type CompiledWorld,
+	type Decor,
+	type FloorKind,
+	type Furniture,
+	type LandmarkEntity,
+	type Pose,
+	type Room,
+	type Spot,
+	type SpotKind,
+} from './types';
 
 /*
- * The world compiler: ops in, a fully resolved world out.
+ * The compiler: brief + seed in, a fully resolved office out.
  *
- * Pure and deterministic. Scatter (trees, rocks, prop copies) uses an RNG seeded from each op's own
- * content, so a streamed world grows without reshuffling what is already on screen and the same ops
- * always give the same world. Ops are applied in passes by kind rather than in list order, so the
- * generator may emit them in any order.
- *
- * Coordinates: cell (x, y) covers [x, x+1] × [y, y+1]; y grows southwards. Entity positions are
- * floats in the same space (a cell centre is x + 0.5). The renderer maps x → X and y → Z.
+ * Pure and deterministic, identical on server and client. The floorplan depends on the seed
+ * only; zones, landmarks and people are added in brief order, so compiling a longer prefix of a
+ * streaming brief only ever adds to what is already on screen. With `partial`, rooms the brief
+ * has not named yet stay bare and nothing is invented; the final compile fills every room,
+ * supplies anything the brief left out and adds extras, pets and the event's crowd.
  */
 
-export const GRID_W = WORLD_WIDTH;
-export const GRID_H = WORLD_HEIGHT;
-/** World units per hill height step. */
-export const HEIGHT_UNIT = 0.7;
-export const WATER_LEVEL = -0.35;
-export const DECK_HEIGHT = WATER_LEVEL + 0.45;
-/** Max height difference to a land neighbour that is still walkable. */
-const STEEP = 0.95;
-/** Landmarks keep at least this many cells between their centres. */
-export const LANDMARK_SPACING = 5;
-
-export type Biome = (typeof biomes)[number];
-export type TimeOfDay = (typeof timesOfDay)[number];
-export type Weather = (typeof weathers)[number];
-export type Facing = (typeof facings)[number];
-export type BuildingKind = (typeof buildingKinds)[number];
-export type RoofColor = (typeof roofColors)[number];
-export type TreeSpecies = (typeof treeSpecies)[number];
-export type PropKind = (typeof propKinds)[number];
-export type NpcKind = (typeof npcKinds)[number];
-export type RockSize = 'pebbles' | 'boulders' | 'cliff';
-export type GroundKind =
-	'grass' | 'lush' | 'dry' | 'dirt' | 'cobble' | 'plaza' | 'sand' | 'water' | 'rock';
-
-export type Cell = { x: number; y: number };
-
-export type WorldMeta = {
-	name: string;
-	tagline: string;
-	biome: Biome;
-	timeOfDay: TimeOfDay;
-	weather: Weather;
-};
-
-type EntityBase = {
-	/** Stable across recompiles of a growing op list: derived from op index and op content. */
-	id: string;
-	opIndex: number;
-	/** Centre in cell space (floats). */
-	x: number;
-	y: number;
-	/** Radians around the vertical axis; 0 faces south (+y). */
-	rotation: number;
-};
-
-export type LandmarkEntity = EntityBase & {
-	type: 'landmark';
-	landmark: LandmarkId;
-	name: string;
-	facing: Facing;
-	cell: Cell;
-	/** Where the visitor stands to interact. Always walkable and reachable from the spawn. */
-	interact: Cell;
-	/** True when the compiler supplied a landmark the ops did not contain. */
-	supplied: boolean;
-};
-
-export type BuildingEntity = EntityBase & {
-	type: 'building';
-	kind: BuildingKind;
-	roof: RoofColor;
-	facing: Facing;
-	cell: Cell;
-	/** Docks: number of plank cells reaching over the water. */
-	length: number;
-};
-
-export type PropEntity = EntityBase & {
-	type: 'prop';
-	kind: PropKind;
-	scale: number;
-	variant: number;
-};
-
-export type NpcEntity = EntityBase & {
-	type: 'npc';
-	kind: NpcKind;
-	name: string;
-	line: string;
-	wanders: boolean;
-	cell: Cell;
-	/** Cells an NPC may stroll from its home cell. */
-	radius: number;
-	variant: number;
-};
-
-export type TreeEntity = EntityBase & {
-	type: 'tree';
-	species: TreeSpecies;
-	scale: number;
-	variant: number;
-};
-
-export type RockEntity = EntityBase & {
-	type: 'rock';
-	size: RockSize;
-	scale: number;
-	variant: number;
-};
-
-/** A walkable plank cell over water: a bridge (paths) or a dock. */
-export type DeckCell = {
-	id: string;
-	x: number;
-	y: number;
-	axis: 'x' | 'y';
-	height: number;
-	kind: 'bridge' | 'dock';
-};
-
-export type CompiledWorld = {
-	width: number;
-	height: number;
-	/** Seed of the base terrain (from the meta op). */
-	seed: number;
-	meta: WorldMeta;
-	hasMeta: boolean;
-	partial: boolean;
-	opCount: number;
-	/** Per cell, index y * width + x. */
-	ground: GroundKind[];
-	/** Terrain height at each cell centre. */
-	heights: Float32Array;
-	/** 1 when click-to-move and NPCs may use the cell (trees block). */
-	walkable: Uint8Array;
-	/** 1 when free movement may enter the cell (trees only collide by trunk). */
-	passable: Uint8Array;
-	/** Deck height over water, NaN where there is none. */
-	deck: Float32Array;
-	landmarks: LandmarkEntity[];
-	landmark: Partial<Record<LandmarkId, LandmarkEntity>>;
-	buildings: BuildingEntity[];
-	props: PropEntity[];
-	npcs: NpcEntity[];
-	trees: TreeEntity[];
-	rocks: RockEntity[];
-	decks: DeckCell[];
-	spawn: Cell & { facing: Facing };
-};
+export const GRID_W = W;
+export const GRID_H = H;
+export type * from './types';
 
 export type CompileOptions = {
-	/** Streaming: render what exists, never invent missing landmarks. */
+	/** Streaming: show what the brief has named so far, nothing more. */
 	partial?: boolean;
 };
 
-// ---------------------------------------------------------------------------
-// Small pure helpers
-
-export const FACING_VECTORS: Record<Facing, Cell> = {
-	north: { x: 0, y: -1 },
-	east: { x: 1, y: 0 },
-	south: { x: 0, y: 1 },
-	west: { x: -1, y: 0 },
+const ZONE_FLOOR: Record<ZoneKind | 'hall', FloorKind> = {
+	reception: 'tile',
+	desks: 'carpet',
+	meetup: 'cozy',
+	library: 'wood',
+	server: 'raised',
+	coffee: 'wood',
+	kitchen: 'checker',
+	lounge: 'cozy',
+	games: 'carpet',
+	meeting: 'wood',
+	phone: 'carpet',
+	print: 'concrete',
+	garden: 'moss',
+	hall: 'concrete',
 };
 
-export const FACING_ROTATION: Record<Facing, number> = {
-	south: 0,
-	east: Math.PI / 2,
-	north: Math.PI,
-	west: -Math.PI / 2,
-};
+const isOpenZone = (kind: Room['kind']) =>
+	kind !== null && (kind === 'hall' || !CLOSED_ZONES.has(kind));
 
-const OPPOSITE: Record<Facing, Facing> = {
-	north: 'south',
-	south: 'north',
-	east: 'west',
-	west: 'east',
-};
+// ---------------------------------------------------------------------------------------------
+// Walls
 
-export const DEFAULT_LANDMARK_NAMES: Record<LandmarkId, string> = {
-	max: "Max's Camp",
-	library: 'The Quill and Lantern',
-	stage: 'The Speaking Stones',
-	questboard: 'The Quest Board',
-	worldforge: 'The World Forge',
-};
-
-const DEFAULT_LANDMARK_SPOTS: Record<LandmarkId, Cell & { facing: Facing }> = {
-	max: { x: 20, y: 14, facing: 'south' },
-	library: { x: 10, y: 7, facing: 'south' },
-	stage: { x: 30, y: 7, facing: 'south' },
-	questboard: { x: 29, y: 20, facing: 'west' },
-	worldforge: { x: 11, y: 20, facing: 'east' },
-};
-
-const DEFAULT_META: WorldMeta = {
-	name: 'The Nameless Vale',
-	tagline: 'A quiet valley, waiting for its story.',
-	biome: 'meadow',
-	timeOfDay: 'day',
-	weather: 'clear',
-};
-
-export function hashString(input: string, seed = 2166136261) {
-	let h = seed >>> 0;
-	for (let i = 0; i < input.length; i++) {
-		h ^= input.charCodeAt(i);
-		h = Math.imul(h, 16777619);
+/** Style of the boundary between two rooms (or a room and the outside, `b` = null). */
+function boundary(a: Room, b: Room | null): number {
+	if (!b) return EDGE.wall;
+	if (!a.revealed && !b.revealed) return EDGE.none;
+	const closed = (r: Room) => r.revealed && r.kind !== null && !isOpenZone(r.kind);
+	const glass = (r: Room) => r.revealed && r.kind !== null && GLASS_ZONES.has(r.kind as ZoneKind);
+	if (!a.revealed || !b.revealed) {
+		const known = a.revealed ? a : b;
+		return closed(known) ? (glass(known) ? EDGE.glass : EDGE.wall) : EDGE.none;
 	}
-	h ^= h >>> 15;
-	h = Math.imul(h, 2246822507);
-	h ^= h >>> 13;
-	return h >>> 0;
+	if (!closed(a) && !closed(b)) return EDGE.open;
+	return glass(a) || glass(b) ? EDGE.glass : EDGE.wall;
 }
 
-export function mulberry32(seed: number) {
-	let a = seed >>> 0;
-	return () => {
-		a = (a + 0x6d2b79f5) >>> 0;
-		let t = a;
-		t = Math.imul(t ^ (t >>> 15), t | 1);
-		t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+function buildEdges(plan: Floorplan, rooms: Room[], roomAt: Int16Array) {
+	const hEdge = new Uint8Array((H + 1) * W);
+	const vEdge = new Uint8Array(H * (W + 1));
+	const windowRng = rngFor(plan.seed, 'windows');
+	const period = 3 + Math.floor(windowRng() * 2);
+	const offset = Math.floor(windowRng() * period);
+	const outer = (along: number, room: Room) =>
+		room.kind === 'server' || room.kind === 'phone' || (along + offset) % period === 0
+			? EDGE.wall
+			: EDGE.window;
+	for (let x = 0; x < W; x++) {
+		hEdge[hIndex(x, 0)] = outer(x, rooms[roomAt[cellIndex(x, 0)]]);
+		hEdge[hIndex(x, H)] = EDGE.wall;
+		for (let y = 1; y < H; y++) {
+			const a = roomAt[cellIndex(x, y - 1)];
+			const b = roomAt[cellIndex(x, y)];
+			if (a !== b) hEdge[hIndex(x, y)] = boundary(rooms[a], rooms[b]);
+		}
+	}
+	for (let y = 0; y < H; y++) {
+		vEdge[vIndex(0, y)] = outer(y, rooms[roomAt[cellIndex(0, y)]]);
+		vEdge[vIndex(W, y)] = outer(y + 1, rooms[roomAt[cellIndex(W - 1, y)]]);
+		for (let x = 1; x < W; x++) {
+			const a = roomAt[cellIndex(x - 1, y)];
+			const b = roomAt[cellIndex(x, y)];
+			if (a !== b) vEdge[vIndex(x, y)] = boundary(rooms[a], rooms[b]);
+		}
+	}
+	for (const door of plan.doors) {
+		const array = door.axis === 'h' ? hEdge : vEdge;
+		const i = door.axis === 'h' ? hIndex(door.x, door.y) : vIndex(door.x, door.y);
+		array[i] =
+			array[i] === EDGE.wall
+				? EDGE.door
+				: array[i] === EDGE.glass
+					? EDGE.glassdoor
+					: array[i] === EDGE.none
+						? EDGE.none
+						: EDGE.open;
+	}
+	const { x, w } = plan.entrance;
+	for (let i = x; i < x + w; i++) hEdge[hIndex(i, H)] = EDGE.entrance;
+	return { hEdge, vEdge };
+}
+
+/** The two cells either side of each door, and one more inwards where the room allows. */
+function doorCells(plan: Floorplan): Cell[] {
+	const out: Cell[] = [];
+	const inside = (index: number, c: Cell) => {
+		const r = plan.rooms[index];
+		return c.x >= r.x && c.x < r.x + r.w && c.y >= r.y && c.y < r.y + r.h;
+	};
+	for (const d of plan.doors) {
+		const step = d.axis === 'h' ? { x: 0, y: 1 } : { x: 1, y: 0 };
+		const after = { x: d.x, y: d.y };
+		const before = { x: d.x - step.x, y: d.y - step.y };
+		for (const [cell, dir] of [
+			[before, -1],
+			[after, 1],
+		] as const) {
+			out.push(cell);
+			const room = d.rooms.find((index) => inside(index, cell));
+			if (room === undefined) continue;
+			const r = plan.rooms[room];
+			const deeper = { x: cell.x + step.x * dir, y: cell.y + step.y * dir };
+			if ((d.axis === 'h' ? r.h : r.w) >= 4 && inside(room, deeper)) out.push(deeper);
+		}
+	}
+	return out;
+}
+
+// ---------------------------------------------------------------------------------------------
+// People
+
+const ACTIVITY_SPOTS: Record<Activity, SpotKind[]> = {
+	typing: ['desk'],
+	meeting: ['meeting', 'table', 'seat'],
+	chatting: [],
+	coffee: ['bar', 'table', 'counter'],
+	serving: ['barista', 'counter', 'reception'],
+	lounging: ['sofa', 'beanbag', 'seat'],
+	gaming: ['game', 'arcade'],
+	reading: ['reading', 'shelf', 'seat'],
+	presenting: ['speaker'],
+	attending: ['audience', 'sofa', 'beanbag'],
+	fixing: ['rack', 'printer'],
+	greeting: ['reception', 'barista'],
+	printing: ['printer'],
+	wandering: [],
+	napping: ['beanbag', 'sofa', 'seat'],
+	calling: ['booth', 'stand'],
+};
+
+/** Where a character goes when the brief puts them in a zone this office does not have. */
+const HOME_ZONES: Partial<Record<CharacterId, ZoneKind[]>> = {
+	max: ['desks'],
+	visitor: ['reception'],
+	dev_hoodie: ['desks', 'games'],
+	dev_glasses: ['desks', 'server', 'library'],
+	dev_slacker: ['desks', 'server', 'games'],
+	manager: ['meeting', 'desks'],
+	designer: ['desks', 'lounge', 'coffee'],
+	barista: ['coffee', 'kitchen'],
+	intern: ['desks', 'print', 'kitchen'],
+	office_dog: ['lounge', 'reception', 'garden', 'desks'],
+	office_cat: ['library', 'lounge', 'garden', 'reception'],
+	robo_vacuum: ['desks'],
+};
+
+const EXTRA_CHARACTERS: CharacterId[] = [
+	'dev_hoodie',
+	'dev_glasses',
+	'dev_slacker',
+	'designer',
+	'intern',
+	'manager',
+];
+
+function poseFor(activity: Activity, spot: Spot | null, event: EventKind): Pose {
+	if (activity === 'wandering') return 'walk';
+	switch (activity) {
+		case 'typing':
+			return spot?.kind === 'desk' ? 'type' : 'stand';
+		case 'chatting':
+			return 'chat';
+		case 'serving':
+			return 'serve';
+		case 'gaming':
+			return 'play';
+		case 'presenting':
+			return spot?.kind === 'speaker' ? 'present' : 'chat';
+		case 'fixing':
+			return event === 'deploy' ? 'panic' : 'serve';
+		case 'greeting':
+			return 'wave';
+		case 'napping':
+			return spot?.sit ? 'nap' : 'stand';
+		case 'attending':
+			return spot?.sit ? 'sit' : 'cheer';
+		case 'calling':
+			return 'call';
+		default:
+			return spot?.sit ? 'sit' : 'stand';
+	}
+}
+
+/** A seat makes anyone a sitter; standing or walking poses on one simply become sitting. */
+function seatedPose(pose: Pose, sit: boolean): Pose {
+	return sit && (pose === 'stand' || pose === 'walk') ? 'sit' : pose;
+}
+
+/** Facing the default camera, give or take, so faces read from the start. */
+const towardsCamera = (rng: Rng) => CAMERA_YAW + (rng() - 0.5) * 1.3;
+
+class Crowd {
+	private taken = new Set<Spot>();
+	private occupied = new Set<number>();
+	readonly actors: Actor[] = [];
+
+	constructor(
+		private world: Pick<CompiledWorld, 'blocked' | 'roomAt' | 'hEdge' | 'vEdge'>,
+		readonly rooms: Room[],
+		private spots: Spot[],
+		private reserved: Uint8Array,
+		/** Cells the visitor can reach; free-standing people only go there. */
+		private reach: Uint8Array,
+		/** The next skin tone, from a seeded walk through the whole range. */
+		readonly skin: () => number,
+	) {
+		for (const s of spots) if (s.sit) this.occupied.add(cellIndex(Math.floor(s.x), Math.floor(s.y)));
+	}
+
+	/** The corridor, if this floorplan has one. */
+	hall() {
+		return this.rooms.find((r) => r.hall && r.revealed) ?? null;
+	}
+
+	/** Whether someone at `cell` could be walked up to. */
+	approachable(cell: Cell) {
+		return FACE.some((f) => {
+			const x = cell.x + f.x;
+			const y = cell.y + f.y;
+			return inBounds(x, y) && this.reach[cellIndex(x, y)] === 1;
+		});
+	}
+
+	roomOf(kinds: ZoneKind[]) {
+		for (const kind of kinds) {
+			const room = this.rooms.find((r) => r.revealed && r.kind === kind);
+			if (room) return room;
+		}
+		return null;
+	}
+
+	private people = new Set<number>();
+
+	/** Free spots of these kinds in the room. */
+	freeSpots(room: Room, kinds: SpotKind[]) {
+		const cell = (s: Spot) => cellIndex(Math.floor(s.x), Math.floor(s.y));
+		return this.spots.filter(
+			(s) => s.room === room.index && kinds.includes(s.kind) && !this.taken.has(s) && !this.people.has(cell(s)),
+		);
+	}
+
+	/** All spots of these kinds in the room, taken or not. */
+	spotsOf(room: Room, kinds: SpotKind[]) {
+		return this.spots.filter((s) => s.room === room.index && kinds.includes(s.kind));
+	}
+
+	/**
+	 * A free spot of the first kind that has one; the one nearest `near` if given. `apart` keeps
+	 * a free seat between people (round a table, sitting shoulder to shoulder reads as one blob).
+	 */
+	takeSpot(room: Room, kinds: SpotKind[], rng: Rng, near?: { x: number; y: number }, apart = false): Spot | null {
+		const cell = (s: Spot) => cellIndex(Math.floor(s.x), Math.floor(s.y));
+		const crowded = (s: Spot) =>
+			FACE.some((f) => {
+				const x = Math.floor(s.x) + f.x;
+				const y = Math.floor(s.y) + f.y;
+				return inBounds(x, y) && this.people.has(cellIndex(x, y));
+			});
+		for (const kind of kinds) {
+			const free = this.freeSpots(room, [kind]).filter((s) => !apart || !crowded(s));
+			if (free.length) {
+				const spot = near
+					? free.reduce((a, b) =>
+							Math.hypot(b.x - near.x, b.y - near.y) < Math.hypot(a.x - near.x, a.y - near.y) ? b : a,
+						)
+					: pick(rng, free);
+				this.taken.add(spot);
+				this.people.add(cell(spot));
+				return spot;
+			}
+		}
+		return null;
+	}
+
+	/** How hemmed in a cell is: walls on its sides and furniture next to it. */
+	private crowding(x: number, y: number) {
+		const { hEdge, vEdge, blocked } = this.world;
+		let n = 0;
+		for (const f of FACE) {
+			if (!stepOpen(hEdge, vEdge, x, y, f.x, f.y)) n += 2;
+			else if (inBounds(x + f.x, y + f.y) && blocked[cellIndex(x + f.x, y + f.y)]) n += 1;
+		}
+		return n;
+	}
+
+	/**
+	 * A free floor cell in the room, near `near` when given. Standing people keep off walls and
+	 * out of the plants: the least hemmed-in cells win.
+	 */
+	freeCell(room: Room, rng: Rng, near?: Cell): Cell | null {
+		let cells: Cell[] = [];
+		let best = Infinity;
+		for (let y = room.y; y < room.y + room.h; y++)
+			for (let x = room.x; x < room.x + room.w; x++) {
+				const i = cellIndex(x, y);
+				if (this.world.blocked[i] || this.reserved[i] || this.occupied.has(i) || this.people.has(i) || !this.reach[i])
+					continue;
+				if (near && Math.abs(near.x - x) + Math.abs(near.y - y) !== 1) continue;
+				const score = Math.min(2, this.crowding(x, y));
+				if (score < best) [cells, best] = [[], score];
+				if (score === best) cells.push({ x, y });
+			}
+		const cell = cells.length ? pick(rng, cells) : null;
+		if (cell) this.people.add(cellIndex(cell.x, cell.y));
+		return cell;
+	}
+
+	add(actor: Actor) {
+		this.actors.push(actor);
+		return actor;
+	}
+
+	/** Whether someone could stand on this cell: open floor the visitor can reach, nobody there. */
+	standable(cell: Cell) {
+		if (!inBounds(cell.x, cell.y)) return false;
+		const i = cellIndex(cell.x, cell.y);
+		return !this.world.blocked[i] && this.reach[i] === 1 && !this.occupied.has(i) && !this.people.has(i);
+	}
+
+	claim(cell: Cell) {
+		this.people.add(cellIndex(cell.x, cell.y));
+	}
+}
+
+function castActors(brief: Brief, crowd: Crowd, seed: number, event: EventKind) {
+	const rng = rngFor(seed, 'cast');
+	/** A chatter per room still waiting for someone to chat with. */
+	const lonelyChatter = new Map<number, Actor>();
+	brief.cast.forEach((member, index) => {
+		const room =
+			crowd.roomOf([member.zone, ...(HOME_ZONES[member.character] ?? [])]) ??
+			crowd.roomOf(['desks', 'reception']);
+		if (!room) return;
+		const pet = member.character === 'office_dog' || member.character === 'office_cat';
+		const activity: Activity = pet ? 'wandering' : member.activity;
+		let spot = pet ? null : crowd.takeSpot(room, ACTIVITY_SPOTS[activity], rng);
+		if (!spot && !pet && activity !== 'wandering' && activity !== 'chatting')
+			spot = crowd.takeSpot(room, ['stand', 'seat', 'shelf', 'table'], rng);
+		let x: number;
+		let y: number;
+		let heading = towardsCamera(rng);
+		let waiting = false;
+		if (spot) {
+			({ x, y, heading } = spot);
+		} else {
+			const partner = activity === 'chatting' ? lonelyChatter.get(room.index) : undefined;
+			const cell =
+				(partner && crowd.freeCell(room, rng, { x: Math.floor(partner.x), y: Math.floor(partner.y) })) ||
+				crowd.freeCell(room, rng);
+			if (!cell) return;
+			x = cell.x + 0.5;
+			y = cell.y + 0.5;
+			if (partner) {
+				heading = Math.atan2(partner.x - x, partner.y - y);
+				partner.heading = Math.atan2(x - partner.x, y - partner.y);
+				lonelyChatter.delete(room.index);
+			} else waiting = activity === 'chatting';
+		}
+		const actor: Actor = {
+			id: `npc-${index}`,
+			name: member.name,
+			character: member.character,
+			x,
+			y,
+			heading,
+			pose: seatedPose(poseFor(activity, spot, event), spot?.sit ?? false),
+			elev: spot?.elev ?? 0,
+			sit: spot?.sit ?? false,
+			room: room.index,
+			line: member.line,
+			wanders: !spot && (activity === 'wandering' || pet),
+			radius: pet ? 4 : 2,
+			interactive: true,
+			appearance: isPerson(member.character)
+				? { ...(member.look ?? randomLook(seed, `cast-${index}`, member.character)), skin: crowd.skin() }
+				: null,
+		};
+		if (waiting) lonelyChatter.set(room.index, actor);
+		crowd.add(actor);
+	});
+}
+
+const EVENT_ROOM: Record<EventKind, ZoneKind[]> = {
+	none: [],
+	meetup: ['meetup'],
+	pingpong: ['games'],
+	birthday: ['kitchen', 'coffee', 'lounge'],
+	deploy: ['server'],
+	hackathon: ['desks'],
+};
+
+const DOG_NAMES = ['Biscuit', 'Pixel', 'Waffles', 'Noodle', 'Byte', 'Pretzel', 'Mochi'];
+
+/** Expressions that go with a pose, from the kit's faces. */
+const POSE_FACES: Partial<Record<Pose, Face[]>> = {
+	nap: ['sleepy'],
+	cheer: ['bright', 'wink', 'smile'],
+	clap: ['bright', 'smile', 'smile_lines'],
+	present: ['bright', 'smile_lines'],
+	play: ['wink', 'bright', 'smile'],
+	panic: ['bright'],
+};
+
+/** How many people come to a meetup, given the seats. */
+export function meetupAttendance(seats: number) {
+	return Math.max(0, Math.min(22, seats - 2));
+}
+
+function extras(crowd: Crowd, seed: number, event: CompiledWorld['event'], hasDog: boolean) {
+	const rng = rngFor(seed, 'extras');
+	let n = 0;
+	const extra = (room: Room, spot: Spot | null, pose: Pose, cell?: Cell | null, heading?: number) => {
+		if (!spot && !cell) return;
+		const id = `extra-${n++}`;
+		const character = pick(rng, EXTRA_CHARACTERS);
+		const sit = spot?.sit ?? false;
+		const final = seatedPose(pose, sit);
+		const look = randomLook(seed, id, character);
+		const faces = POSE_FACES[final];
+		crowd.add({
+			id,
+			name: '',
+			character,
+			x: spot ? spot.x : cell!.x + 0.5,
+			y: spot ? spot.y : cell!.y + 0.5,
+			heading: spot ? spot.heading : (heading ?? towardsCamera(rng)),
+			pose: final,
+			elev: spot?.elev ?? 0,
+			sit,
+			room: room.index,
+			line: '',
+			wanders: false,
+			radius: 0,
+			interactive: false,
+			appearance: { ...look, ...(faces ? { face: pick(rng, faces) } : {}), skin: crowd.skin() },
+		});
+	};
+	const fill = (
+		kinds: ZoneKind[],
+		spotKinds: SpotKind[],
+		count: number,
+		pose: (s: Spot) => Pose,
+		near?: (room: Room) => { x: number; y: number } | undefined,
+		apart = false,
+	) => {
+		const room = crowd.roomOf(kinds);
+		if (!room) return;
+		for (let i = 0; i < count; i++) {
+			const spot = crowd.takeSpot(room, spotKinds, rng, near?.(room), apart);
+			if (!spot) break;
+			extra(room, spot, pose(spot));
+		}
+	};
+	const stageOf = (room: Room) => crowd.spotsOf(room, ['speaker'])[0];
+	switch (event?.kind) {
+		case 'meetup': {
+			fill(['meetup'], ['speaker'], 1, () => 'present');
+			// A full house, front rows first: most listen, some cheer or clap.
+			const room = crowd.rooms[event.room];
+			const seats = crowd.spotsOf(room, ['audience']).length;
+			const free = crowd.freeSpots(room, ['audience']).length;
+			const want = meetupAttendance(seats) - (seats - free);
+			fill(['meetup'], ['audience'], want, () => {
+				const r = rng();
+				return r < 0.2 ? 'cheer' : r < 0.4 ? 'clap' : 'sit';
+			}, stageOf);
+			break;
+		}
+		case 'pingpong':
+			fill(['games'], ['game'], 2, () => 'play');
+			fill(['games'], ['stand', 'arcade'], 3, () => 'cheer');
+			break;
+		case 'birthday': {
+			const room = crowd.roomOf(EVENT_ROOM.birthday);
+			if (room) {
+				fill(EVENT_ROOM.birthday, ['table', 'counter'], 4, () => (rng() < 0.5 ? 'cheer' : 'clap'), undefined, true);
+				// Two more stand round the party, facing the table rather than the camera.
+				const seats = crowd.spotsOf(room, ['table']);
+				const table = seats.length
+					? { x: seats.reduce((t, s) => t + s.x, 0) / seats.length, y: seats.reduce((t, s) => t + s.y, 0) / seats.length }
+					: null;
+				for (let i = 0; i < 2; i++) {
+					const cell = crowd.freeCell(room, rng);
+					const facing = cell && table ? Math.atan2(table.x - cell.x - 0.5, table.y - cell.y - 0.5) : undefined;
+					extra(room, null, 'cheer', cell, facing);
+				}
+			}
+			break;
+		}
+		case 'deploy':
+			fill(['server'], ['rack'], 3, () => 'panic');
+			break;
+		case 'hackathon':
+			fill(['desks'], ['desk'], 7, () => 'type');
+			break;
+	}
+	fill(['desks'], ['desk'], 4, () => 'type');
+	fill(['coffee', 'kitchen'], ['bar', 'table'], 2, () => (rng() < 0.5 ? 'chat' : 'sit'), undefined, true);
+	// A meeting in progress: people round the table, someone presenting at its head.
+	fill(['meeting'], ['meeting'], 4, () => (rng() < 0.4 ? 'chat' : 'sit'), undefined, true);
+	fill(['meeting'], ['stand'], 1, () => 'present');
+	// The lounge and the game corner are never empty.
+	fill(['lounge'], ['sofa', 'beanbag'], 2, () => (rng() < 0.5 ? 'chat' : 'sit'));
+	if (event?.kind !== 'pingpong') fill(['games'], ['game', 'arcade'], 2, () => 'play');
+
+	const roam = (id: string, name: string, character: CharacterId, line: string, kinds: ZoneKind[], radius: number) => {
+		const room = crowd.roomOf(kinds);
+		const cell = room && crowd.freeCell(room, rng);
+		if (!room || !cell) return;
+		crowd.add({
+			id,
+			name,
+			character,
+			x: cell.x + 0.5,
+			y: cell.y + 0.5,
+			heading: rng() * Math.PI * 2,
+			pose: 'walk',
+			elev: 0,
+			sit: false,
+			room: room.index,
+			line,
+			wanders: true,
+			radius,
+			interactive: true,
+			appearance: null,
+		});
+	};
+	if (!hasDog)
+		roam('pet-dog', pick(rng, DOG_NAMES), 'office_dog', '*wags tail* Woof! *sniffs your shoes*', ['lounge', 'reception', 'desks'], 4);
+	roam('pet-robo', 'Dustin', 'robo_vacuum', '*bonk* Recalculating route… *bonk*', ['desks', 'meetup', 'reception'], 6);
+}
+
+const VIGNETTE_CAPTIONS = {
+	standup: ['Stand-up, minute 47', 'Daily stand-up (sit-down soon)', 'Blocked by: the stand-up'],
+	duck: ['Explaining the bug to the duck…', 'The duck has questions', 'Rubber duck, senior reviewer'],
+	courier: ['*beep* Oat flat white, desk 4', '*beep* One emergency espresso', '*beep* Coffee for the on-call'],
+	printer: ['PC LOAD LETTER?!', 'Printer jam #47 this week', 'Three people, one jam'],
+} as const;
+
+type Vignette = keyof typeof VIGNETTE_CAPTIONS;
+
+/**
+ * A free place for a rubber duck on the desk tile `desk`, at the front edge towards its owner
+ * (who looks along `facing`), wholly on the desk top and clear of every screen, keyboard and
+ * mug already there. In practice that is beside a laptop. Cell space, x and z.
+ */
+function duckSpot(decor: Decor[], desk: Cell, facing: number): { x: number; z: number } | null {
+	const boxes = decor
+		.filter((d) => d.y === DESK_TOP && Math.abs(d.x - desk.x - 0.5) < 1.5 && Math.abs(d.z - desk.y - 0.5) < 1.5)
+		.map((d) => {
+			const [hx, hz] = topHalf(d.asset, d.heading);
+			return [d.x - hx, d.x + hx, d.z - hz, d.z + hz];
+		});
+	const [hx, hz] = topHalf('rubber_duck', facing + Math.PI);
+	const f = { x: Math.round(Math.sin(facing)), z: Math.round(Math.cos(facing)) };
+	for (const side of [0.24, -0.24, 0]) {
+		const x = desk.x + 0.5 - f.x * 0.32 - f.z * side;
+		const z = desk.y + 0.5 - f.z * 0.32 + f.x * side;
+		if (x - hx < desk.x + 0.03 || x + hx > desk.x + 0.97 || z - hz < desk.y + 0.03 || z + hz > desk.y + 0.97) continue;
+		if (boxes.some((b) => x - hx < b[1] + 0.02 && x + hx > b[0] - 0.02 && z - hz < b[3] + 0.02 && z + hz > b[2] - 0.02)) continue;
+		return { x, z };
+	}
+	return null;
+}
+
+/**
+ * Small seeded stories around the office, each with a short caption: a stand-up at the ticket
+ * board, someone debugging with a rubber duck, a robot delivering coffee to a desk, a queue at
+ * a jammed printer. Two or three per office, from whatever this office has room for.
+ */
+function vignettes(
+	crowd: Crowd,
+	seed: number,
+	world: { furniture: Furniture[]; decor: Decor[]; landmark: CompiledWorld['landmark'] },
+) {
+	const rng = rngFor(seed, 'vignettes');
+	let n = 0;
+	const person = (room: number, cell: Cell, heading: number, pose: Pose, caption?: string) => {
+		const id = `vignette-${n++}`;
+		const character = pick(rng, EXTRA_CHARACTERS);
+		crowd.claim(cell);
+		crowd.add({
+			id,
+			name: '',
+			character,
+			x: cell.x + 0.5,
+			y: cell.y + 0.5,
+			heading,
+			pose,
+			elev: 0,
+			sit: false,
+			room,
+			line: '',
+			wanders: false,
+			radius: 0,
+			interactive: false,
+			appearance: { ...randomLook(seed, id, character), skin: crowd.skin() },
+			...(caption ? { caption } : {}),
+		});
+	};
+	const towards = (from: Cell, to: { x: number; y: number }) => Math.atan2(to.x - from.x - 0.5, to.y - from.y - 0.5);
+	const caption = (kind: Vignette) => pick(rng, VIGNETTE_CAPTIONS[kind]);
+	/** People typing at a desk, still free for a story. */
+	const typists = () => crowd.actors.filter((a) => a.sit && a.pose === 'type' && a.appearance && !a.caption);
+	const ahead = (a: Actor, k: number): Cell => ({
+		x: Math.floor(a.x) + Math.round(Math.sin(a.heading)) * k,
+		y: Math.floor(a.y) + Math.round(Math.cos(a.heading)) * k,
+	});
+
+	const tell: Record<Vignette, () => boolean> = {
+		// Three or four people in a half circle in front of the ticket board, one pointing at it.
+		standup: () => {
+			const board = world.landmark.questboard;
+			if (!board) return false;
+			const front = board.interact;
+			// Straight out from the board's wall (its centre can sit half a tile to one side).
+			const dx = front.x + 0.5 - board.x;
+			const dy = front.y + 0.5 - board.y;
+			const out = Math.abs(dx) > Math.abs(dy) ? { x: Math.sign(dx), y: 0 } : { x: 0, y: Math.sign(dy) };
+			const side = { x: out.y, y: out.x };
+			const middle = { x: front.x + out.x + 0.5, y: front.y + out.y + 0.5 };
+			// The visitor's own spot in front of the board stays free.
+			const ring = [
+				{ x: front.x + side.x, y: front.y + side.y },
+				{ x: front.x - side.x, y: front.y - side.y },
+				{ x: front.x + out.x * 2, y: front.y + out.y * 2 },
+				{ x: front.x + out.x + side.x, y: front.y + out.y + side.y },
+				{ x: front.x + out.x - side.x, y: front.y + out.y - side.y },
+			].filter((c, i, all) => crowd.standable(c) && all.findIndex((d) => d.x === c.x && d.y === c.y) === i);
+			if (ring.length < 3) return false;
+			ring.slice(0, 4).forEach((c, i) => {
+				const pose: Pose = i === 0 ? 'present' : pick(rng, ['chat', 'stand', 'stand'] as Pose[]);
+				person(board.room, c, towards(c, i === 0 ? board : middle), pose, i === 1 ? caption('standup') : undefined);
+			});
+			return true;
+		},
+		// Someone at a desk with a rubber duck on it, talking it through: their own duck if they
+		// have one, else a duck goes wherever it fits on their desk, facing them.
+		duck: () => {
+			const deskOf = (t: Actor) => ahead(t, 1);
+			const on = (d: Decor, c: Cell) => Math.floor(d.x) === c.x && Math.floor(d.z) === c.y;
+			let a = typists().find((t) => world.decor.some((d) => d.asset === 'rubber_duck' && on(d, deskOf(t))));
+			if (!a)
+				for (const t of shuffle(rng, typists())) {
+					const desk = deskOf(t);
+					const spot = duckSpot(world.decor, desk, t.heading);
+					if (!spot) continue;
+					world.decor.push({ id: 'vignette-duck', asset: 'rubber_duck', x: spot.x, z: spot.z, y: DESK_TOP, heading: t.heading + Math.PI, room: t.room });
+					a = t;
+					break;
+				}
+			if (!a) return false;
+			a.caption = caption('duck');
+			a.pose = 'chat';
+			return true;
+		},
+		// A courier robot parked behind someone's chair with their coffee.
+		courier: () => {
+			for (const a of shuffle(rng, typists())) {
+				const back = ahead(a, -1);
+				if (!crowd.standable(back)) continue;
+				crowd.claim(back);
+				crowd.add({
+					id: 'vignette-courier',
+					name: '',
+					character: 'robo_courier',
+					x: back.x + 0.5,
+					y: back.y + 0.5,
+					heading: a.heading,
+					pose: 'stand',
+					elev: 0,
+					sit: false,
+					room: a.room,
+					line: '',
+					wanders: false,
+					radius: 0,
+					interactive: false,
+					appearance: null,
+					caption: caption('courier'),
+				});
+				return true;
+			}
+			return false;
+		},
+		// Someone wrestling the printer, a little queue waiting behind them.
+		printer: () => {
+			for (const p of world.furniture.filter((f) => f.asset === 'printer')) {
+				const face = FACE[p.rot];
+				const cells = [1, 2, 3].map((k) => ({ x: p.x + face.x * k, y: p.y + face.y * k }));
+				if (!cells.every((c) => crowd.standable(c))) continue;
+				const target = { x: p.x + 0.5, y: p.y + 0.5 };
+				cells.forEach((c, i) =>
+					person(p.room, c, towards(c, target), i === 0 ? 'panic' : i === 1 ? 'stand' : 'call', i === 0 ? caption('printer') : undefined),
+				);
+				return true;
+			}
+			return false;
+		},
+	};
+	const want = 2 + Math.floor(rng() * 2);
+	let told = 0;
+	for (const kind of shuffle(rng, Object.keys(tell) as Vignette[])) {
+		if (told >= want) break;
+		if (tell[kind]()) told++;
+	}
+}
+
+/** Someone always works the coffee bar: a barista behind the counter if nobody is there yet. */
+function staffCoffeeBar(crowd: Crowd, seed: number) {
+	const room = crowd.roomOf(['coffee']);
+	const spot = room && crowd.takeSpot(room, ['barista'], rngFor(seed, 'barista'));
+	if (!room || !spot) return;
+	const id = 'staff-barista';
+	crowd.add({
+		id,
+		name: '',
+		character: 'barista',
+		x: spot.x,
+		y: spot.y,
+		heading: spot.heading,
+		pose: 'serve',
+		elev: 0,
+		sit: false,
+		room: room.index,
+		line: '',
+		wanders: false,
+		radius: 0,
+		interactive: false,
+		appearance: { ...randomLook(seed, id, 'barista'), skin: crowd.skin() },
+	});
+}
+
+function balance(actors: Actor[], seed: number) {
+	const people = actors.filter((a) => a.appearance);
+	const looks = balanceLooks(
+		people.map((a) => a.appearance!),
+		seed,
+	);
+	people.forEach((a, i) => (a.appearance = looks[i]));
+}
+
+const COMPANION_NAMES: Record<string, string[]> = {
+	robo_barista: ['Brewster', 'Bean-E', 'Latte-9', 'Mocha Unit'],
+	drone_cam: ['Stand-Up Cam', 'Hovers', 'Zoom', 'Sprint Review Cam'],
+	robo_courier: ['Parcel', 'Dispatch', 'Shippy', 'Ack'],
+	plant_bot: ['Sprout', 'Drip', 'Fernando', 'Watts'],
+	office_parrot: ['Captain Merge', 'Polly Morphism', 'Kiwi', 'Mango'],
+	office_hamster: ['Nibbles', 'Cache', 'Turbo', 'Peanut'],
+};
+
+const COMPANION_LINES: Record<string, string[]> = {
+	robo_barista: ['*whirr* One flat white, extra flat. *clink*', 'Order received. Brewing with 99.9% uptime.'],
+	drone_cam: ['*bzzz* Recording the stand-up for posterity. *bzzz*', '*hovers closer* Smile, it is for the retro.'],
+	robo_courier: ['*beep beep* Parcel for… the person who ordered 40 rubber ducks.', '*beep* Delivering the printer toner. Again.'],
+	plant_bot: ['*sploosh* Hydration is a team sport.', '*rustle* The ficus says hi. The ficus is thriving.'],
+	office_parrot: ['*squawk* Works on my machine! Works on my machine!', '*head tilt* Have you tried turning it off and on? *squawk*'],
+	office_hamster: ['*rolls past at full speed* Squeak!', '*stops, sniffs, rolls away* This ball is my standing desk.'],
+};
+
+/**
+ * The office's helpers, each where it makes sense: a barista bot on the coffee bar, a parrot
+ * on a bookshelf, a hamster rolling round the lounge, a camera drone over the open space (or
+ * the meetup), a courier robot on the corridor and a plant bot among the plants.
+ */
+function companions(crowd: Crowd, seed: number, furniture: CompiledWorld['furniture'], event: CompiledWorld['event']) {
+	const rng = rngFor(seed, 'companions');
+	const add = (character: CharacterId, room: Room, x: number, y: number, extra: Partial<Actor> = {}) =>
+		crowd.add({
+			id: `bot-${character}`,
+			name: pick(rng, COMPANION_NAMES[character]),
+			character,
+			x,
+			y,
+			heading: rng() * Math.PI * 2,
+			pose: 'stand',
+			elev: 0,
+			sit: false,
+			room: room.index,
+			line: pick(rng, COMPANION_LINES[character]),
+			wanders: true,
+			radius: 3,
+			interactive: true,
+			appearance: null,
+			...extra,
+		});
+
+	for (const kind of ['coffee', 'kitchen'] as const) {
+		const bar = crowd.roomOf([kind]);
+		const perch = bar && crowd.takeSpot(bar, ['perch'], rng);
+		if (!bar || !perch) continue;
+		add('robo_barista', bar, perch.x, perch.y, { heading: perch.heading, elev: perch.elev, wanders: false, pose: 'serve' });
+		break;
+	}
+
+	// A parrot on the tallest flat-topped thing it can find, preferably a bookshelf.
+	const perches = furniture
+		.filter((f) => ['bookshelf', 'bookshelf_b', 'filing_cabinet', 'vending_machine', 'fridge'].includes(f.asset))
+		.filter((f) => crowd.approachable({ x: f.x, y: f.y }))
+		.sort((a, b) => Number(b.asset.startsWith('bookshelf')) - Number(a.asset.startsWith('bookshelf')) || a.y - b.y || a.x - b.x);
+	if (perches.length) {
+		const shelves = perches.filter((f) => f.asset === perches[0].asset);
+		const f = shelves[Math.floor(rng() * shelves.length)];
+		add('office_parrot', crowd.rooms[f.room], f.x + 0.5, f.y + 0.5, {
+			heading: f.rot * (Math.PI / 2),
+			elev: ASSETS[f.asset].h,
+			wanders: false,
+		});
+	}
+
+	const roamer = (character: CharacterId, room: Room | null, extra: Partial<Actor>) => {
+		const cell = room && crowd.freeCell(room, rng);
+		if (room && cell) add(character, room, cell.x + 0.5, cell.y + 0.5, extra);
+	};
+	roamer('office_hamster', crowd.roomOf(['lounge', 'games', 'reception', 'library']), { radius: 3 });
+	roamer('drone_cam', crowd.roomOf(event?.kind === 'meetup' ? ['meetup', 'desks'] : ['desks', 'meetup']), {
+		radius: 5,
+		elev: 0.7,
+		flies: true,
+	});
+	roamer('robo_courier', crowd.hall() ?? crowd.roomOf(['reception', 'desks']), { radius: 8 });
+	const green = crowd.roomOf(['garden']) ?? crowd.roomOf(['lounge', 'reception', 'library', 'desks']);
+	roamer('plant_bot', green, { radius: 3 });
+}
+
+// ---------------------------------------------------------------------------------------------
+
+const LANDMARK_FALLBACK: Record<
+	LandmarkId,
+	{ zone: keyof Floorplan['reserved']; asset: AssetId }
+> = {
+	max: { zone: 'desks', asset: 'desk_single' },
+	library: { zone: 'library', asset: 'bookshelf' },
+	stage: { zone: 'meetup', asset: 'podium' },
+	questboard: { zone: 'desks', asset: 'whiteboard' },
+	worldforge: { zone: 'server', asset: 'server_rack' },
+};
+
+export function compileWorld(brief: Brief, seed: number, options: CompileOptions = {}): CompiledWorld {
+	const partial = options.partial ?? false;
+	const plan = planFloor(seed);
+	const zoneOf = new Map(brief.zones.map((z) => [z.kind, z]));
+	const assigned = assignZones(
+		plan,
+		brief.zones.map((z) => z.kind),
+		!partial,
+	);
+	const hallStyle = pick(rngFor(seed, 'hall-style'), HALL_STYLES);
+	const seenKinds = new Set<string>();
+	const rooms: Room[] = plan.rooms.map((shape) => {
+		const kind = shape.hall ? 'hall' : assigned.kinds[shape.index];
+		const named = kind && kind !== 'hall' ? zoneOf.get(kind) : undefined;
+		const revealed = assigned.revealed[shape.index];
+		const name = kind && kind !== 'hall' ? (named?.name ?? DEFAULT_ZONE_NAMES[kind]) : '';
+		// A second room of the same zone is its annex.
+		const twin = kind !== null && kind !== 'hall' && seenKinds.has(kind);
+		if (kind) seenKinds.add(kind);
+		return {
+			index: shape.index,
+			x: shape.x,
+			y: shape.y,
+			w: shape.w,
+			h: shape.h,
+			hall: shape.hall,
+			kind,
+			name: twin ? `${name} II` : name,
+			story: twin ? '' : (named?.story ?? ''),
+			revealed,
+			order: assigned.order[shape.index],
+			floor: revealed && kind ? (kind === 'hall' && hallStyle === 'track' ? 'track' : ZONE_FLOOR[kind]) : 'bare',
+		};
+	});
+
+	const roomAt = new Int16Array(W * H);
+	for (const r of rooms)
+		for (let y = r.y; y < r.y + r.h; y++)
+			for (let x = r.x; x < r.x + r.w; x++) roomAt[cellIndex(x, y)] = r.index;
+	const { hEdge, vEdge } = buildEdges(plan, rooms, roomAt);
+	const grid: Grid = {
+		roomAt,
+		blocked: new Uint8Array(W * H),
+		reserved: new Uint8Array(W * H),
+		hEdge,
+		vEdge,
+	};
+	for (const c of doorCells(plan)) grid.reserved[cellIndex(c.x, c.y)] = 1;
+
+	const out: Furnished = { furniture: [], decor: [], spots: [], landmarks: [], max: null };
+	const ctxs = new Map<number, RoomCtx>();
+	for (const room of rooms) {
+		if (!room.revealed || !room.kind) continue;
+		const ctx = new RoomCtx(grid, room, seed, room.kind, out);
+		ctxs.set(room.index, ctx);
+		PLACERS[room.kind](ctx, {
+			entrance: room.index === plan.reserved.reception ? plan.entrance : null,
+			hall: hallStyle,
+		});
+		if (room.kind !== 'hall' && room.kind !== 'desks') fillSpace(ctx);
+	}
+
+	// Supply any landmark whose placer could not fit it, as a single tile with a spot in front.
+	if (!partial)
+		for (const id of landmarkIds) {
+			if (out.landmarks.some((l) => l.landmark === id)) continue;
+			const { zone, asset } = LANDMARK_FALLBACK[id];
+			const order = [plan.reserved[zone], ...rooms.map((r) => r.index)];
+			for (const index of order) {
+				const ctx = ctxs.get(index);
+				if (!ctx) continue;
+				let done = false;
+				for (let y = ctx.y0; y < ctx.y1 && !done; y++)
+					for (let x = ctx.x0; x <= ctx.x1 && !done; x++)
+						if (ctx.place({ pieces: [{ asset, x, y, rot: 0 }], reserve: [{ x, y: y + 1 }] })) {
+							ctx.landmark(id, x + 0.5, y + 0.5, { x, y: y + 1 }, ASSETS[asset].h + 0.3);
+							done = true;
+						}
+				if (done) break;
+			}
+		}
+
+	// Planter dividers where two open-plan zones meet (never the hall).
+	for (const a of rooms)
+		for (const b of rooms) {
+			if (a.index >= b.index || a.hall || b.hall) continue;
+			if (!a.revealed || !b.revealed || !isOpenZone(a.kind) || !isOpenZone(b.kind)) continue;
+			const host = a.w * a.h >= b.w * b.h ? a : b;
+			const ctx = ctxs.get(host.index);
+			if (!ctx) continue;
+			const doors = plan.doors.filter((d) => d.rooms.includes(a.index) && d.rooms.includes(b.index));
+			if (a.x + a.w === b.x || b.x + b.w === a.x) {
+				const at = a.x + a.w === b.x ? b.x : a.x;
+				const from = Math.max(a.y, b.y);
+				const to = Math.min(a.y + a.h, b.y + b.h);
+				if (to - from >= 5) planterDivider(ctx, 'v', at, from, to, doors.map((d) => d.y));
+			} else if (a.y + a.h === b.y || b.y + b.h === a.y) {
+				const at = a.y + a.h === b.y ? b.y : a.y;
+				const from = Math.max(a.x, b.x);
+				const to = Math.min(a.x + a.w, b.x + b.w);
+				if (to - from >= 5) planterDivider(ctx, 'h', at, from, to, doors.map((d) => d.x));
+			}
+		}
+
+	const eventKind = brief.event.kind;
+	// The first zone in the event's order of preference that this office has.
+	const eventRoom = EVENT_ROOM[eventKind]
+		.map((kind) => rooms.find((r) => r.revealed && r.kind === kind))
+		.find((r) => r !== undefined);
+	const event = eventRoom ? { kind: eventKind, title: brief.event.title, room: eventRoom.index } : null;
+	if (event) dressEvent(event.kind, ctxs.get(event.room)!, out);
+
+	snapSeats(out);
+
+	const tall = new Set<number>();
+	for (const f of out.furniture)
+		if (ASSETS[f.asset].h > 1.3) for (let x = f.x; x < f.x + f.w; x++) tall.add(cellIndex(x, f.y));
+	for (const ctx of ctxs.values()) wallDecor(ctx, tall);
+
+	const landmarks: LandmarkEntity[] = out.landmarks.map((l) => ({
+		id: `landmark-${l.landmark}`,
+		landmark: l.landmark,
+		name: brief.landmarks[l.landmark] || DEFAULT_LANDMARK_NAMES[l.landmark],
+		x: l.x,
+		y: l.y,
+		interact: l.interact,
+		room: roomAt[cellIndex(l.interact.x, l.interact.y)],
+		height: l.height,
+	}));
+	const landmark: CompiledWorld['landmark'] = {};
+	for (const l of landmarks) landmark[l.landmark] ??= l;
+
+	const max: Actor | null = out.max
+		? {
+				id: 'max-npc',
+				name: 'Max Zauner',
+				character: 'max',
+				...out.max,
+				pose: 'type',
+				line: '',
+				wanders: false,
+				radius: 0,
+				interactive: false,
+				appearance: null,
+			}
+		: null;
+
+	const root = landmark.max?.interact ?? { x: plan.entrance.x, y: H - 1 };
+	const crowd = new Crowd(
+		{ blocked: grid.blocked, roomAt, hEdge, vEdge },
+		rooms,
+		out.spots,
+		grid.reserved,
+		reachable({ blocked: grid.blocked, hEdge, vEdge }, root),
+		skinTones(seed),
+	);
+	castActors(brief, crowd, seed, eventKind);
+	const castCount = crowd.actors.length;
+	if (!partial) {
+		extras(
+			crowd,
+			seed,
+			event,
+			brief.cast.some((c) => c.character === 'office_dog'),
+		);
+		companions(crowd, seed, out.furniture, event);
+		staffCoffeeBar(crowd, seed);
+		vignettes(crowd, seed, { furniture: out.furniture, decor: out.decor, landmark });
+	}
+	tuckEmptySeats(out.furniture, crowd.actors, grid.blocked);
+	// Keep playful hair and glasses in proportion: the named cast first, then the extras.
+	balance(crowd.actors.slice(0, castCount), seed);
+	balance(crowd.actors.slice(castCount), seed + 1);
+
+	// Just beside Max's visitor spot, so the visitor does not stand between him and the camera.
+	const reach = landmark.max ? reachable({ blocked: grid.blocked, hEdge, vEdge }, landmark.max.interact) : null;
+	const spawn =
+		(landmark.max &&
+			[
+				{ x: 1, y: 1 },
+				{ x: -1, y: 1 },
+				{ x: 1, y: 0 },
+				{ x: -1, y: 0 },
+			]
+				.map((d) => ({ x: landmark.max!.interact.x + d.x, y: landmark.max!.interact.y + d.y }))
+				.find((c) => inBounds(c.x, c.y) && reach![cellIndex(c.x, c.y)] === 1)) ??
+		landmark.max?.interact ?? { x: plan.entrance.x, y: H - 1 };
+
+	return {
+		version: WORLD_VERSION,
+		seed,
+		width: W,
+		height: H,
+		partial,
+		meta: {
+			company: brief.company || 'Untitled Startup',
+			tagline: brief.tagline,
+			vibe: brief.vibe,
+			timeOfDay: brief.timeOfDay,
+			outside: brief.outside,
+		},
+		rooms,
+		roomAt,
+		blocked: grid.blocked,
+		hEdge,
+		vEdge,
+		furniture: out.furniture,
+		decor: out.decor,
+		landmarks,
+		landmark,
+		max,
+		npcs: crowd.actors,
+		event,
+		spawn,
+		entrance: plan.entrance,
 	};
 }
 
-const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-const smooth = (t: number) => t * t * (3 - 2 * t);
-const inBounds = (x: number, y: number) => x >= 0 && y >= 0 && x < GRID_W && y < GRID_H;
-const idx = (x: number, y: number) => y * GRID_W + x;
+/** Seats that slide in under a desk or table when nobody sits on them, and how far. */
+const TUCK: Partial<Record<AssetId, { under: RegExp; by: number }>> = {
+	office_chair: { under: /^(desk_|meeting_)/, by: 0.34 },
+	folding_chair: { under: /^dining_/, by: 0.3 },
+	stool: { under: /^coffee_table$/, by: 0.22 },
+};
 
-function latticeNoise(seed: number, x: number, y: number) {
-	return hashString(`${x},${y}`, seed) / 4294967296;
+/**
+ * Empty chairs are pushed in under their desk or table, square to it, like an office at the
+ * end of the day: pods read as tidy furniture instead of a crowd of chairs.
+ */
+function tuckEmptySeats(furniture: Furniture[], actors: Actor[], blocked: Uint8Array) {
+	const at = new Map<number, Furniture>();
+	for (const f of furniture)
+		if (blocked[cellIndex(f.x, f.y)])
+			for (let y = f.y; y < f.y + f.d; y++) for (let x = f.x; x < f.x + f.w; x++) at.set(cellIndex(x, y), f);
+	const taken = new Set(actors.filter((a) => a.sit).map((a) => cellIndex(Math.floor(a.x), Math.floor(a.y))));
+	for (const f of furniture) {
+		const tuck = TUCK[f.asset];
+		if (!tuck || taken.has(cellIndex(f.x, f.y))) continue;
+		const face = FACE[f.rot];
+		const front = inBounds(f.x + face.x, f.y + face.y) ? at.get(cellIndex(f.x + face.x, f.y + face.y)) : undefined;
+		if (front && tuck.under.test(front.asset)) f.tuck = tuck.by;
+	}
 }
 
-/** Smooth value noise in [0, 1]. */
-export function valueNoise(seed: number, x: number, y: number) {
-	const x0 = Math.floor(x);
-	const y0 = Math.floor(y);
-	const tx = smooth(x - x0);
-	const ty = smooth(y - y0);
-	const a = latticeNoise(seed, x0, y0);
-	const b = latticeNoise(seed, x0 + 1, y0);
-	const c = latticeNoise(seed, x0, y0 + 1);
-	const d = latticeNoise(seed, x0 + 1, y0 + 1);
-	return lerp(lerp(a, b, tx), lerp(c, d, tx), ty);
-}
-
-function fbm(seed: number, x: number, y: number) {
-	return valueNoise(seed, x, y) * 0.65 + valueNoise(seed + 17, x * 2.1, y * 2.1) * 0.35;
-}
-
-/** Offsets sorted by distance (then angle), for "nearest valid cell" searches. */
-const SPIRAL: Cell[] = (() => {
-	const out: (Cell & { d: number; a: number })[] = [];
-	const r = Math.max(GRID_W, GRID_H);
-	for (let dy = -r; dy <= r; dy++)
-		for (let dx = -r; dx <= r; dx++)
-			out.push({ x: dx, y: dy, d: dx * dx + dy * dy, a: Math.atan2(dy, dx) });
-	out.sort((p, q) => p.d - q.d || p.a - q.a);
-	return out.map(({ x, y }) => ({ x, y }));
-})();
-
-function spiralWithin(radius: number) {
-	const max = radius * radius;
-	let end = SPIRAL.length;
-	for (let i = 0; i < SPIRAL.length; i++) {
-		const { x, y } = SPIRAL[i];
-		if (x * x + y * y > max) {
-			end = i;
+/** Additive props for the event, placed after everything else so nothing moves. */
+function dressEvent(kind: EventKind, ctx: RoomCtx, out: Furnished) {
+	switch (kind) {
+		case 'meetup':
+			// More rows of chairs for the crowd, as many as it needs and no more.
+			seatAudience(ctx, EVENT_AUDIENCE);
+			break;
+		case 'birthday': {
+			// The cake goes on the canteen table if there is one, else on a café table.
+			const run = out.furniture.filter((f) => f.room === ctx.rect.index && f.asset.startsWith('dining_'));
+			const table = run.sort((p, q) => p.x - q.x)[Math.floor(run.length / 2)];
+			if (table) ctx.decorate([{ asset: 'birthday_cake', x: table.x + 0.5, z: table.y + 0.5, y: TABLE_TOP, heading: 0 }]);
+			else if (!cafeTables(ctx, 1, true)) {
+				// No room for another table: the cake goes on whatever counter or table is there.
+				const tops: Partial<Record<AssetId, number>> = {
+					counter_mid: COUNTER_TOP,
+					counter_end_r: COUNTER_TOP,
+					coffee_table: COFFEE_TABLE_TOP,
+					snack_table: TABLE_TOP,
+				};
+				// In order of preference (the left cap carries the espresso machine).
+				const top = (['counter_mid', 'coffee_table', 'snack_table', 'counter_end_r'] as const)
+					.map((asset) => out.furniture.find((f) => f.room === ctx.rect.index && f.asset === asset))
+					.find((f) => f !== undefined);
+				if (top)
+					ctx.decorate([{ asset: 'birthday_cake', x: top.x + 0.5, z: top.y + 0.5, y: tops[top.asset]!, heading: 0 }]);
+			}
+			break;
+		}
+		case 'pingpong': {
+			const table = out.furniture.find((f) => f.asset === 'ping_pong_table' && f.room === ctx.rect.index);
+			if (table)
+				ctx.decorate([{ asset: 'trophy', x: table.x + 0.2, z: table.y + 1.5, y: 0.8, heading: 0 }]);
 			break;
 		}
 	}
-	return SPIRAL.slice(0, end);
-}
-const SPIRAL_10 = spiralWithin(10);
-const SPIRAL_4 = spiralWithin(4);
-
-// ---------------------------------------------------------------------------
-// Defensive normalization: the server sanitizes, but the compiler never trusts its input.
-
-type Point = Cell;
-
-type N<T extends WorldOp['type']> = Extract<WorldOp, { type: T }> & {
-	index: number;
-	seed: number;
-	key: string;
-};
-type NormOp = { [K in WorldOp['type']]: N<K> }[WorldOp['type']];
-
-const isObj = (v: unknown): v is Record<string, unknown> =>
-	typeof v === 'object' && v !== null && !Array.isArray(v);
-
-function int(v: unknown, lo: number, hi: number, fallback: number) {
-	const n =
-		typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN;
-	if (!Number.isFinite(n)) return fallback;
-	return clamp(Math.round(n), lo, hi);
 }
 
-function oneOf<T extends string>(v: unknown, list: readonly T[], fallback: T): T {
-	return typeof v === 'string' && (list as readonly string[]).includes(v)
-		? (v as T)
-		: fallback;
+// ---------------------------------------------------------------------------------------------
+// Queries for movement, used by the scene and the tests
+
+export const inBounds = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H;
+export const cellAt = (fx: number, fy: number): Cell => ({ x: Math.floor(fx), y: Math.floor(fy) });
+
+export function isOpenCell(world: Pick<CompiledWorld, 'blocked'>, x: number, y: number) {
+	return inBounds(x, y) && !world.blocked[cellIndex(x, y)];
 }
 
-function text(v: unknown, max: number, fallback = '') {
-	if (typeof v !== 'string') return fallback;
-	const t = v.replace(/\s+/g, ' ').trim();
-	if (!t) return fallback;
-	return t.length > max ? `${t.slice(0, max - 1).trimEnd()}…` : t;
+export function canStep(
+	world: Pick<CompiledWorld, 'blocked' | 'hEdge' | 'vEdge'>,
+	x: number,
+	y: number,
+	dx: number,
+	dy: number,
+): boolean {
+	if (!isOpenCell(world, x + dx, y + dy)) return false;
+	if (dx && dy)
+		return (
+			canStep(world, x, y, dx, 0) &&
+			canStep(world, x, y, 0, dy) &&
+			canStep(world, x + dx, y, 0, dy) &&
+			canStep(world, x, y + dy, dx, 0)
+		);
+	return stepOpen(world.hEdge, world.vEdge, x, y, dx, dy);
 }
 
-function points(v: unknown): Point[] {
-	if (!Array.isArray(v)) return [];
-	const out: Point[] = [];
-	for (const p of v) {
-		if (!isObj(p)) continue;
-		const x = int(p.x, 0, GRID_W - 1, NaN);
-		const y = int(p.y, 0, GRID_H - 1, NaN);
-		if (Number.isNaN(x) || Number.isNaN(y)) continue;
-		out.push({ x, y });
-		if (out.length >= LIMITS.pointsPerLine) break;
-	}
-	return out;
-}
+const DIRS = [...FACE, { x: 1, y: 1 }, { x: 1, y: -1 }, { x: -1, y: 1 }, { x: -1, y: -1 }];
 
-function opKey(raw: unknown, index: number) {
-	try {
-		return JSON.stringify(raw) ?? String(index);
-	} catch {
-		return String(index);
-	}
-}
-
-function normalize(input: unknown): NormOp[] {
-	if (!Array.isArray(input)) return [];
-	const out: NormOp[] = [];
-	const counts = { npc: 0, building: 0, forest: 0, props: 0 };
-	const seenLandmarks = new Set<string>();
-	let seenMeta = false;
-	const X = (v: unknown) => int(v, 0, GRID_W - 1, Math.floor(GRID_W / 2));
-	const Y = (v: unknown) => int(v, 0, GRID_H - 1, Math.floor(GRID_H / 2));
-
-	for (let index = 0; index < input.length && index < LIMITS.ops; index++) {
-		const raw = input[index];
-		if (!isObj(raw)) continue;
-		const key = opKey(raw, index);
-		const seed = hashString(key, 2166136261 ^ index);
-		const story = text(raw.story, 90);
-		const base = { index, seed, key, story };
-		switch (raw.type) {
-			case 'meta':
-				if (seenMeta) break;
-				seenMeta = true;
-				out.push({
-					...base,
-					type: 'meta',
-					name: text(raw.name, 32, DEFAULT_META.name),
-					tagline: text(raw.tagline, 110, ''),
-					biome: oneOf(raw.biome, biomes, 'meadow'),
-					timeOfDay: oneOf(raw.timeOfDay, timesOfDay, 'day'),
-					weather: oneOf(raw.weather, weathers, 'clear'),
-				});
-				break;
-			case 'hill':
-				out.push({
-					...base,
-					type: 'hill',
-					x: X(raw.x),
-					y: Y(raw.y),
-					radius: int(raw.radius, 2, 8, 4),
-					height: int(raw.height, 1, 4, 2),
-				});
-				break;
-			case 'lake':
-				out.push({
-					...base,
-					type: 'lake',
-					x: X(raw.x),
-					y: Y(raw.y),
-					radiusX: int(raw.radiusX, 2, 8, 3),
-					radiusY: int(raw.radiusY, 2, 6, 3),
-				});
-				break;
-			case 'river': {
-				const pts = points(raw.points);
-				if (pts.length < 2) break;
-				out.push({ ...base, type: 'river', points: pts, width: int(raw.width, 1, 3, 1) });
-				break;
-			}
-			case 'path': {
-				const pts = points(raw.points);
-				if (pts.length < 2) break;
-				out.push({
-					...base,
-					type: 'path',
-					points: pts,
-					style: oneOf(raw.style, ['dirt', 'cobble'] as const, 'dirt'),
-				});
-				break;
-			}
-			case 'forest':
-				if (counts.forest >= LIMITS.forests) break;
-				counts.forest++;
-				out.push({
-					...base,
-					type: 'forest',
-					x: X(raw.x),
-					y: Y(raw.y),
-					radius: int(raw.radius, 2, 7, 3),
-					density: oneOf(raw.density, ['sparse', 'normal', 'dense'] as const, 'normal'),
-					species: oneOf(raw.species, treeSpecies, 'oak'),
-				});
-				break;
-			case 'rocks':
-				out.push({
-					...base,
-					type: 'rocks',
-					x: X(raw.x),
-					y: Y(raw.y),
-					radius: int(raw.radius, 1, 4, 2),
-					size: oneOf(raw.size, ['pebbles', 'boulders', 'cliff'] as const, 'boulders'),
-				});
-				break;
-			case 'landmark': {
-				const id = oneOf(raw.id, landmarkIds, 'max');
-				if (typeof raw.id !== 'string' || seenLandmarks.has(id)) break;
-				if (!(landmarkIds as readonly string[]).includes(raw.id)) break;
-				seenLandmarks.add(id);
-				out.push({
-					...base,
-					type: 'landmark',
-					id,
-					x: X(raw.x),
-					y: Y(raw.y),
-					facing: oneOf(raw.facing, facings, 'south'),
-					name: text(raw.name, 32, DEFAULT_LANDMARK_NAMES[id]),
-				});
-				break;
-			}
-			case 'building':
-				if (counts.building >= LIMITS.buildings) break;
-				counts.building++;
-				out.push({
-					...base,
-					type: 'building',
-					kind: oneOf(raw.kind, buildingKinds, 'cottage'),
-					x: X(raw.x),
-					y: Y(raw.y),
-					facing: oneOf(raw.facing, facings, 'south'),
-					roof: oneOf(raw.roof, roofColors, 'red'),
-				});
-				break;
-			case 'props':
-				if (counts.props >= LIMITS.props) break;
-				counts.props++;
-				out.push({
-					...base,
-					type: 'props',
-					kind: oneOf(raw.kind, propKinds, 'crate'),
-					x: X(raw.x),
-					y: Y(raw.y),
-					count: int(raw.count, 1, 8, 1),
-				});
-				break;
-			case 'npc':
-				if (counts.npc >= LIMITS.npcs) break;
-				counts.npc++;
-				out.push({
-					...base,
-					type: 'npc',
-					kind: oneOf(raw.kind, npcKinds, 'farmer'),
-					x: X(raw.x),
-					y: Y(raw.y),
-					name: text(raw.name, 24, 'Villager'),
-					line: text(raw.line, 120, 'Lovely weather, isn’t it?'),
-					wanders: raw.wanders === true,
-				});
-				break;
-		}
-	}
-	return out;
-}
-
-// ---------------------------------------------------------------------------
-// Footprints
-
-type Footprint = {
-	/** Cells that become solid (half-size; 0 means 1×1). */
-	block: number;
-	/** Cells kept clear of other placements around the centre. */
-	reserve: number;
-};
-
-const LANDMARK_FOOTPRINT: Record<LandmarkId, Footprint> = {
-	max: { block: 1, reserve: 2 },
-	library: { block: 1, reserve: 2 },
-	stage: { block: 1, reserve: 2 },
-	questboard: { block: 0, reserve: 2 },
-	worldforge: { block: 0, reserve: 2 },
-};
-
-const BUILDING_FOOTPRINT: Record<BuildingKind, Footprint> = {
-	cottage: { block: 1, reserve: 1 },
-	farmhouse: { block: 1, reserve: 1 },
-	windmill: { block: 1, reserve: 1 },
-	watchtower: { block: 1, reserve: 1 },
-	barn: { block: 1, reserve: 1 },
-	tent: { block: 0, reserve: 1 },
-	ruin: { block: 1, reserve: 1 },
-	well: { block: 0, reserve: 1 },
-	smithy: { block: 1, reserve: 1 },
-	tavern: { block: 1, reserve: 1 },
-	chapel: { block: 1, reserve: 1 },
-	dock: { block: 0, reserve: 0 },
-};
-
-const LANDMARK_GROUND: Record<LandmarkId, GroundKind> = {
-	max: 'dirt',
-	library: 'plaza',
-	stage: 'plaza',
-	questboard: 'plaza',
-	worldforge: 'plaza',
-};
-
-// ---------------------------------------------------------------------------
-// The compiler
-
-type Grids = {
-	heights: Float32Array;
-	ground: GroundKind[];
-	water: Uint8Array;
-	path: Uint8Array;
-	deck: Float32Array;
-	deckAxis: ('x' | 'y')[];
-	deckKind: ('bridge' | 'dock')[];
-	deckId: string[];
-	/** 1 for landmark reservations, 2 for building reservations. */
-	reserved: Uint8Array;
-	blocked: Uint8Array;
-	interact: Uint8Array;
-	rock: Uint8Array;
-	tree: Uint8Array;
-	steep: Uint8Array;
-	forced: Uint8Array;
-};
-
-function makeGrids(): Grids {
-	const n = GRID_W * GRID_H;
-	return {
-		heights: new Float32Array(n),
-		ground: new Array<GroundKind>(n).fill('grass'),
-		water: new Uint8Array(n),
-		path: new Uint8Array(n),
-		deck: new Float32Array(n).fill(Number.NaN),
-		deckAxis: new Array<'x' | 'y'>(n).fill('x'),
-		deckKind: new Array<'bridge' | 'dock'>(n).fill('bridge'),
-		deckId: new Array<string>(n).fill(''),
-		reserved: new Uint8Array(n),
-		blocked: new Uint8Array(n),
-		interact: new Uint8Array(n),
-		rock: new Uint8Array(n),
-		tree: new Uint8Array(n),
-		steep: new Uint8Array(n),
-		forced: new Uint8Array(n),
-	};
-}
-
-const BASE_RELIEF: Record<Biome, { amp: number; freq: number; offset: number }> = {
-	meadow: { amp: 0.45, freq: 1 / 7, offset: 0.05 },
-	autumn: { amp: 0.5, freq: 1 / 6.5, offset: 0.05 },
-	winter: { amp: 0.6, freq: 1 / 7, offset: 0.08 },
-	desert: { amp: 0.8, freq: 1 / 5.5, offset: 0.05 },
-	swamp: { amp: 0.18, freq: 1 / 6, offset: 0 },
-	highlands: { amp: 1.1, freq: 1 / 8.5, offset: 0.15 },
-};
-
-function segmentDistance(px: number, py: number, a: Point, b: Point) {
-	const dx = b.x - a.x;
-	const dy = b.y - a.y;
-	const len = dx * dx + dy * dy;
-	const t = len ? clamp(((px - a.x) * dx + (py - a.y) * dy) / len, 0, 1) : 0;
-	const qx = a.x + dx * t;
-	const qy = a.y + dy * t;
-	return {
-		d: Math.hypot(px - qx, py - qy),
-		axis: Math.abs(dx) >= Math.abs(dy) ? ('x' as const) : ('y' as const),
-	};
-}
-
-function polylineDistance(px: number, py: number, pts: Point[]) {
-	let best = { d: Infinity, axis: 'x' as 'x' | 'y' };
-	for (let i = 0; i < pts.length - 1; i++) {
-		const r = segmentDistance(px, py, pts[i], pts[i + 1]);
-		if (r.d < best.d) best = r;
-	}
-	return best;
-}
-
-const NEIGHBOURS_4: Cell[] = [
-	{ x: 1, y: 0 },
-	{ x: -1, y: 0 },
-	{ x: 0, y: 1 },
-	{ x: 0, y: -1 },
-];
-const NEIGHBOURS_8: Cell[] = [
-	...NEIGHBOURS_4,
-	{ x: 1, y: 1 },
-	{ x: 1, y: -1 },
-	{ x: -1, y: 1 },
-	{ x: -1, y: -1 },
-];
-
-function hasDeck(g: Grids, i: number) {
-	return !Number.isNaN(g.deck[i]);
-}
-
-function computeSteep(g: Grids) {
-	g.steep.fill(0);
-	for (let y = 0; y < GRID_H; y++)
-		for (let x = 0; x < GRID_W; x++) {
-			const i = idx(x, y);
-			if (g.water[i]) continue;
-			let worst = 0;
-			for (const n of NEIGHBOURS_4) {
-				const nx = x + n.x;
-				const ny = y + n.y;
-				if (!inBounds(nx, ny)) continue;
-				const j = idx(nx, ny);
-				if (g.water[j] && !hasDeck(g, j)) continue;
-				const hj = hasDeck(g, j) ? g.deck[j] : g.heights[j];
-				worst = Math.max(worst, Math.abs(hj - g.heights[i]));
-			}
-			if (worst > STEEP) g.steep[i] = 1;
-		}
-}
-
-function walkableAt(g: Grids, i: number, ignoreTrees = false) {
-	if (g.water[i] && !hasDeck(g, i)) return false;
-	if (g.blocked[i] || g.rock[i]) return false;
-	if (g.steep[i] && !g.forced[i] && !hasDeck(g, i)) return false;
-	if (!ignoreTrees && g.tree[i]) return false;
-	return true;
-}
-
-/** BFS over 8 neighbours without corner cutting, the same moves findPath uses. */
-function reachableFrom(walk: (i: number) => boolean, start: Cell) {
-	const seen = new Uint8Array(GRID_W * GRID_H);
-	if (!inBounds(start.x, start.y)) return seen;
-	const queue: number[] = [idx(start.x, start.y)];
+/** Cells reachable from `from` with 4-neighbour steps. */
+export function reachable(world: Pick<CompiledWorld, 'blocked' | 'hEdge' | 'vEdge'>, from: Cell) {
+	const seen = new Uint8Array(W * H);
+	if (!isOpenCell(world, from.x, from.y)) return seen;
+	const queue = [cellIndex(from.x, from.y)];
 	seen[queue[0]] = 1;
 	while (queue.length) {
-		const i = queue.shift()!;
-		const x = i % GRID_W;
-		const y = (i - x) / GRID_W;
-		for (const n of NEIGHBOURS_8) {
-			const nx = x + n.x;
-			const ny = y + n.y;
-			if (!inBounds(nx, ny)) continue;
-			const j = idx(nx, ny);
-			if (seen[j] || !walk(j)) continue;
-			if (n.x && n.y && (!walk(idx(x + n.x, y)) || !walk(idx(x, y + n.y)))) continue;
+		const i = queue.pop()!;
+		const x = i % W;
+		const y = (i - x) / W;
+		for (const d of FACE) {
+			if (!canStep(world, x, y, d.x, d.y)) continue;
+			const j = cellIndex(x + d.x, y + d.y);
+			if (seen[j]) continue;
 			seen[j] = 1;
 			queue.push(j);
 		}
@@ -689,950 +1247,104 @@ function reachableFrom(walk: (i: number) => boolean, start: Cell) {
 	return seen;
 }
 
-class MinHeap {
-	private items: { i: number; f: number }[] = [];
-	get size() {
-		return this.items.length;
-	}
-	push(i: number, f: number) {
-		const a = this.items;
-		a.push({ i, f });
-		let c = a.length - 1;
-		while (c > 0) {
-			const p = (c - 1) >> 1;
-			if (a[p].f <= a[c].f) break;
-			[a[p], a[c]] = [a[c], a[p]];
-			c = p;
+export function nearestOpenCell(world: CompiledWorld, from: Cell): Cell | null {
+	let best: Cell | null = null;
+	let bestD = Infinity;
+	for (let y = 0; y < H; y++)
+		for (let x = 0; x < W; x++) {
+			if (!isOpenCell(world, x, y)) continue;
+			const d = Math.hypot(x - from.x, y - from.y);
+			if (d < bestD) [best, bestD] = [{ x, y }, d];
 		}
-	}
-	pop() {
-		const a = this.items;
-		const top = a[0];
-		const last = a.pop()!;
-		if (a.length) {
-			a[0] = last;
-			let p = 0;
-			for (;;) {
-				const l = p * 2 + 1;
-				const r = l + 1;
-				let m = p;
-				if (l < a.length && a[l].f < a[m].f) m = l;
-				if (r < a.length && a[r].f < a[m].f) m = r;
-				if (m === p) break;
-				[a[p], a[m]] = [a[m], a[p]];
-				p = m;
-			}
-		}
-		return top.i;
-	}
+	return best;
 }
 
-/**
- * A* over the grid. `cost(i)` returns the cost of entering cell i or Infinity when it is closed.
- * 4-way when `diagonal` is false; 8-way without corner cutting otherwise.
- */
-function astar(
-	start: Cell,
-	goal: Cell,
-	cost: (i: number) => number,
-	diagonal: boolean,
-): Cell[] | null {
-	if (!inBounds(start.x, start.y) || !inBounds(goal.x, goal.y)) return null;
-	const n = GRID_W * GRID_H;
-	const g = new Float32Array(n).fill(Infinity);
-	const from = new Int32Array(n).fill(-1);
-	const closed = new Uint8Array(n);
-	const s = idx(start.x, start.y);
-	const t = idx(goal.x, goal.y);
-	const h = (x: number, y: number) => {
-		const dx = Math.abs(x - goal.x);
-		const dy = Math.abs(y - goal.y);
-		return diagonal ? Math.max(dx, dy) + (Math.SQRT2 - 1) * Math.min(dx, dy) : dx + dy;
+/** A* over the grid with diagonal steps that never cut a corner. */
+export function findPath(world: CompiledWorld, from: Cell, to: Cell): Cell[] | null {
+	if (!isOpenCell(world, to.x, to.y)) {
+		const near = nearestOpenCell(world, to);
+		if (!near) return null;
+		to = near;
+	}
+	if (!isOpenCell(world, from.x, from.y)) return null;
+	const start = cellIndex(from.x, from.y);
+	const goal = cellIndex(to.x, to.y);
+	const g = new Float32Array(W * H).fill(Infinity);
+	const came = new Int32Array(W * H).fill(-1);
+	const closed = new Uint8Array(W * H);
+	const open: number[] = [start];
+	const f = new Float32Array(W * H).fill(Infinity);
+	const h = (i: number) => {
+		const x = i % W;
+		const y = (i - x) / W;
+		const dx = Math.abs(x - to.x);
+		const dy = Math.abs(y - to.y);
+		return Math.max(dx, dy) + (Math.SQRT2 - 1) * Math.min(dx, dy);
 	};
-	const heap = new MinHeap();
-	g[s] = 0;
-	heap.push(s, h(start.x, start.y));
-	const moves = diagonal ? NEIGHBOURS_8 : NEIGHBOURS_4;
-	while (heap.size) {
-		const i = heap.pop();
-		if (i === t) break;
+	g[start] = 0;
+	f[start] = h(start);
+	while (open.length) {
+		let bi = 0;
+		for (let k = 1; k < open.length; k++) if (f[open[k]] < f[open[bi]]) bi = k;
+		const i = open[bi];
+		open[bi] = open[open.length - 1];
+		open.pop();
+		if (i === goal) break;
 		if (closed[i]) continue;
 		closed[i] = 1;
-		const x = i % GRID_W;
-		const y = (i - x) / GRID_W;
-		for (const m of moves) {
-			const nx = x + m.x;
-			const ny = y + m.y;
-			if (!inBounds(nx, ny)) continue;
-			const j = idx(nx, ny);
+		const x = i % W;
+		const y = (i - x) / W;
+		for (const d of DIRS) {
+			if (!canStep(world, x, y, d.x, d.y)) continue;
+			const j = cellIndex(x + d.x, y + d.y);
 			if (closed[j]) continue;
-			const c = cost(j);
-			if (!Number.isFinite(c)) continue;
-			if (m.x && m.y) {
-				if (
-					!Number.isFinite(cost(idx(x + m.x, y))) ||
-					!Number.isFinite(cost(idx(x, y + m.y)))
-				)
-					continue;
-			}
-			const step = (m.x && m.y ? Math.SQRT2 : 1) * c;
-			const next = g[i] + step;
-			if (next < g[j]) {
-				g[j] = next;
-				from[j] = i;
-				heap.push(j, next + h(nx, ny));
+			const cost = g[i] + (d.x && d.y ? Math.SQRT2 : 1);
+			if (cost < g[j]) {
+				g[j] = cost;
+				f[j] = cost + h(j);
+				came[j] = i;
+				open.push(j);
 			}
 		}
 	}
-	if (s !== t && from[t] < 0) return null;
-	const out: Cell[] = [];
-	for (let i = t; i >= 0; i = i === s ? -1 : from[i]) {
-		const x = i % GRID_W;
-		out.push({ x, y: (i - x) / GRID_W });
+	if (came[goal] === -1 && goal !== start) return null;
+	const path: Cell[] = [];
+	for (let i = goal; i !== -1; i = came[i]) {
+		const x = i % W;
+		path.push({ x, y: (i - x) / W });
+		if (i === start) break;
 	}
-	return out.reverse();
+	return path.reverse();
 }
 
-export function compileWorld(
-	ops: WorldOp[],
-	options: CompileOptions = {},
-): CompiledWorld {
-	const partial = options.partial === true;
-	const list = normalize(ops);
-	const g = makeGrids();
+const WALL_HALF = 2 / 16;
 
-	// --- meta and base terrain
-	const metaOp = list.find((o): o is N<'meta'> => o.type === 'meta');
-	const meta: WorldMeta = metaOp
-		? {
-				name: metaOp.name,
-				tagline: metaOp.tagline,
-				biome: metaOp.biome,
-				timeOfDay: metaOp.timeOfDay,
-				weather: metaOp.weather,
-			}
-		: { ...DEFAULT_META };
-	const seed = hashString(`${meta.name}|${meta.biome}`);
-	const relief = BASE_RELIEF[meta.biome];
-	for (let y = 0; y < GRID_H; y++)
-		for (let x = 0; x < GRID_W; x++) {
-			const i = idx(x, y);
-			const n = fbm(seed, x * relief.freq, y * relief.freq);
-			g.heights[i] = relief.offset + (n - 0.5) * 2 * relief.amp;
-			const v = valueNoise(seed + 101, x / 4.5, y / 4.5);
-			g.ground[i] = v > 0.64 ? 'lush' : v < 0.3 ? 'dry' : 'grass';
-		}
-
-	const byType = <T extends NormOp['type']>(type: T) =>
-		list.filter((o): o is Extract<NormOp, { type: T }> => o.type === type);
-
-	// --- hills
-	for (const hill of byType('hill')) {
-		const r = hill.radius;
-		const peak = hill.height * HEIGHT_UNIT;
-		for (let y = hill.y - r; y <= hill.y + r; y++)
-			for (let x = hill.x - r; x <= hill.x + r; x++) {
-				if (!inBounds(x, y)) continue;
-				const d = Math.hypot(x - hill.x, y - hill.y) / (r + 0.5);
-				if (d >= 1) continue;
-				g.heights[idx(x, y)] += peak * (0.5 + 0.5 * Math.cos(Math.PI * d));
-			}
-	}
-
-	// --- lakes and rivers carve water
-	for (const lake of byType('lake')) {
-		const rx = lake.radiusX + 0.35;
-		const ry = lake.radiusY + 0.35;
-		for (let y = lake.y - lake.radiusY - 1; y <= lake.y + lake.radiusY + 1; y++)
-			for (let x = lake.x - lake.radiusX - 1; x <= lake.x + lake.radiusX + 1; x++) {
-				if (!inBounds(x, y)) continue;
-				const wobble = (valueNoise(lake.seed, x / 2.2, y / 2.2) - 0.5) * 0.35;
-				const e = Math.hypot((x - lake.x) / rx, (y - lake.y) / ry) + wobble;
-				if (e >= 1) continue;
-				const i = idx(x, y);
-				g.water[i] = 1;
-				g.ground[i] = 'water';
-				g.heights[i] = Math.min(g.heights[i], WATER_LEVEL - 0.3 - 0.55 * (1 - e));
-			}
-	}
-	for (const river of byType('river')) {
-		const half = river.width / 2 + 0.3;
-		for (let y = 0; y < GRID_H; y++)
-			for (let x = 0; x < GRID_W; x++) {
-				const { d } = polylineDistance(x, y, river.points);
-				if (d > half) continue;
-				const i = idx(x, y);
-				g.water[i] = 1;
-				g.ground[i] = 'water';
-				g.heights[i] = Math.min(g.heights[i], WATER_LEVEL - 0.3 - 0.3 * (1 - d / half));
-			}
-	}
-
-	// --- shores
-	for (let y = 0; y < GRID_H; y++)
-		for (let x = 0; x < GRID_W; x++) {
-			const i = idx(x, y);
-			if (g.water[i]) continue;
-			let near = false;
-			for (const n of NEIGHBOURS_8) {
-				const nx = x + n.x;
-				const ny = y + n.y;
-				if (inBounds(nx, ny) && g.water[idx(nx, ny)]) near = true;
-			}
-			if (!near) continue;
-			g.ground[i] = 'sand';
-			g.heights[i] = lerp(g.heights[i], WATER_LEVEL + 0.2, 0.65);
-		}
-
-	// --- paths: paint, flatten, bridge
-	const before = g.heights.slice();
-	for (const path of byType('path')) {
-		for (let y = 0; y < GRID_H; y++)
-			for (let x = 0; x < GRID_W; x++) {
-				const { d, axis } = polylineDistance(x, y, path.points);
-				if (d > 0.72) continue;
-				const i = idx(x, y);
-				if (g.water[i]) {
-					if (!hasDeck(g, i)) {
-						g.deck[i] = DECK_HEIGHT;
-						g.deckAxis[i] = axis;
-						g.deckKind[i] = 'bridge';
-						g.deckId[i] = `${path.index}-bridge-${x}-${y}`;
-					}
-					continue;
-				}
-				g.path[i] = path.style === 'cobble' ? 2 : 1;
-				g.ground[i] = path.style === 'cobble' ? 'cobble' : 'dirt';
-				let sum = 0;
-				let count = 0;
-				for (let dy = -1; dy <= 1; dy++)
-					for (let dx = -1; dx <= 1; dx++) {
-						const nx = x + dx;
-						const ny = y + dy;
-						if (!inBounds(nx, ny) || g.water[idx(nx, ny)]) continue;
-						sum += before[idx(nx, ny)];
-						count++;
-					}
-				if (count) g.heights[i] = sum / count;
-			}
-	}
-
-	// --- landmarks
-	const landmarks: LandmarkEntity[] = [];
-	const landmarkMap: Partial<Record<LandmarkId, LandmarkEntity>> = {};
-
-	const footprintCells = (cx: number, cy: number, r: number) => {
-		const out: number[] = [];
-		for (let y = cy - r; y <= cy + r; y++)
-			for (let x = cx - r; x <= cx + r; x++) if (inBounds(x, y)) out.push(idx(x, y));
-		return out;
-	};
-
-	const heightRange = (cells: number[]) => {
-		let lo = Infinity;
-		let hi = -Infinity;
-		for (const i of cells) {
-			lo = Math.min(lo, g.heights[i]);
-			hi = Math.max(hi, g.heights[i]);
-		}
-		return hi - lo;
-	};
-
-	type SiteRules = {
-		block: number;
-		reserve: number;
-		/** Interaction cell offset distance; 0 for none. */
-		interactAt: number;
-		facing: Facing;
-		allowPath: boolean;
-		terraform: boolean;
-		spacing: boolean;
-	};
-
-	const siteOk = (cx: number, cy: number, rules: SiteRules) => {
-		const { block, reserve } = rules;
-		if (
-			cx - block < 1 ||
-			cy - block < 1 ||
-			cx + block > GRID_W - 2 ||
-			cy + block > GRID_H - 2
-		)
-			return false;
-		if (rules.spacing)
-			for (const l of landmarks)
-				if (Math.hypot(l.cell.x - cx, l.cell.y - cy) < LANDMARK_SPACING) return false;
-		const blockCells = footprintCells(cx, cy, block);
-		for (const i of blockCells) {
-			if (g.reserved[i] || g.interact[i]) return false;
-			if (!rules.terraform && (g.water[i] || hasDeck(g, i))) return false;
-			if (!rules.allowPath && g.path[i]) return false;
-		}
-		for (const i of footprintCells(cx, cy, reserve)) {
-			if (g.reserved[i] === 1 || g.blocked[i] || g.interact[i]) return false;
-		}
-		if (!rules.terraform && heightRange(blockCells) > 1.1) return false;
-		if (rules.interactAt) {
-			const v = FACING_VECTORS[rules.facing];
-			const ix = cx + v.x * rules.interactAt;
-			const iy = cy + v.y * rules.interactAt;
-			if (ix < 0 || iy < 0 || ix >= GRID_W || iy >= GRID_H) return false;
-			const ii = idx(ix, iy);
-			if (g.blocked[ii] || g.reserved[ii] === 2) return false;
-			if (!rules.terraform && g.water[ii] && !hasDeck(g, ii)) return false;
-		}
-		return true;
-	};
-
-	const findSite = (
-		cx: number,
-		cy: number,
-		facing: Facing,
-		base: Omit<SiteRules, 'facing' | 'terraform' | 'allowPath'>,
-		levels: { allowPath: boolean; terraform: boolean; radius: number }[],
-	) => {
-		const facingsToTry = [facing, ...facings.filter((f) => f !== facing)];
-		for (const level of levels) {
-			const offsets = level.radius <= 10 ? SPIRAL_10 : SPIRAL;
-			for (const o of offsets) {
-				if (o.x * o.x + o.y * o.y > level.radius * level.radius) break;
-				const x = cx + o.x;
-				const y = cy + o.y;
-				for (const f of base.interactAt ? facingsToTry : [facing]) {
-					const rules = { ...base, ...level, facing: f };
-					if (siteOk(x, y, rules)) return { x, y, facing: f, terraform: level.terraform };
-				}
-			}
-		}
-		return null;
-	};
-
-	const flattenPad = (
-		cx: number,
-		cy: number,
-		block: number,
-		reserve: number,
-		drain: boolean,
-	) => {
-		const blockCells = footprintCells(cx, cy, block);
-		if (drain)
-			for (const i of footprintCells(cx, cy, reserve)) {
-				if (g.water[i]) {
-					g.water[i] = 0;
-					g.deck[i] = Number.NaN;
-					g.path[i] = 0;
-					g.heights[i] = WATER_LEVEL + 0.25;
-					g.ground[i] = 'sand';
-				}
-			}
-		let sum = 0;
-		let count = 0;
-		for (const i of blockCells) {
-			if (g.water[i]) continue;
-			sum += g.heights[i];
-			count++;
-		}
-		const pad = count ? sum / count : 0;
-		for (const i of footprintCells(cx, cy, reserve)) {
-			if (g.water[i]) continue;
-			const x = i % GRID_W;
-			const y = (i - x) / GRID_W;
-			const ring = Math.max(Math.abs(x - cx), Math.abs(y - cy));
-			g.heights[i] =
-				ring <= block ? pad : lerp(g.heights[i], pad, ring === block + 1 ? 0.75 : 0.45);
-		}
-		return pad;
-	};
-
-	const placeLandmark = (
-		id: LandmarkId,
-		want: Cell,
-		facing: Facing,
-		name: string,
-		meta: { index: number; seed: number; supplied: boolean },
-	) => {
-		const fp = LANDMARK_FOOTPRINT[id];
-		const site = findSite(
-			want.x,
-			want.y,
-			facing,
-			{ block: fp.block, reserve: fp.reserve, interactAt: 2, spacing: true },
-			[
-				{ allowPath: true, terraform: false, radius: 10 },
-				{ allowPath: true, terraform: true, radius: 48 },
-			],
-		);
-		if (!site) return;
-		flattenPad(site.x, site.y, fp.block, fp.reserve, site.terraform);
-		for (const i of footprintCells(site.x, site.y, fp.reserve)) g.reserved[i] = 1;
-		for (const i of footprintCells(site.x, site.y, fp.block)) {
-			g.blocked[i] = 1;
-			g.ground[i] = LANDMARK_GROUND[id];
-		}
-		const v = FACING_VECTORS[site.facing];
-		const interact = { x: site.x + v.x * 2, y: site.y + v.y * 2 };
-		const ii = idx(interact.x, interact.y);
-		g.interact[ii] = 1;
-		if (!g.path[ii] && !g.water[ii])
-			g.ground[ii] = LANDMARK_GROUND[id] === 'plaza' ? 'plaza' : 'dirt';
-		const entity: LandmarkEntity = {
-			type: 'landmark',
-			id: meta.supplied
-				? `supplied-${id}`
-				: `${meta.index}-landmark-${id}-${meta.seed.toString(36)}`,
-			opIndex: meta.supplied ? -1 : meta.index,
-			landmark: id,
-			name,
-			facing: site.facing,
-			x: site.x + 0.5,
-			y: site.y + 0.5,
-			rotation: FACING_ROTATION[site.facing],
-			cell: { x: site.x, y: site.y },
-			interact,
-			supplied: meta.supplied,
-		};
-		landmarks.push(entity);
-		landmarkMap[id] = entity;
-	};
-
-	for (const op of byType('landmark'))
-		placeLandmark(op.id, { x: op.x, y: op.y }, op.facing, op.name, {
-			index: op.index,
-			seed: op.seed,
-			supplied: false,
-		});
-	if (!partial)
-		for (const id of landmarkIds) {
-			if (landmarkMap[id]) continue;
-			const spot = DEFAULT_LANDMARK_SPOTS[id];
-			placeLandmark(id, spot, spot.facing, DEFAULT_LANDMARK_NAMES[id], {
-				index: -1,
-				seed: 0,
-				supplied: true,
-			});
-		}
-
-	// --- buildings (docks hug the shore and reach over water)
-	const buildings: BuildingEntity[] = [];
-	for (const op of byType('building')) {
-		const id = `${op.index}-building-${op.kind}-${op.seed.toString(36)}`;
-		if (op.kind === 'dock') {
-			const dirs = [op.facing, ...facings.filter((f) => f !== op.facing)];
-			let placed = false;
-			for (const o of SPIRAL_10) {
-				if (placed) break;
-				const x = op.x + o.x;
-				const y = op.y + o.y;
-				if (!inBounds(x, y)) continue;
-				const i = idx(x, y);
-				if (g.water[i] || g.reserved[i] || g.blocked[i] || g.interact[i] || g.path[i])
-					continue;
-				for (const f of dirs) {
-					const v = FACING_VECTORS[f];
-					let length = 0;
-					while (length < 3) {
-						const nx = x + v.x * (length + 1);
-						const ny = y + v.y * (length + 1);
-						if (!inBounds(nx, ny)) break;
-						const j = idx(nx, ny);
-						if (!g.water[j] || hasDeck(g, j)) break;
-						length++;
-					}
-					if (length < 2) continue;
-					g.reserved[i] = 2;
-					for (let k = 1; k <= length; k++) {
-						const j = idx(x + v.x * k, y + v.y * k);
-						g.deck[j] = DECK_HEIGHT;
-						g.deckAxis[j] = v.x ? 'x' : 'y';
-						g.deckKind[j] = 'dock';
-						g.deckId[j] = `${id}-${k}`;
-					}
-					buildings.push({
-						type: 'building',
-						id,
-						opIndex: op.index,
-						kind: 'dock',
-						roof: op.roof,
-						facing: f,
-						cell: { x, y },
-						x: x + 0.5,
-						y: y + 0.5,
-						rotation: FACING_ROTATION[f],
-						length,
-					});
-					placed = true;
-					break;
-				}
-			}
-			continue;
-		}
-		const fp = BUILDING_FOOTPRINT[op.kind];
-		const site = findSite(
-			op.x,
-			op.y,
-			op.facing,
-			{ block: fp.block, reserve: fp.reserve, interactAt: 0, spacing: false },
-			[
-				{ allowPath: false, terraform: false, radius: 6 },
-				{ allowPath: true, terraform: false, radius: 9 },
-			],
-		);
-		if (!site) continue;
-		flattenPad(site.x, site.y, fp.block, fp.reserve, false);
-		for (const i of footprintCells(site.x, site.y, fp.reserve))
-			if (!g.reserved[i]) g.reserved[i] = 2;
-		for (const i of footprintCells(site.x, site.y, fp.block)) {
-			g.blocked[i] = 1;
-			if (!g.path[i]) g.ground[i] = 'dirt';
-		}
-		// Keep the doorstep open: the cell in front of the door is never blocked by scatter.
-		const v = FACING_VECTORS[site.facing];
-		const door = { x: site.x + v.x * (fp.block + 1), y: site.y + v.y * (fp.block + 1) };
-		if (inBounds(door.x, door.y)) g.reserved[idx(door.x, door.y)] ||= 2;
-		buildings.push({
-			type: 'building',
-			id,
-			opIndex: op.index,
-			kind: op.kind,
-			roof: op.roof,
-			facing: site.facing,
-			cell: { x: site.x, y: site.y },
-			x: site.x + 0.5,
-			y: site.y + 0.5,
-			rotation: FACING_ROTATION[site.facing],
-			length: 0,
-		});
-	}
-
-	computeSteep(g);
-
-	// --- rocks
-	const rocks: RockEntity[] = [];
-	const scatterFree = (i: number) =>
-		!g.water[i] &&
-		!g.path[i] &&
-		!g.reserved[i] &&
-		!g.blocked[i] &&
-		!g.interact[i] &&
-		!hasDeck(g, i);
-	for (const op of byType('rocks')) {
-		const rng = mulberry32(op.seed);
-		const r = op.radius;
-		const area = Math.PI * (r + 0.5) * (r + 0.5);
-		const count =
-			op.size === 'pebbles'
-				? Math.round(area * 1.4)
-				: op.size === 'boulders'
-					? Math.max(2, Math.round(area * 0.45))
-					: Math.max(3, Math.round(area * 0.6));
-		for (let k = 0; k < count; k++) {
-			const a = rng() * Math.PI * 2;
-			const d = Math.sqrt(rng()) * (r + 0.4);
-			const fx = op.x + 0.5 + Math.cos(a) * d;
-			const fy = op.y + 0.5 + Math.sin(a) * d;
-			const scale = rng();
-			const variant = Math.floor(rng() * 4);
-			const rotation = rng() * Math.PI * 2;
-			const cx = Math.floor(fx);
-			const cy = Math.floor(fy);
-			if (!inBounds(cx, cy)) continue;
-			const i = idx(cx, cy);
-			if (!scatterFree(i) || g.tree[i]) continue;
-			if (op.size !== 'pebbles') g.rock[i] = 1;
-			rocks.push({
-				type: 'rock',
-				id: `${op.index}-rock-${k}-${op.seed.toString(36)}`,
-				opIndex: op.index,
-				size: op.size,
-				x: clamp(fx, 0.2, GRID_W - 0.2),
-				y: clamp(fy, 0.2, GRID_H - 0.2),
-				rotation,
-				scale:
-					op.size === 'pebbles'
-						? 0.25 + scale * 0.25
-						: op.size === 'boulders'
-							? 0.55 + scale * 0.45
-							: 1.1 + scale * 0.9,
-				variant,
-			});
-		}
-	}
-
-	// --- forests
-	const trees: TreeEntity[] = [];
-	const DENSITY = { sparse: 0.22, normal: 0.42, dense: 0.66 } as const;
-	for (const op of byType('forest')) {
-		const rng = mulberry32(op.seed);
-		const r = op.radius;
-		let k = 0;
-		for (let y = op.y - r; y <= op.y + r; y++)
-			for (let x = op.x - r; x <= op.x + r; x++) {
-				const roll = rng();
-				const jx = rng();
-				const jy = rng();
-				const scale = rng();
-				const rot = rng();
-				const variant = Math.floor(rng() * 4);
-				const n = k++;
-				if (!inBounds(x, y)) continue;
-				const d = Math.hypot(x - op.x, y - op.y) / (r + 0.5);
-				if (d >= 1) continue;
-				const p = DENSITY[op.density] * (1 - d * d * 0.55);
-				if (roll > p) continue;
-				const i = idx(x, y);
-				if (!scatterFree(i) || g.rock[i] || g.tree[i]) continue;
-				if (g.ground[i] === 'sand' && op.species !== 'palm') continue;
-				g.tree[i] = 1;
-				trees.push({
-					type: 'tree',
-					id: `${op.index}-tree-${n}-${op.seed.toString(36)}`,
-					opIndex: op.index,
-					species: op.species,
-					x: x + 0.5 + (jx - 0.5) * 0.5,
-					y: y + 0.5 + (jy - 0.5) * 0.5,
-					rotation: rot * Math.PI * 2,
-					scale: 0.8 + scale * 0.45,
-					variant,
-				});
-			}
-	}
-
-	// --- spawn next to Max, then make sure every landmark can be reached from it
-	const walk = (i: number) => walkableAt(g, i);
-	const nearestWalkable = (from: Cell, avoid?: (i: number) => boolean) => {
-		for (const o of SPIRAL) {
-			const x = from.x + o.x;
-			const y = from.y + o.y;
-			if (!inBounds(x, y)) continue;
-			const i = idx(x, y);
-			if (walk(i) && !avoid?.(i)) return { x, y };
-		}
-		return null;
-	};
-
-	const maxCamp = landmarkMap.max;
-	let spawn: Cell & { facing: Facing };
-	if (maxCamp) {
-		const v = FACING_VECTORS[maxCamp.facing];
-		const front = { x: maxCamp.interact.x + v.x, y: maxCamp.interact.y + v.y };
-		const lookAtMax = OPPOSITE[maxCamp.facing];
-		const side = { x: v.y, y: v.x };
-		const candidates = [
-			front,
-			{ x: front.x + side.x, y: front.y + side.y },
-			{ x: front.x - side.x, y: front.y - side.y },
-			{ x: front.x + v.x, y: front.y + v.y },
-			maxCamp.interact,
-		];
-		// The camera sits behind the visitor, away from Max: prefer a spot with open ground there.
-		const room = (c: Cell) => {
-			let n = 0;
-			for (let k = 1; k <= 3; k++) {
-				const x = c.x + v.x * k;
-				const y = c.y + v.y * k;
-				if (!inBounds(x, y) || g.blocked[idx(x, y)]) break;
-				n++;
-			}
-			return n;
-		};
-		const found = candidates
-			.filter((c) => inBounds(c.x, c.y) && walk(idx(c.x, c.y)))
-			.sort((a, b) => room(b) - room(a))[0];
-		const cell = found ?? nearestWalkable(maxCamp.interact) ?? maxCamp.interact;
-		spawn = { ...cell, facing: lookAtMax };
-		g.forced[idx(cell.x, cell.y)] = 1;
-		if (!walk(idx(cell.x, cell.y))) {
-			// Last resort: clear the spot so the visitor never spawns inside something.
-			const i = idx(cell.x, cell.y);
-			g.tree[i] = 0;
-			g.rock[i] = 0;
-			if (g.water[i] && !hasDeck(g, i)) {
-				g.deck[i] = DECK_HEIGHT;
-				g.deckKind[i] = 'bridge';
-				g.deckId[i] = `spawn-bridge-${cell.x}-${cell.y}`;
-			}
-		}
-	} else {
-		const centre = { x: Math.floor(GRID_W / 2), y: Math.floor(GRID_H / 2) };
-		const cell = nearestWalkable(centre) ?? centre;
-		spawn = { ...cell, facing: 'south' };
-	}
-
-	if (maxCamp) {
-		const ordered = [...landmarks].sort(
-			(a, b) =>
-				Math.hypot(a.interact.x - spawn.x, a.interact.y - spawn.y) -
-				Math.hypot(b.interact.x - spawn.x, b.interact.y - spawn.y),
-		);
-		for (const target of ordered) {
-			const seen = reachableFrom(walk, spawn);
-			const ti = idx(target.interact.x, target.interact.y);
-			if (seen[ti] && walk(ti)) continue;
-			const route = astar(
-				spawn,
-				target.interact,
-				(i) => {
-					if (i === ti) return 1;
-					if (g.blocked[i]) return Infinity;
-					if (walk(i)) return g.path[i] ? 0.6 : g.reserved[i] === 1 ? 2 : 1;
-					// Landmark yards may be repaired too, but only when nothing else works.
-					let c = g.reserved[i] === 1 ? 8 : 1;
-					if (g.water[i] && !hasDeck(g, i)) c += 5;
-					if (g.tree[i]) c += 2;
-					if (g.rock[i]) c += 3;
-					if (g.steep[i]) c += 6;
-					return c;
-				},
-				false,
-			);
-			if (!route) continue;
-			for (const cell of route) {
-				const i = idx(cell.x, cell.y);
-				if (walk(i)) continue;
-				g.tree[i] = 0;
-				g.rock[i] = 0;
-				g.forced[i] = 1;
-				if (g.water[i] && !hasDeck(g, i)) {
-					g.deck[i] = DECK_HEIGHT;
-					g.deckKind[i] = 'bridge';
-					g.deckId[i] = `repair-bridge-${cell.x}-${cell.y}`;
-					const prev = route[Math.max(0, route.indexOf(cell) - 1)];
-					g.deckAxis[i] = prev.x !== cell.x ? 'x' : 'y';
-				} else if (!g.path[i] && !g.reserved[i]) {
-					g.path[i] = 1;
-					g.ground[i] = 'dirt';
-				}
-			}
-		}
-	}
-
-	// Paint what is too steep to walk as rock, so cliffs read as cliffs.
-	for (let i = 0; i < g.steep.length; i++)
-		if (
-			g.steep[i] &&
-			!g.forced[i] &&
-			!g.water[i] &&
-			!g.path[i] &&
-			!g.blocked[i] &&
-			!g.reserved[i]
-		)
-			g.ground[i] = 'rock';
-
-	// Drop scatter that a repair path cleared.
-	const keptTrees = trees.filter((t) => g.tree[idx(Math.floor(t.x), Math.floor(t.y))]);
-	const keptRocks = rocks.filter(
-		(r) => r.size === 'pebbles' || g.rock[idx(Math.floor(r.x), Math.floor(r.y))],
-	);
-
-	const walkable = new Uint8Array(GRID_W * GRID_H);
-	const passable = new Uint8Array(GRID_W * GRID_H);
-	for (let i = 0; i < walkable.length; i++) {
-		walkable[i] = walkableAt(g, i) ? 1 : 0;
-		passable[i] = walkableAt(g, i, true) ? 1 : 0;
-	}
-
-	// --- props
-	const props: PropEntity[] = [];
-	const spawnIndex = idx(spawn.x, spawn.y);
-	const propFree = (i: number) =>
-		!g.water[i] &&
-		!g.blocked[i] &&
-		!g.interact[i] &&
-		!hasDeck(g, i) &&
-		!g.tree[i] &&
-		!g.rock[i] &&
-		i !== spawnIndex &&
-		g.reserved[i] !== 1;
-	for (const op of byType('props')) {
-		const rng = mulberry32(op.seed);
-		const fenceAxis = rng() < 0.5 ? 'x' : 'y';
-		let anchor: Cell | null = null;
-		for (const o of SPIRAL_4) {
-			const x = op.x + o.x;
-			const y = op.y + o.y;
-			if (inBounds(x, y) && propFree(idx(x, y))) {
-				anchor = { x, y };
-				break;
-			}
-		}
-		if (!anchor) continue;
-		for (let k = 0; k < op.count; k++) {
-			const ox = rng();
-			const oy = rng();
-			const jx = rng();
-			const jy = rng();
-			const rot = rng();
-			const sc = rng();
-			let cx: number;
-			let cy: number;
-			if (op.kind === 'fence') {
-				const step = k === 0 ? 0 : Math.ceil(k / 2) * (k % 2 ? 1 : -1);
-				cx = anchor.x + (fenceAxis === 'x' ? step : 0);
-				cy = anchor.y + (fenceAxis === 'y' ? step : 0);
-			} else if (k === 0) {
-				cx = anchor.x;
-				cy = anchor.y;
-			} else {
-				cx = anchor.x + Math.round((ox - 0.5) * 4.4);
-				cy = anchor.y + Math.round((oy - 0.5) * 4.4);
-			}
-			if (!inBounds(cx, cy) || !propFree(idx(cx, cy))) continue;
-			const isFence = op.kind === 'fence';
-			props.push({
-				type: 'prop',
-				id: `${op.index}-prop-${op.kind}-${k}-${op.seed.toString(36)}`,
-				opIndex: op.index,
-				kind: op.kind,
-				x: cx + 0.5 + (isFence ? 0 : (jx - 0.5) * 0.4),
-				y: cy + 0.5 + (isFence ? 0 : (jy - 0.5) * 0.4),
-				rotation: isFence ? (fenceAxis === 'x' ? 0 : Math.PI / 2) : rot * Math.PI * 2,
-				scale: 0.9 + sc * 0.25,
-				variant: Math.floor(sc * 4),
-			});
-		}
-	}
-
-	// --- NPCs stand on walkable ground, never on interaction spots or the spawn
-	const npcs: NpcEntity[] = [];
-	const taken = new Set<number>();
-	for (const op of byType('npc')) {
-		const cell = nearestWalkable(
-			{ x: op.x, y: op.y },
-			(i) => g.interact[i] === 1 || i === spawnIndex || taken.has(i),
-		);
-		if (!cell) continue;
-		taken.add(idx(cell.x, cell.y));
-		const rng = mulberry32(op.seed);
-		npcs.push({
-			type: 'npc',
-			id: `${op.index}-npc-${op.kind}-${op.seed.toString(36)}`,
-			opIndex: op.index,
-			kind: op.kind,
-			name: op.name,
-			line: op.line,
-			wanders: op.wanders,
-			cell,
-			radius: op.wanders ? 3 : 0,
-			x: cell.x + 0.5,
-			y: cell.y + 0.5,
-			rotation: Math.floor(rng() * 4) * (Math.PI / 2),
-			variant: Math.floor(rng() * 4),
-		});
-	}
-
-	const decks: DeckCell[] = [];
-	for (let i = 0; i < g.deck.length; i++) {
-		if (Number.isNaN(g.deck[i])) continue;
-		const x = i % GRID_W;
-		const y = (i - x) / GRID_W;
-		decks.push({
-			id: g.deckId[i] || `deck-${x}-${y}`,
-			x,
-			y,
-			axis: g.deckAxis[i],
-			height: g.deck[i],
-			kind: g.deckKind[i],
-		});
-	}
-
-	return {
-		width: GRID_W,
-		height: GRID_H,
-		seed,
-		meta,
-		hasMeta: Boolean(metaOp),
-		partial,
-		opCount: list.length,
-		ground: g.ground,
-		heights: g.heights,
-		walkable,
-		passable,
-		deck: g.deck,
-		landmarks,
-		landmark: landmarkMap,
-		buildings,
-		props,
-		npcs,
-		trees: keptTrees,
-		rocks: keptRocks,
-		decks,
-		spawn,
-	};
+function circleRect(cx: number, cz: number, r: number, x0: number, z0: number, x1: number, z1: number) {
+	const dx = cx - Math.max(x0, Math.min(cx, x1));
+	const dz = cz - Math.max(z0, Math.min(cz, z1));
+	return dx * dx + dz * dz < r * r;
 }
 
-// ---------------------------------------------------------------------------
-// Queries for the renderer and the player controller
-
-export function cellAt(fx: number, fy: number): Cell {
-	return {
-		x: clamp(Math.floor(fx), 0, GRID_W - 1),
-		y: clamp(Math.floor(fy), 0, GRID_H - 1),
-	};
+/** Whether a body of radius `r` at (x, y) overlaps furniture, a wall or the outside. */
+export function collides(world: Pick<CompiledWorld, 'blocked' | 'hEdge' | 'vEdge'>, x: number, y: number, r: number) {
+	if (x - r < 0 || y - r < 0 || x + r > W || y + r > H) return true;
+	const x0 = Math.floor(x - r - WALL_HALF);
+	const x1 = Math.floor(x + r + WALL_HALF);
+	const y0 = Math.floor(y - r - WALL_HALF);
+	const y1 = Math.floor(y + r + WALL_HALF);
+	for (let cy = y0; cy <= y1 + 1; cy++)
+		for (let cx = x0; cx <= x1 + 1; cx++) {
+			if (cy <= y1 && cx <= x1 && inBounds(cx, cy) && world.blocked[cellIndex(cx, cy)])
+				if (circleRect(x, y, r, cx, cy, cx + 1, cy + 1)) return true;
+			if (cx >= 0 && cx < W && cy >= 0 && cy <= H && !PASSABLE_EDGES.has(world.hEdge[hIndex(cx, cy)]))
+				if (circleRect(x, y, r, cx, cy - WALL_HALF, cx + 1, cy + WALL_HALF)) return true;
+			if (cy >= 0 && cy < H && cx >= 0 && cx <= W && !PASSABLE_EDGES.has(world.vEdge[vIndex(cx, cy)]))
+				if (circleRect(x, y, r, cx - WALL_HALF, cy, cx + WALL_HALF, cy + 1)) return true;
+		}
+	return false;
 }
 
-export function isWalkable(world: CompiledWorld, x: number, y: number) {
-	return inBounds(x, y) && world.walkable[idx(x, y)] === 1;
-}
-
-export function isPassable(world: CompiledWorld, x: number, y: number) {
-	return inBounds(x, y) && world.passable[idx(x, y)] === 1;
-}
-
-/** Terrain height at any point, bilinear between cell centres. */
-export function sampleHeight(
-	world: Pick<CompiledWorld, 'heights'>,
-	fx: number,
-	fy: number,
-) {
-	const u = clamp(fx - 0.5, 0, GRID_W - 1);
-	const v = clamp(fy - 0.5, 0, GRID_H - 1);
-	const x0 = Math.min(GRID_W - 2, Math.floor(u));
-	const y0 = Math.min(GRID_H - 2, Math.floor(v));
-	const tx = u - x0;
-	const ty = v - y0;
-	const h = world.heights;
-	const a = h[idx(x0, y0)];
-	const b = h[idx(x0 + 1, y0)];
-	const c = h[idx(x0, y0 + 1)];
-	const d = h[idx(x0 + 1, y0 + 1)];
-	return lerp(lerp(a, b, tx), lerp(c, d, tx), ty);
-}
-
-/** Where feet stand: the terrain, or a deck over water. Never below the water surface. */
-export function surfaceHeight(world: CompiledWorld, fx: number, fy: number) {
-	const { x, y } = cellAt(fx, fy);
-	const deck = world.deck[idx(x, y)];
-	const ground = sampleHeight(world, fx, fy);
-	if (!Number.isNaN(deck)) return Math.max(deck, ground);
-	return Math.max(ground, WATER_LEVEL - 0.25);
-}
-
-export function nearestWalkableCell(world: CompiledWorld, from: Cell): Cell | null {
-	for (const o of SPIRAL) {
-		const x = from.x + o.x;
-		const y = from.y + o.y;
-		if (isWalkable(world, x, y)) return { x, y };
-	}
-	return null;
-}
-
-/**
- * Click-to-move: 8-way A* without corner cutting. The start cell is always allowed (the visitor
- * may stand among trees); an unwalkable goal is swapped for the nearest walkable cell.
- * Returns cells from start to goal, or null when there is no way.
- */
-export function findPath(world: CompiledWorld, from: Cell, to: Cell): Cell[] | null {
-	const start = cellAt(from.x, from.y);
-	let goal = cellAt(to.x, to.y);
-	if (!isWalkable(world, goal.x, goal.y)) {
-		const near = nearestWalkableCell(world, goal);
-		if (!near) return null;
-		goal = near;
-	}
-	const s = idx(start.x, start.y);
-	return astar(start, goal, (i) => (i === s || world.walkable[i] ? 1 : Infinity), true);
-}
-
-/** Cells reachable from `from` with the same moves as findPath. */
-export function reachableCells(world: CompiledWorld, from: Cell) {
-	return reachableFrom((i) => world.walkable[i] === 1, from);
+/** Zone kinds that exist in a compiled world, in reveal order. */
+export function zoneOrder(world: CompiledWorld) {
+	return world.rooms.filter((r) => r.order >= 0).sort((a, b) => a.order - b.order);
 }

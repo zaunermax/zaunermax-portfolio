@@ -1,0 +1,53 @@
+{
+  "floor": [
+    -1,
+    -1,
+    5,
+    3
+  ],
+  "resolution": 1200,
+  "placements": [
+    {
+      "id": "planter_end",
+      "x": 0,
+      "z": 0,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "planter_mid",
+      "x": 1,
+      "z": 0,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "planter_mid",
+      "x": 2,
+      "z": 0,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "planter_end",
+      "x": 3,
+      "z": 0,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "office_chair",
+      "x": 1,
+      "z": 1,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "office_chair",
+      "x": 2,
+      "z": 1,
+      "rotation": 0,
+      "y": 0
+    }
+  ]
+}

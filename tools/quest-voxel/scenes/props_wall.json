@@ -1,0 +1,81 @@
+{
+  "floor": [
+    -3,
+    -1,
+    4,
+    2
+  ],
+  "resolution": 1600,
+  "placements": [
+    {
+      "id": "window_panel",
+      "x": -2,
+      "y": 1.0,
+      "z": 0
+    },
+    {
+      "id": "poster_turn_off_on",
+      "x": -0.9,
+      "y": 1.125,
+      "z": 0
+    },
+    {
+      "id": "poster_motivation",
+      "x": 0,
+      "y": 1.125,
+      "z": 0
+    },
+    {
+      "id": "wall_clock",
+      "x": 1.1875,
+      "y": 1.875,
+      "z": 0
+    },
+    {
+      "id": "wall_tv",
+      "x": 2.375,
+      "y": 1.0,
+      "z": 0
+    },
+    {
+      "id": "neon_sign",
+      "x": 0,
+      "y": 2.25,
+      "z": 0
+    },
+    {
+      "id": "coat_rack",
+      "x": -2.8,
+      "z": 0.5
+    },
+    {
+      "id": "umbrella_stand",
+      "x": -2,
+      "z": 0.65
+    },
+    {
+      "id": "recycle_bins",
+      "x": 2.2,
+      "z": 0.5
+    },
+    {
+      "id": "plant_cactus",
+      "x": 0.9,
+      "z": 0.45
+    }
+  ],
+  "mounting_notes": {
+    "wall_plane_z": 0,
+    "wall_height_voxels": 48,
+    "origin": "bottom-centre of back face; attach at z=0, facing +Z",
+    "wall_geometry": "Preview omits the procedural engine wall to expose mounts.",
+    "bottom_height_voxels": {
+      "window_panel": 16,
+      "poster_turn_off_on": 18,
+      "poster_motivation": 18,
+      "wall_clock": 30,
+      "wall_tv": 16,
+      "neon_sign": 36
+    }
+  }
+}

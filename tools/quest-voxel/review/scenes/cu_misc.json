@@ -1,0 +1,38 @@
+{
+ "floor": [
+  -1,
+  -1,
+  5,
+  2
+ ],
+ "resolution": 1200,
+ "views": [
+  0,
+  90,
+  180,
+  270
+ ],
+ "placements": [
+  {
+   "id": "fish_tank",
+   "x": 0.0,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "plant_hanging",
+   "x": 1.6,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "floor_lamp",
+   "x": 3.2,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  }
+ ]
+}
