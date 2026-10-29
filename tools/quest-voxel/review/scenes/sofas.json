@@ -1,0 +1,135 @@
+{
+ "floor": [
+  -1,
+  -1,
+  8,
+  6
+ ],
+ "resolution": 1400,
+ "views": [
+  0,
+  90,
+  180
+ ],
+ "placements": [
+  {
+   "id": "sofa_end_l",
+   "x": 0,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "sofa_end_r",
+   "x": 1,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "sofa_end_l",
+   "x": 3,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "sofa_mid",
+   "x": 4,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "sofa_end_r",
+   "x": 5,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "sofa_corner",
+   "x": 0,
+   "z": 2,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "sofa_mid",
+   "x": 1,
+   "z": 2,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "sofa_end_r",
+   "x": 2,
+   "z": 2,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "sofa_mid",
+   "x": 0,
+   "z": 3,
+   "rotation": 90,
+   "y": 0
+  },
+  {
+   "id": "sofa_end_l",
+   "x": 0,
+   "z": 4,
+   "rotation": 90,
+   "y": 0
+  },
+  {
+   "id": "sofa_corner",
+   "x": 6,
+   "z": 2,
+   "rotation": 270,
+   "y": 0
+  },
+  {
+   "id": "sofa_mid",
+   "x": 5,
+   "z": 2,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "sofa_end_l",
+   "x": 4,
+   "z": 2,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "sofa_mid",
+   "x": 6,
+   "z": 3,
+   "rotation": 270,
+   "y": 0
+  },
+  {
+   "id": "sofa_end_r",
+   "x": 6,
+   "z": 4,
+   "rotation": 270,
+   "y": 0
+  },
+  {
+   "id": "max",
+   "x": 2.3,
+   "z": 3.6,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "coffee_table",
+   "x": 2.5,
+   "z": 4.5,
+   "rotation": 0,
+   "y": 0
+  }
+ ]
+}

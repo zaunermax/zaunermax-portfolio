@@ -1,0 +1,246 @@
+{
+ "floor": [
+  -1,
+  -1,
+  18,
+  4
+ ],
+ "resolution": 1800,
+ "views": [
+  0,
+  180
+ ],
+ "placements": [
+  {
+   "id": "max",
+   "x": 0,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "fridge",
+   "x": 1,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "vending_machine",
+   "x": 2,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "water_cooler",
+   "x": 3,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "arcade_cabinet",
+   "x": 4,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "server_rack",
+   "x": 5,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "whiteboard",
+   "x": 6,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "filing_cabinet",
+   "x": 7,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "printer",
+   "x": 8,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "coat_rack",
+   "x": 9,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "floor_lamp",
+   "x": 10,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "plant_ficus",
+   "x": 11,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "plant_monstera",
+   "x": 12,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "plant_fiddle",
+   "x": 13,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "plant_hanging",
+   "x": 14,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "umbrella_stand",
+   "x": 15,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "max",
+   "x": 16,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "max",
+   "x": 0,
+   "z": 2,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "office_chair",
+   "x": 1,
+   "z": 2,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "gaming_chair",
+   "x": 2,
+   "z": 2,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "armchair",
+   "x": 3,
+   "z": 2,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "folding_chair",
+   "x": 4,
+   "z": 2,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "stool",
+   "x": 5,
+   "z": 2,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "bar_stool",
+   "x": 6,
+   "z": 2,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "beanbag_teal",
+   "x": 7,
+   "z": 2,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "trash_bin",
+   "x": 8,
+   "z": 2,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "recycle_bins",
+   "x": 9,
+   "z": 2,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "plant_snake",
+   "x": 10,
+   "z": 2,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "plant_cactus",
+   "x": 11,
+   "z": 2,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "dog_bed",
+   "x": 12,
+   "z": 2,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "chess_table",
+   "x": 13,
+   "z": 2,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "podium",
+   "x": 14,
+   "z": 2,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "tv_console",
+   "x": 15,
+   "z": 2,
+   "rotation": 0,
+   "y": 0
+  }
+ ]
+}

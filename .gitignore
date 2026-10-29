@@ -43,3 +43,13 @@ next-env.d.ts
 /playwright-report/
 /test-results/
 !.env.example
+
+# local data written by lab spikes (generated worlds, dev outbox)
+/.data/
+
+# TanStack Start / local Workers state
+/.wrangler/
+/.dev.vars
+/.dev.vars.*
+!/.dev.vars.example
+/dist/

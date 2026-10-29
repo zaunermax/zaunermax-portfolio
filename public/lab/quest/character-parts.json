@@ -1,0 +1,1875 @@
+{
+  "version": 1,
+  "glb": "character-parts.glb",
+  "unitsPerVoxel": 0.0625,
+  "rig": {
+    "body": [
+      0.0,
+      0.5625,
+      0.0
+    ],
+    "head": [
+      0.0,
+      1.0625,
+      0.0
+    ],
+    "arm_l": [
+      0.3125,
+      0.9375,
+      0.0
+    ],
+    "arm_r": [
+      -0.25,
+      0.9375,
+      0.0
+    ],
+    "leg_l": [
+      0.15625,
+      0.5625,
+      0.0
+    ],
+    "leg_r": [
+      -0.09375,
+      0.5625,
+      0.0
+    ]
+  },
+  "slots": [
+    {
+      "index": 0,
+      "name": "baked"
+    },
+    {
+      "index": 1,
+      "name": "skin"
+    },
+    {
+      "index": 2,
+      "name": "skin_shade"
+    },
+    {
+      "index": 3,
+      "name": "hair"
+    },
+    {
+      "index": 4,
+      "name": "hair_shade"
+    },
+    {
+      "index": 5,
+      "name": "top"
+    },
+    {
+      "index": 6,
+      "name": "top_trim"
+    },
+    {
+      "index": 7,
+      "name": "bottom"
+    },
+    {
+      "index": 8,
+      "name": "shoes"
+    },
+    {
+      "index": 9,
+      "name": "accent"
+    }
+  ],
+  "encoding": {
+    "attribute": "_SLOT",
+    "threeAttribute": "_slot",
+    "colour": "COLOR_0",
+    "space": "linear",
+    "bakedSlot": 0,
+    "formula": "slot == 0 ? sourceRGB : linear(palette[slot]) * sourceRGB",
+    "alpha": "preserve source alpha"
+  },
+  "categories": {
+    "base": [
+      "regular"
+    ],
+    "face": [
+      "bright",
+      "smile",
+      "freckled",
+      "smile_lines",
+      "sleepy",
+      "wink"
+    ],
+    "hair": [
+      "buzz",
+      "short_messy",
+      "side_part",
+      "curly_top",
+      "afro",
+      "locs",
+      "braids",
+      "long_straight",
+      "bob",
+      "high_bun",
+      "space_buns",
+      "shaved_sides"
+    ],
+    "headwear": [
+      "beanie",
+      "cap",
+      "beret",
+      "headwrap",
+      "headband",
+      "headphones"
+    ],
+    "top": [
+      "hoodie",
+      "tee",
+      "shirt_tie",
+      "cardigan",
+      "sweater_vest",
+      "overalls",
+      "blazer",
+      "apron_tee"
+    ],
+    "bottom": [
+      "trousers",
+      "shorts",
+      "wide_trousers",
+      "skirt_leggings"
+    ],
+    "accessory": [
+      "round_glasses",
+      "square_glasses",
+      "earrings",
+      "lanyard",
+      "beard",
+      "moustache",
+      "freckles",
+      "backpack"
+    ]
+  },
+  "parts": [
+    {
+      "category": "base",
+      "id": "regular",
+      "label": "Regular",
+      "node": "base/regular",
+      "bones": [
+        "body",
+        "arm_l",
+        "arm_r"
+      ]
+    },
+    {
+      "category": "face",
+      "id": "bright",
+      "label": "Bright eyes",
+      "node": "face/bright",
+      "bones": [
+        "head"
+      ],
+      "expression": "bright"
+    },
+    {
+      "category": "face",
+      "id": "smile",
+      "label": "Soft smile",
+      "node": "face/smile",
+      "bones": [
+        "head"
+      ],
+      "expression": "smile"
+    },
+    {
+      "category": "face",
+      "id": "freckled",
+      "label": "Freckled",
+      "node": "face/freckled",
+      "bones": [
+        "head"
+      ],
+      "expression": "freckled"
+    },
+    {
+      "category": "face",
+      "id": "smile_lines",
+      "label": "Smile lines",
+      "node": "face/smile_lines",
+      "bones": [
+        "head"
+      ],
+      "expression": "smile_lines"
+    },
+    {
+      "category": "face",
+      "id": "sleepy",
+      "label": "Sleepy",
+      "node": "face/sleepy",
+      "bones": [
+        "head"
+      ],
+      "expression": "sleepy"
+    },
+    {
+      "category": "face",
+      "id": "wink",
+      "label": "Wink",
+      "node": "face/wink",
+      "bones": [
+        "head"
+      ],
+      "expression": "wink"
+    },
+    {
+      "category": "hair",
+      "id": "buzz",
+      "label": "Buzz",
+      "node": "hair/buzz",
+      "bones": [
+        "head"
+      ]
+    },
+    {
+      "category": "hair",
+      "id": "short_messy",
+      "label": "Short Messy",
+      "node": "hair/short_messy",
+      "bones": [
+        "head"
+      ]
+    },
+    {
+      "category": "hair",
+      "id": "side_part",
+      "label": "Side Part",
+      "node": "hair/side_part",
+      "bones": [
+        "head"
+      ]
+    },
+    {
+      "category": "hair",
+      "id": "curly_top",
+      "label": "Curly Top",
+      "node": "hair/curly_top",
+      "bones": [
+        "head"
+      ]
+    },
+    {
+      "category": "hair",
+      "id": "afro",
+      "label": "Afro",
+      "node": "hair/afro",
+      "bones": [
+        "head"
+      ]
+    },
+    {
+      "category": "hair",
+      "id": "locs",
+      "label": "Locs",
+      "node": "hair/locs",
+      "bones": [
+        "head"
+      ]
+    },
+    {
+      "category": "hair",
+      "id": "braids",
+      "label": "Braids",
+      "node": "hair/braids",
+      "bones": [
+        "head"
+      ]
+    },
+    {
+      "category": "hair",
+      "id": "long_straight",
+      "label": "Long Straight",
+      "node": "hair/long_straight",
+      "bones": [
+        "head"
+      ]
+    },
+    {
+      "category": "hair",
+      "id": "bob",
+      "label": "Bob",
+      "node": "hair/bob",
+      "bones": [
+        "head"
+      ]
+    },
+    {
+      "category": "hair",
+      "id": "high_bun",
+      "label": "High Bun",
+      "node": "hair/high_bun",
+      "bones": [
+        "head"
+      ]
+    },
+    {
+      "category": "hair",
+      "id": "space_buns",
+      "label": "Space Buns",
+      "node": "hair/space_buns",
+      "bones": [
+        "head"
+      ]
+    },
+    {
+      "category": "hair",
+      "id": "shaved_sides",
+      "label": "Shaved Sides",
+      "node": "hair/shaved_sides",
+      "bones": [
+        "head"
+      ]
+    },
+    {
+      "category": "headwear",
+      "id": "beanie",
+      "label": "Beanie",
+      "node": "headwear/beanie",
+      "bones": [
+        "head"
+      ],
+      "hides": [],
+      "allowedHair": [
+        "buzz",
+        "side_part"
+      ]
+    },
+    {
+      "category": "headwear",
+      "id": "cap",
+      "label": "Cap",
+      "node": "headwear/cap",
+      "bones": [
+        "head"
+      ],
+      "hides": [],
+      "allowedHair": [
+        "buzz",
+        "side_part"
+      ]
+    },
+    {
+      "category": "headwear",
+      "id": "beret",
+      "label": "Beret",
+      "node": "headwear/beret",
+      "bones": [
+        "head"
+      ],
+      "hides": [],
+      "allowedHair": [
+        "buzz",
+        "side_part"
+      ]
+    },
+    {
+      "category": "headwear",
+      "id": "headwrap",
+      "label": "Headwrap / hijab",
+      "node": "headwear/headwrap",
+      "bones": [
+        "head"
+      ],
+      "hides": [
+        "hair",
+        "accessory/earrings"
+      ],
+      "allowedHair": []
+    },
+    {
+      "category": "headwear",
+      "id": "headband",
+      "label": "Headband",
+      "node": "headwear/headband",
+      "bones": [
+        "head"
+      ],
+      "hides": [],
+      "allowedHair": [
+        "buzz",
+        "side_part",
+        "curly_top",
+        "afro",
+        "locs",
+        "braids",
+        "long_straight",
+        "bob",
+        "high_bun",
+        "space_buns",
+        "shaved_sides"
+      ]
+    },
+    {
+      "category": "headwear",
+      "id": "headphones",
+      "label": "Headphones",
+      "node": "headwear/headphones",
+      "bones": [
+        "head"
+      ],
+      "hides": [],
+      "allowedHair": [
+        "buzz",
+        "side_part",
+        "bob",
+        "long_straight"
+      ]
+    },
+    {
+      "category": "top",
+      "id": "hoodie",
+      "label": "Hoodie",
+      "node": "top/hoodie",
+      "bones": [
+        "body",
+        "arm_l",
+        "arm_r"
+      ]
+    },
+    {
+      "category": "top",
+      "id": "tee",
+      "label": "Tee",
+      "node": "top/tee",
+      "bones": [
+        "body",
+        "arm_l",
+        "arm_r"
+      ]
+    },
+    {
+      "category": "top",
+      "id": "shirt_tie",
+      "label": "Shirt Tie",
+      "node": "top/shirt_tie",
+      "bones": [
+        "body",
+        "arm_l",
+        "arm_r"
+      ]
+    },
+    {
+      "category": "top",
+      "id": "cardigan",
+      "label": "Cardigan",
+      "node": "top/cardigan",
+      "bones": [
+        "body",
+        "arm_l",
+        "arm_r"
+      ]
+    },
+    {
+      "category": "top",
+      "id": "sweater_vest",
+      "label": "Sweater Vest",
+      "node": "top/sweater_vest",
+      "bones": [
+        "body",
+        "arm_l",
+        "arm_r"
+      ]
+    },
+    {
+      "category": "top",
+      "id": "overalls",
+      "label": "Overalls",
+      "node": "top/overalls",
+      "bones": [
+        "body",
+        "arm_l",
+        "arm_r"
+      ]
+    },
+    {
+      "category": "top",
+      "id": "blazer",
+      "label": "Blazer",
+      "node": "top/blazer",
+      "bones": [
+        "body",
+        "arm_l",
+        "arm_r"
+      ]
+    },
+    {
+      "category": "top",
+      "id": "apron_tee",
+      "label": "Apron Tee",
+      "node": "top/apron_tee",
+      "bones": [
+        "body",
+        "arm_l",
+        "arm_r"
+      ]
+    },
+    {
+      "category": "bottom",
+      "id": "trousers",
+      "label": "Trousers",
+      "node": "bottom/trousers",
+      "bones": [
+        "leg_l",
+        "leg_r"
+      ]
+    },
+    {
+      "category": "bottom",
+      "id": "shorts",
+      "label": "Shorts",
+      "node": "bottom/shorts",
+      "bones": [
+        "leg_l",
+        "leg_r"
+      ]
+    },
+    {
+      "category": "bottom",
+      "id": "wide_trousers",
+      "label": "Wide Trousers",
+      "node": "bottom/wide_trousers",
+      "bones": [
+        "leg_l",
+        "leg_r"
+      ]
+    },
+    {
+      "category": "bottom",
+      "id": "skirt_leggings",
+      "label": "Skirt Leggings",
+      "node": "bottom/skirt_leggings",
+      "bones": [
+        "leg_l",
+        "leg_r",
+        "body"
+      ]
+    },
+    {
+      "category": "accessory",
+      "id": "round_glasses",
+      "label": "Round Glasses",
+      "node": "accessory/round_glasses",
+      "bones": [
+        "head"
+      ],
+      "decal": false
+    },
+    {
+      "category": "accessory",
+      "id": "square_glasses",
+      "label": "Square Glasses",
+      "node": "accessory/square_glasses",
+      "bones": [
+        "head"
+      ],
+      "decal": false
+    },
+    {
+      "category": "accessory",
+      "id": "earrings",
+      "label": "Earrings",
+      "node": "accessory/earrings",
+      "bones": [
+        "head"
+      ],
+      "decal": false
+    },
+    {
+      "category": "accessory",
+      "id": "lanyard",
+      "label": "Lanyard",
+      "node": "accessory/lanyard",
+      "bones": [
+        "body"
+      ],
+      "decal": true
+    },
+    {
+      "category": "accessory",
+      "id": "beard",
+      "label": "Beard",
+      "node": "accessory/beard",
+      "bones": [
+        "head"
+      ],
+      "decal": true
+    },
+    {
+      "category": "accessory",
+      "id": "moustache",
+      "label": "Moustache",
+      "node": "accessory/moustache",
+      "bones": [
+        "head"
+      ],
+      "decal": true
+    },
+    {
+      "category": "accessory",
+      "id": "freckles",
+      "label": "Freckles",
+      "node": "accessory/freckles",
+      "bones": [
+        "head"
+      ],
+      "decal": true
+    },
+    {
+      "category": "accessory",
+      "id": "backpack",
+      "label": "Backpack",
+      "node": "accessory/backpack",
+      "bones": [
+        "body"
+      ],
+      "decal": false
+    }
+  ],
+  "compatibility": {
+    "headwear": {
+      "beanie": {
+        "hides": [],
+        "allowedHair": [
+          "buzz",
+          "side_part"
+        ]
+      },
+      "cap": {
+        "hides": [],
+        "allowedHair": [
+          "buzz",
+          "side_part"
+        ]
+      },
+      "beret": {
+        "hides": [],
+        "allowedHair": [
+          "buzz",
+          "side_part"
+        ]
+      },
+      "headwrap": {
+        "hides": [
+          "hair",
+          "accessory/earrings"
+        ],
+        "allowedHair": []
+      },
+      "headband": {
+        "hides": [],
+        "allowedHair": [
+          "buzz",
+          "side_part",
+          "curly_top",
+          "afro",
+          "locs",
+          "braids",
+          "long_straight",
+          "bob",
+          "high_bun",
+          "space_buns",
+          "shaved_sides"
+        ]
+      },
+      "headphones": {
+        "hides": [],
+        "allowedHair": [
+          "buzz",
+          "side_part",
+          "bob",
+          "long_straight"
+        ]
+      }
+    },
+    "exclusiveAccessories": [
+      [
+        "round_glasses",
+        "square_glasses"
+      ],
+      [
+        "beard",
+        "moustache"
+      ],
+      [
+        "beard",
+        "freckles"
+      ],
+      [
+        "moustache",
+        "freckles"
+      ]
+    ],
+    "maxAccessories": 4,
+    "maxAssembledTriangles": 4500
+  },
+  "palettes": {
+    "skin": [
+      {
+        "id": "porcelain",
+        "skin": "#f2d9c4",
+        "skin_shade": "#d5a68f",
+        "weight": 1
+      },
+      {
+        "id": "rose",
+        "skin": "#e9c2ab",
+        "skin_shade": "#c7927e",
+        "weight": 1
+      },
+      {
+        "id": "peach",
+        "skin": "#ddb08b",
+        "skin_shade": "#b98065",
+        "weight": 1
+      },
+      {
+        "id": "golden",
+        "skin": "#cd996a",
+        "skin_shade": "#a87150",
+        "weight": 1
+      },
+      {
+        "id": "amber",
+        "skin": "#b97d59",
+        "skin_shade": "#d49c78",
+        "weight": 1
+      },
+      {
+        "id": "copper",
+        "skin": "#a46b4c",
+        "skin_shade": "#c68d69",
+        "weight": 1
+      },
+      {
+        "id": "umber",
+        "skin": "#89573f",
+        "skin_shade": "#b77b5a",
+        "weight": 1
+      },
+      {
+        "id": "cocoa",
+        "skin": "#704735",
+        "skin_shade": "#9e6950",
+        "weight": 1
+      },
+      {
+        "id": "espresso",
+        "skin": "#583b32",
+        "skin_shade": "#895d49",
+        "weight": 1
+      },
+      {
+        "id": "ebony",
+        "skin": "#422e29",
+        "skin_shade": "#79513f",
+        "weight": 1
+      }
+    ],
+    "hair": [
+      {
+        "id": "soft_black",
+        "hair": "#302b32",
+        "hair_shade": "#4e4142",
+        "playful": false
+      },
+      {
+        "id": "espresso",
+        "hair": "#423536",
+        "hair_shade": "#684737",
+        "playful": false
+      },
+      {
+        "id": "chestnut",
+        "hair": "#684737",
+        "hair_shade": "#8b6246",
+        "playful": false
+      },
+      {
+        "id": "walnut",
+        "hair": "#80573c",
+        "hair_shade": "#a17b54",
+        "playful": false
+      },
+      {
+        "id": "auburn",
+        "hair": "#a15b40",
+        "hair_shade": "#bf8059",
+        "playful": false
+      },
+      {
+        "id": "copper",
+        "hair": "#ba7449",
+        "hair_shade": "#d89963",
+        "playful": false
+      },
+      {
+        "id": "dark_blond",
+        "hair": "#ac8b59",
+        "hair_shade": "#c7a977",
+        "playful": false
+      },
+      {
+        "id": "gold_blond",
+        "hair": "#d9b974",
+        "hair_shade": "#ead298",
+        "playful": false
+      },
+      {
+        "id": "silver",
+        "hair": "#9ba5ac",
+        "hair_shade": "#c3c6c4",
+        "playful": false
+      },
+      {
+        "id": "snow",
+        "hair": "#ded8cc",
+        "hair_shade": "#eee7da",
+        "playful": false
+      },
+      {
+        "id": "lilac",
+        "hair": "#aa85bb",
+        "hair_shade": "#c7acd5",
+        "playful": true
+      },
+      {
+        "id": "ocean",
+        "hair": "#497d98",
+        "hair_shade": "#79afbe",
+        "playful": true
+      },
+      {
+        "id": "mint",
+        "hair": "#71a68d",
+        "hair_shade": "#9ac6aa",
+        "playful": true
+      },
+      {
+        "id": "rose",
+        "hair": "#bd6f82",
+        "hair_shade": "#d99ba8",
+        "playful": true
+      }
+    ],
+    "clothing": {
+      "teal": "#54a8aa",
+      "teal_dark": "#32777e",
+      "teal_light": "#88c6be",
+      "coral": "#de8271",
+      "coral_dark": "#b65e59",
+      "mustard": "#dbb659",
+      "lilac": "#b19ac9",
+      "sage": "#9aad83",
+      "cream": "#f4efe6",
+      "navy": "#303c56",
+      "metal": "#667b8d",
+      "metal_light": "#9bb1b7"
+    }
+  },
+  "generation": {
+    "skinDistribution": "uniform; sample independently of style, role, name and gender",
+    "seed": 731204
+  },
+  "recipes": {
+    "visitor": {
+      "recipe": {
+        "base": "regular",
+        "face": "bright",
+        "hair": "buzz",
+        "headwear": "cap",
+        "top": "blazer",
+        "bottom": "trousers",
+        "accessories": [
+          "backpack"
+        ]
+      },
+      "palette": {
+        "skin": "#a46b4c",
+        "skin_shade": "#c68d69",
+        "hair": "#423536",
+        "hair_shade": "#684737",
+        "top": "#dbb659",
+        "top_trim": "#f4efe6",
+        "bottom": "#32777e",
+        "shoes": "#f4efe6",
+        "accent": "#54a8aa"
+      },
+      "fixedFallback": "visitor"
+    },
+    "dev_hoodie": {
+      "recipe": {
+        "base": "regular",
+        "face": "bright",
+        "hair": "afro",
+        "headwear": null,
+        "top": "hoodie",
+        "bottom": "trousers",
+        "accessories": []
+      },
+      "palette": {
+        "skin": "#704735",
+        "skin_shade": "#9e6950",
+        "hair": "#302b32",
+        "hair_shade": "#4e4142",
+        "top": "#54a8aa",
+        "top_trim": "#32777e",
+        "bottom": "#303c56",
+        "shoes": "#f4efe6",
+        "accent": "#dbb659"
+      },
+      "fixedFallback": "dev_hoodie"
+    },
+    "dev_glasses": {
+      "recipe": {
+        "base": "regular",
+        "face": "bright",
+        "hair": "side_part",
+        "headwear": null,
+        "top": "sweater_vest",
+        "bottom": "trousers",
+        "accessories": [
+          "square_glasses"
+        ]
+      },
+      "palette": {
+        "skin": "#b97d59",
+        "skin_shade": "#d49c78",
+        "hair": "#423536",
+        "hair_shade": "#684737",
+        "top": "#9aad83",
+        "top_trim": "#f4efe6",
+        "bottom": "#667b8d",
+        "shoes": "#303c56",
+        "accent": "#32777e"
+      },
+      "fixedFallback": "dev_glasses"
+    },
+    "dev_slacker": {
+      "recipe": {
+        "base": "regular",
+        "face": "bright",
+        "hair": "short_messy",
+        "headwear": null,
+        "top": "tee",
+        "bottom": "trousers",
+        "accessories": [
+          "beard"
+        ]
+      },
+      "palette": {
+        "skin": "#ddb08b",
+        "skin_shade": "#b98065",
+        "hair": "#423536",
+        "hair_shade": "#684737",
+        "top": "#303c56",
+        "top_trim": "#667b8d",
+        "bottom": "#667b8d",
+        "shoes": "#f4efe6",
+        "accent": "#dbb659"
+      },
+      "fixedFallback": "dev_slacker"
+    },
+    "manager": {
+      "recipe": {
+        "base": "regular",
+        "face": "smile_lines",
+        "hair": "side_part",
+        "headwear": null,
+        "top": "shirt_tie",
+        "bottom": "trousers",
+        "accessories": []
+      },
+      "palette": {
+        "skin": "#583b32",
+        "skin_shade": "#895d49",
+        "hair": "#9ba5ac",
+        "hair_shade": "#c3c6c4",
+        "top": "#f4efe6",
+        "top_trim": "#9bb1b7",
+        "bottom": "#303c56",
+        "shoes": "#303c56",
+        "accent": "#de8271"
+      },
+      "fixedFallback": "manager"
+    },
+    "designer": {
+      "recipe": {
+        "base": "regular",
+        "face": "bright",
+        "hair": "side_part",
+        "headwear": "beret",
+        "top": "cardigan",
+        "bottom": "trousers",
+        "accessories": [
+          "earrings"
+        ]
+      },
+      "palette": {
+        "skin": "#89573f",
+        "skin_shade": "#b77b5a",
+        "hair": "#423536",
+        "hair_shade": "#684737",
+        "top": "#b19ac9",
+        "top_trim": "#de8271",
+        "bottom": "#32777e",
+        "shoes": "#de8271",
+        "accent": "#dbb659"
+      },
+      "fixedFallback": "designer"
+    },
+    "barista": {
+      "recipe": {
+        "base": "regular",
+        "face": "bright",
+        "hair": "high_bun",
+        "headwear": "headband",
+        "top": "apron_tee",
+        "bottom": "trousers",
+        "accessories": []
+      },
+      "palette": {
+        "skin": "#cd996a",
+        "skin_shade": "#a87150",
+        "hair": "#a15b40",
+        "hair_shade": "#bf8059",
+        "top": "#f4efe6",
+        "top_trim": "#32777e",
+        "bottom": "#303c56",
+        "shoes": "#54a8aa",
+        "accent": "#9aad83"
+      },
+      "fixedFallback": "barista"
+    },
+    "intern": {
+      "recipe": {
+        "base": "regular",
+        "face": "bright",
+        "hair": "curly_top",
+        "headwear": null,
+        "top": "hoodie",
+        "bottom": "trousers",
+        "accessories": [
+          "lanyard"
+        ]
+      },
+      "palette": {
+        "skin": "#422e29",
+        "skin_shade": "#79513f",
+        "hair": "#ac8b59",
+        "hair_shade": "#c7a977",
+        "top": "#9aad83",
+        "top_trim": "#32777e",
+        "bottom": "#303c56",
+        "shoes": "#54a8aa",
+        "accent": "#de8271"
+      },
+      "fixedFallback": "intern"
+    },
+    "max": {
+      "fixedAsset": "max",
+      "bespoke": true
+    }
+  },
+  "previewSamples": [
+    {
+      "id": "sample_19",
+      "recipe": {
+        "base": "regular",
+        "face": "sleepy",
+        "hair": "afro",
+        "headwear": "headband",
+        "top": "overalls",
+        "bottom": "shorts",
+        "accessories": [
+          "square_glasses"
+        ]
+      },
+      "palette": {
+        "skin": "#422e29",
+        "skin_shade": "#79513f",
+        "hair": "#bd6f82",
+        "hair_shade": "#d99ba8",
+        "top": "#9aad83",
+        "top_trim": "#de8271",
+        "bottom": "#b65e59",
+        "shoes": "#667b8d",
+        "accent": "#303c56"
+      },
+      "skinTone": "ebony"
+    },
+    {
+      "id": "sample_27",
+      "recipe": {
+        "base": "regular",
+        "face": "smile_lines",
+        "hair": "braids",
+        "headwear": "headband",
+        "top": "shirt_tie",
+        "bottom": "wide_trousers",
+        "accessories": [
+          "backpack",
+          "earrings",
+          "square_glasses"
+        ]
+      },
+      "palette": {
+        "skin": "#704735",
+        "skin_shade": "#9e6950",
+        "hair": "#d9b974",
+        "hair_shade": "#ead298",
+        "top": "#b65e59",
+        "top_trim": "#9bb1b7",
+        "bottom": "#b65e59",
+        "shoes": "#f4efe6",
+        "accent": "#303c56"
+      },
+      "skinTone": "cocoa"
+    },
+    {
+      "id": "sample_29",
+      "recipe": {
+        "base": "regular",
+        "face": "smile_lines",
+        "hair": "short_messy",
+        "headwear": null,
+        "top": "blazer",
+        "bottom": "skirt_leggings",
+        "accessories": [
+          "backpack",
+          "lanyard",
+          "round_glasses"
+        ]
+      },
+      "palette": {
+        "skin": "#422e29",
+        "skin_shade": "#79513f",
+        "hair": "#71a68d",
+        "hair_shade": "#9ac6aa",
+        "top": "#b65e59",
+        "top_trim": "#667b8d",
+        "bottom": "#32777e",
+        "shoes": "#88c6be",
+        "accent": "#9aad83"
+      },
+      "skinTone": "ebony"
+    },
+    {
+      "id": "sample_21",
+      "recipe": {
+        "base": "regular",
+        "face": "freckled",
+        "hair": "buzz",
+        "headwear": "beanie",
+        "top": "shirt_tie",
+        "bottom": "shorts",
+        "accessories": [
+          "backpack",
+          "lanyard",
+          "square_glasses"
+        ]
+      },
+      "palette": {
+        "skin": "#e9c2ab",
+        "skin_shade": "#c7927e",
+        "hair": "#ac8b59",
+        "hair_shade": "#c7a977",
+        "top": "#de8271",
+        "top_trim": "#9aad83",
+        "bottom": "#32777e",
+        "shoes": "#88c6be",
+        "accent": "#54a8aa"
+      },
+      "skinTone": "rose"
+    },
+    {
+      "id": "sample_11",
+      "recipe": {
+        "base": "regular",
+        "face": "smile",
+        "hair": "shaved_sides",
+        "headwear": null,
+        "top": "tee",
+        "bottom": "skirt_leggings",
+        "accessories": [
+          "lanyard",
+          "earrings"
+        ]
+      },
+      "palette": {
+        "skin": "#e9c2ab",
+        "skin_shade": "#c7927e",
+        "hair": "#d9b974",
+        "hair_shade": "#ead298",
+        "top": "#32777e",
+        "top_trim": "#de8271",
+        "bottom": "#667b8d",
+        "shoes": "#f4efe6",
+        "accent": "#f4efe6"
+      },
+      "skinTone": "rose"
+    },
+    {
+      "id": "sample_17",
+      "recipe": {
+        "base": "regular",
+        "face": "smile",
+        "hair": "side_part",
+        "headwear": "headphones",
+        "top": "sweater_vest",
+        "bottom": "trousers",
+        "accessories": [
+          "lanyard"
+        ]
+      },
+      "palette": {
+        "skin": "#704735",
+        "skin_shade": "#9e6950",
+        "hair": "#d9b974",
+        "hair_shade": "#ead298",
+        "top": "#9aad83",
+        "top_trim": "#b19ac9",
+        "bottom": "#b19ac9",
+        "shoes": "#9bb1b7",
+        "accent": "#dbb659"
+      },
+      "skinTone": "cocoa"
+    },
+    {
+      "id": "sample_00",
+      "recipe": {
+        "base": "regular",
+        "face": "bright",
+        "hair": "buzz",
+        "headwear": null,
+        "top": "cardigan",
+        "bottom": "trousers",
+        "accessories": [
+          "lanyard",
+          "earrings",
+          "round_glasses"
+        ]
+      },
+      "palette": {
+        "skin": "#f2d9c4",
+        "skin_shade": "#d5a68f",
+        "hair": "#bd6f82",
+        "hair_shade": "#d99ba8",
+        "top": "#667b8d",
+        "top_trim": "#9bb1b7",
+        "bottom": "#b19ac9",
+        "shoes": "#dbb659",
+        "accent": "#54a8aa"
+      },
+      "skinTone": "porcelain"
+    },
+    {
+      "id": "sample_02",
+      "recipe": {
+        "base": "regular",
+        "face": "sleepy",
+        "hair": "side_part",
+        "headwear": null,
+        "top": "shirt_tie",
+        "bottom": "shorts",
+        "accessories": [
+          "lanyard"
+        ]
+      },
+      "palette": {
+        "skin": "#ddb08b",
+        "skin_shade": "#b98065",
+        "hair": "#71a68d",
+        "hair_shade": "#9ac6aa",
+        "top": "#9bb1b7",
+        "top_trim": "#de8271",
+        "bottom": "#303c56",
+        "shoes": "#de8271",
+        "accent": "#54a8aa"
+      },
+      "skinTone": "peach"
+    },
+    {
+      "id": "sample_26",
+      "recipe": {
+        "base": "regular",
+        "face": "smile",
+        "hair": "braids",
+        "headwear": null,
+        "top": "shirt_tie",
+        "bottom": "skirt_leggings",
+        "accessories": [
+          "freckles"
+        ]
+      },
+      "palette": {
+        "skin": "#89573f",
+        "skin_shade": "#b77b5a",
+        "hair": "#ac8b59",
+        "hair_shade": "#c7a977",
+        "top": "#f4efe6",
+        "top_trim": "#f4efe6",
+        "bottom": "#dbb659",
+        "shoes": "#88c6be",
+        "accent": "#b19ac9"
+      },
+      "skinTone": "umber"
+    },
+    {
+      "id": "sample_18",
+      "recipe": {
+        "base": "regular",
+        "face": "smile_lines",
+        "hair": "side_part",
+        "headwear": "headwrap",
+        "top": "hoodie",
+        "bottom": "trousers",
+        "accessories": [
+          "backpack",
+          "round_glasses"
+        ]
+      },
+      "palette": {
+        "skin": "#583b32",
+        "skin_shade": "#895d49",
+        "hair": "#9ba5ac",
+        "hair_shade": "#c3c6c4",
+        "top": "#88c6be",
+        "top_trim": "#f4efe6",
+        "bottom": "#dbb659",
+        "shoes": "#b19ac9",
+        "accent": "#dbb659"
+      },
+      "skinTone": "espresso"
+    },
+    {
+      "id": "sample_28",
+      "recipe": {
+        "base": "regular",
+        "face": "bright",
+        "hair": "long_straight",
+        "headwear": null,
+        "top": "apron_tee",
+        "bottom": "trousers",
+        "accessories": [
+          "freckles"
+        ]
+      },
+      "palette": {
+        "skin": "#583b32",
+        "skin_shade": "#895d49",
+        "hair": "#a15b40",
+        "hair_shade": "#bf8059",
+        "top": "#88c6be",
+        "top_trim": "#54a8aa",
+        "bottom": "#b65e59",
+        "shoes": "#dbb659",
+        "accent": "#54a8aa"
+      },
+      "skinTone": "espresso"
+    },
+    {
+      "id": "sample_06",
+      "recipe": {
+        "base": "regular",
+        "face": "smile_lines",
+        "hair": "braids",
+        "headwear": null,
+        "top": "shirt_tie",
+        "bottom": "shorts",
+        "accessories": [
+          "earrings"
+        ]
+      },
+      "palette": {
+        "skin": "#89573f",
+        "skin_shade": "#b77b5a",
+        "hair": "#a15b40",
+        "hair_shade": "#bf8059",
+        "top": "#de8271",
+        "top_trim": "#88c6be",
+        "bottom": "#f4efe6",
+        "shoes": "#dbb659",
+        "accent": "#b65e59"
+      },
+      "skinTone": "umber"
+    },
+    {
+      "id": "sample_01",
+      "recipe": {
+        "base": "regular",
+        "face": "sleepy",
+        "hair": "short_messy",
+        "headwear": null,
+        "top": "blazer",
+        "bottom": "shorts",
+        "accessories": [
+          "beard"
+        ]
+      },
+      "palette": {
+        "skin": "#e9c2ab",
+        "skin_shade": "#c7927e",
+        "hair": "#71a68d",
+        "hair_shade": "#9ac6aa",
+        "top": "#303c56",
+        "top_trim": "#54a8aa",
+        "bottom": "#9bb1b7",
+        "shoes": "#303c56",
+        "accent": "#303c56"
+      },
+      "skinTone": "rose"
+    },
+    {
+      "id": "sample_24",
+      "recipe": {
+        "base": "regular",
+        "face": "freckled",
+        "hair": "curly_top",
+        "headwear": "headband",
+        "top": "apron_tee",
+        "bottom": "wide_trousers",
+        "accessories": [
+          "backpack"
+        ]
+      },
+      "palette": {
+        "skin": "#b97d59",
+        "skin_shade": "#d49c78",
+        "hair": "#423536",
+        "hair_shade": "#684737",
+        "top": "#667b8d",
+        "top_trim": "#b65e59",
+        "bottom": "#9aad83",
+        "shoes": "#9bb1b7",
+        "accent": "#de8271"
+      },
+      "skinTone": "amber"
+    },
+    {
+      "id": "sample_08",
+      "recipe": {
+        "base": "regular",
+        "face": "smile_lines",
+        "hair": "bob",
+        "headwear": null,
+        "top": "sweater_vest",
+        "bottom": "shorts",
+        "accessories": [
+          "backpack",
+          "round_glasses"
+        ]
+      },
+      "palette": {
+        "skin": "#583b32",
+        "skin_shade": "#895d49",
+        "hair": "#aa85bb",
+        "hair_shade": "#c7acd5",
+        "top": "#b65e59",
+        "top_trim": "#9bb1b7",
+        "bottom": "#303c56",
+        "shoes": "#54a8aa",
+        "accent": "#dbb659"
+      },
+      "skinTone": "espresso"
+    },
+    {
+      "id": "sample_25",
+      "recipe": {
+        "base": "regular",
+        "face": "sleepy",
+        "hair": "curly_top",
+        "headwear": null,
+        "top": "shirt_tie",
+        "bottom": "skirt_leggings",
+        "accessories": [
+          "backpack"
+        ]
+      },
+      "palette": {
+        "skin": "#a46b4c",
+        "skin_shade": "#c68d69",
+        "hair": "#684737",
+        "hair_shade": "#8b6246",
+        "top": "#b19ac9",
+        "top_trim": "#88c6be",
+        "bottom": "#9aad83",
+        "shoes": "#667b8d",
+        "accent": "#f4efe6"
+      },
+      "skinTone": "copper"
+    },
+    {
+      "id": "sample_16",
+      "recipe": {
+        "base": "regular",
+        "face": "wink",
+        "hair": "locs",
+        "headwear": "headband",
+        "top": "hoodie",
+        "bottom": "shorts",
+        "accessories": [
+          "earrings"
+        ]
+      },
+      "palette": {
+        "skin": "#89573f",
+        "skin_shade": "#b77b5a",
+        "hair": "#bd6f82",
+        "hair_shade": "#d99ba8",
+        "top": "#9bb1b7",
+        "top_trim": "#dbb659",
+        "bottom": "#de8271",
+        "shoes": "#dbb659",
+        "accent": "#9bb1b7"
+      },
+      "skinTone": "umber"
+    },
+    {
+      "id": "sample_04",
+      "recipe": {
+        "base": "regular",
+        "face": "smile_lines",
+        "hair": "afro",
+        "headwear": null,
+        "top": "shirt_tie",
+        "bottom": "trousers",
+        "accessories": [
+          "backpack",
+          "lanyard"
+        ]
+      },
+      "palette": {
+        "skin": "#b97d59",
+        "skin_shade": "#d49c78",
+        "hair": "#423536",
+        "hair_shade": "#684737",
+        "top": "#9bb1b7",
+        "top_trim": "#9aad83",
+        "bottom": "#9bb1b7",
+        "shoes": "#de8271",
+        "accent": "#f4efe6"
+      },
+      "skinTone": "amber"
+    },
+    {
+      "id": "sample_22",
+      "recipe": {
+        "base": "regular",
+        "face": "bright",
+        "hair": "bob",
+        "headwear": null,
+        "top": "shirt_tie",
+        "bottom": "skirt_leggings",
+        "accessories": [
+          "lanyard"
+        ]
+      },
+      "palette": {
+        "skin": "#ddb08b",
+        "skin_shade": "#b98065",
+        "hair": "#a15b40",
+        "hair_shade": "#bf8059",
+        "top": "#b19ac9",
+        "top_trim": "#de8271",
+        "bottom": "#303c56",
+        "shoes": "#dbb659",
+        "accent": "#f4efe6"
+      },
+      "skinTone": "peach"
+    },
+    {
+      "id": "sample_15",
+      "recipe": {
+        "base": "regular",
+        "face": "smile",
+        "hair": "curly_top",
+        "headwear": "headwrap",
+        "top": "hoodie",
+        "bottom": "skirt_leggings",
+        "accessories": [
+          "square_glasses"
+        ]
+      },
+      "palette": {
+        "skin": "#a46b4c",
+        "skin_shade": "#c68d69",
+        "hair": "#ba7449",
+        "hair_shade": "#d89963",
+        "top": "#b65e59",
+        "top_trim": "#88c6be",
+        "bottom": "#b19ac9",
+        "shoes": "#667b8d",
+        "accent": "#9bb1b7"
+      },
+      "skinTone": "copper"
+    },
+    {
+      "id": "sample_20",
+      "recipe": {
+        "base": "regular",
+        "face": "smile",
+        "hair": "side_part",
+        "headwear": "beanie",
+        "top": "hoodie",
+        "bottom": "wide_trousers",
+        "accessories": []
+      },
+      "palette": {
+        "skin": "#f2d9c4",
+        "skin_shade": "#d5a68f",
+        "hair": "#9ba5ac",
+        "hair_shade": "#c3c6c4",
+        "top": "#9bb1b7",
+        "top_trim": "#f4efe6",
+        "bottom": "#b65e59",
+        "shoes": "#667b8d",
+        "accent": "#b65e59"
+      },
+      "skinTone": "porcelain"
+    },
+    {
+      "id": "sample_10",
+      "recipe": {
+        "base": "regular",
+        "face": "freckled",
+        "hair": "space_buns",
+        "headwear": null,
+        "top": "sweater_vest",
+        "bottom": "skirt_leggings",
+        "accessories": [
+          "backpack",
+          "earrings",
+          "square_glasses"
+        ]
+      },
+      "palette": {
+        "skin": "#f2d9c4",
+        "skin_shade": "#d5a68f",
+        "hair": "#ac8b59",
+        "hair_shade": "#c7a977",
+        "top": "#dbb659",
+        "top_trim": "#dbb659",
+        "bottom": "#f4efe6",
+        "shoes": "#de8271",
+        "accent": "#32777e"
+      },
+      "skinTone": "porcelain"
+    },
+    {
+      "id": "sample_09",
+      "recipe": {
+        "base": "regular",
+        "face": "smile",
+        "hair": "high_bun",
+        "headwear": null,
+        "top": "shirt_tie",
+        "bottom": "trousers",
+        "accessories": [
+          "backpack",
+          "beard"
+        ]
+      },
+      "palette": {
+        "skin": "#422e29",
+        "skin_shade": "#79513f",
+        "hair": "#ba7449",
+        "hair_shade": "#d89963",
+        "top": "#54a8aa",
+        "top_trim": "#de8271",
+        "bottom": "#303c56",
+        "shoes": "#32777e",
+        "accent": "#9aad83"
+      },
+      "skinTone": "ebony"
+    },
+    {
+      "id": "sample_03",
+      "recipe": {
+        "base": "regular",
+        "face": "wink",
+        "hair": "curly_top",
+        "headwear": null,
+        "top": "apron_tee",
+        "bottom": "trousers",
+        "accessories": [
+          "backpack"
+        ]
+      },
+      "palette": {
+        "skin": "#cd996a",
+        "skin_shade": "#a87150",
+        "hair": "#ded8cc",
+        "hair_shade": "#eee7da",
+        "top": "#54a8aa",
+        "top_trim": "#9bb1b7",
+        "bottom": "#54a8aa",
+        "shoes": "#667b8d",
+        "accent": "#de8271"
+      },
+      "skinTone": "golden"
+    },
+    {
+      "id": "sample_05",
+      "recipe": {
+        "base": "regular",
+        "face": "smile",
+        "hair": "locs",
+        "headwear": null,
+        "top": "tee",
+        "bottom": "skirt_leggings",
+        "accessories": [
+          "lanyard"
+        ]
+      },
+      "palette": {
+        "skin": "#a46b4c",
+        "skin_shade": "#c68d69",
+        "hair": "#ded8cc",
+        "hair_shade": "#eee7da",
+        "top": "#32777e",
+        "top_trim": "#32777e",
+        "bottom": "#667b8d",
+        "shoes": "#667b8d",
+        "accent": "#b65e59"
+      },
+      "skinTone": "copper"
+    },
+    {
+      "id": "sample_23",
+      "recipe": {
+        "base": "regular",
+        "face": "smile_lines",
+        "hair": "buzz",
+        "headwear": "headphones",
+        "top": "overalls",
+        "bottom": "shorts",
+        "accessories": [
+          "beard"
+        ]
+      },
+      "palette": {
+        "skin": "#cd996a",
+        "skin_shade": "#a87150",
+        "hair": "#aa85bb",
+        "hair_shade": "#c7acd5",
+        "top": "#9bb1b7",
+        "top_trim": "#54a8aa",
+        "bottom": "#32777e",
+        "shoes": "#f4efe6",
+        "accent": "#32777e"
+      },
+      "skinTone": "golden"
+    },
+    {
+      "id": "sample_13",
+      "recipe": {
+        "base": "regular",
+        "face": "freckled",
+        "hair": "side_part",
+        "headwear": "cap",
+        "top": "shirt_tie",
+        "bottom": "trousers",
+        "accessories": []
+      },
+      "palette": {
+        "skin": "#cd996a",
+        "skin_shade": "#a87150",
+        "hair": "#302b32",
+        "hair_shade": "#4e4142",
+        "top": "#9aad83",
+        "top_trim": "#9aad83",
+        "bottom": "#303c56",
+        "shoes": "#303c56",
+        "accent": "#32777e"
+      },
+      "skinTone": "golden"
+    },
+    {
+      "id": "sample_14",
+      "recipe": {
+        "base": "regular",
+        "face": "wink",
+        "hair": "buzz",
+        "headwear": "beret",
+        "top": "cardigan",
+        "bottom": "wide_trousers",
+        "accessories": [
+          "backpack",
+          "lanyard",
+          "square_glasses",
+          "beard"
+        ]
+      },
+      "palette": {
+        "skin": "#b97d59",
+        "skin_shade": "#d49c78",
+        "hair": "#a15b40",
+        "hair_shade": "#bf8059",
+        "top": "#667b8d",
+        "top_trim": "#32777e",
+        "bottom": "#88c6be",
+        "shoes": "#dbb659",
+        "accent": "#32777e"
+      },
+      "skinTone": "amber"
+    },
+    {
+      "id": "sample_12",
+      "recipe": {
+        "base": "regular",
+        "face": "sleepy",
+        "hair": "side_part",
+        "headwear": "beanie",
+        "top": "apron_tee",
+        "bottom": "wide_trousers",
+        "accessories": [
+          "backpack"
+        ]
+      },
+      "palette": {
+        "skin": "#ddb08b",
+        "skin_shade": "#b98065",
+        "hair": "#a15b40",
+        "hair_shade": "#bf8059",
+        "top": "#f4efe6",
+        "top_trim": "#9bb1b7",
+        "bottom": "#f4efe6",
+        "shoes": "#9aad83",
+        "accent": "#303c56"
+      },
+      "skinTone": "peach"
+    },
+    {
+      "id": "sample_07",
+      "recipe": {
+        "base": "regular",
+        "face": "sleepy",
+        "hair": "long_straight",
+        "headwear": null,
+        "top": "shirt_tie",
+        "bottom": "shorts",
+        "accessories": [
+          "earrings"
+        ]
+      },
+      "palette": {
+        "skin": "#704735",
+        "skin_shade": "#9e6950",
+        "hair": "#ba7449",
+        "hair_shade": "#d89963",
+        "top": "#9aad83",
+        "top_trim": "#667b8d",
+        "bottom": "#54a8aa",
+        "shoes": "#667b8d",
+        "accent": "#9aad83"
+      },
+      "skinTone": "cocoa"
+    }
+  ]
+}

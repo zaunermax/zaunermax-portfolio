@@ -1,0 +1,139 @@
+{
+  "placements": [
+    {
+      "id": "sofa_corner",
+      "x": 0,
+      "z": 0,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "sofa_mid",
+      "x": -1,
+      "z": 0,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "sofa_end_r",
+      "x": -2,
+      "z": 0,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "sofa_mid",
+      "x": 0,
+      "z": -1,
+      "rotation": 270,
+      "y": 0
+    },
+    {
+      "id": "sofa_end_l",
+      "x": 0,
+      "z": -2,
+      "rotation": 270,
+      "y": 0
+    },
+    {
+      "id": "coffee_table",
+      "x": -1.5,
+      "z": -1.5,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "sofa_corner",
+      "x": -5,
+      "z": 0,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "sofa_mid",
+      "x": -6,
+      "z": 0,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "sofa_corner",
+      "x": -8,
+      "z": 0,
+      "rotation": 90,
+      "y": 0
+    },
+    {
+      "id": "sofa_mid",
+      "x": -5,
+      "z": -1,
+      "rotation": 270,
+      "y": 0
+    },
+    {
+      "id": "sofa_end_l",
+      "x": -5,
+      "z": -2,
+      "rotation": 270,
+      "y": 0
+    },
+    {
+      "id": "sofa_mid",
+      "x": -8,
+      "z": -1,
+      "rotation": 90,
+      "y": 0
+    },
+    {
+      "id": "sofa_end_r",
+      "x": -8,
+      "z": -2,
+      "rotation": 90,
+      "y": 0
+    },
+    {
+      "id": "coffee_table",
+      "x": -6.5,
+      "z": -1.5,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "sofa_mid",
+      "x": -7,
+      "z": 0,
+      "rotation": 180
+    },
+    {
+      "id": "max",
+      "x": -3,
+      "z": -1,
+      "rotation": 180
+    },
+    {
+      "id": "sofa_end_l",
+      "x": 0,
+      "z": -4,
+      "rotation": 180
+    },
+    {
+      "id": "sofa_mid",
+      "x": -1,
+      "z": -4,
+      "rotation": 180
+    },
+    {
+      "id": "sofa_end_r",
+      "x": -2,
+      "z": -4,
+      "rotation": 180
+    }
+  ],
+  "resolution": 1200,
+  "floor": [
+    -9,
+    -5,
+    2,
+    2
+  ]
+}

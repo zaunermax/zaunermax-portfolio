@@ -1,0 +1,198 @@
+{
+ "floor": [
+  -1,
+  -2,
+  8,
+  7
+ ],
+ "resolution": 1400,
+ "views": [
+  0,
+  90,
+  180
+ ],
+ "placements": [
+  {
+   "id": "meeting_end",
+   "x": 0,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "meeting_mid",
+   "x": 1,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "meeting_mid",
+   "x": 2,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "meeting_mid",
+   "x": 3,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "meeting_end",
+   "x": 4,
+   "z": 0,
+   "rotation": 180,
+   "y": 0
+  },
+  {
+   "id": "office_chair",
+   "x": 0,
+   "z": -0.9,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "office_chair",
+   "x": 1,
+   "z": -0.9,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "office_chair",
+   "x": 2,
+   "z": -0.9,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "office_chair",
+   "x": 3,
+   "z": -0.9,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "office_chair",
+   "x": 4,
+   "z": -0.9,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "office_chair",
+   "x": 0,
+   "z": 0.9,
+   "rotation": 180,
+   "y": 0
+  },
+  {
+   "id": "office_chair",
+   "x": 1,
+   "z": 0.9,
+   "rotation": 180,
+   "y": 0
+  },
+  {
+   "id": "office_chair",
+   "x": 2,
+   "z": 0.9,
+   "rotation": 180,
+   "y": 0
+  },
+  {
+   "id": "office_chair",
+   "x": 3,
+   "z": 0.9,
+   "rotation": 180,
+   "y": 0
+  },
+  {
+   "id": "office_chair",
+   "x": 4,
+   "z": 0.9,
+   "rotation": 180,
+   "y": 0
+  },
+  {
+   "id": "meeting_end",
+   "x": 0,
+   "z": 3,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "meeting_end",
+   "x": 1,
+   "z": 3,
+   "rotation": 180,
+   "y": 0
+  },
+  {
+   "id": "planter_end",
+   "x": 0,
+   "z": 5,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "planter_mid",
+   "x": 1,
+   "z": 5,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "planter_mid",
+   "x": 2,
+   "z": 5,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "planter_mid",
+   "x": 3,
+   "z": 5,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "planter_end",
+   "x": 4,
+   "z": 5,
+   "rotation": 180,
+   "y": 0
+  },
+  {
+   "id": "planter_end",
+   "x": 6,
+   "z": 0,
+   "rotation": 90,
+   "y": 0
+  },
+  {
+   "id": "planter_mid",
+   "x": 6,
+   "z": 1,
+   "rotation": 90,
+   "y": 0
+  },
+  {
+   "id": "planter_end",
+   "x": 6,
+   "z": 2,
+   "rotation": 270,
+   "y": 0
+  },
+  {
+   "id": "max",
+   "x": 3,
+   "z": 3,
+   "rotation": 0,
+   "y": 0
+  }
+ ]
+}

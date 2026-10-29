@@ -1,0 +1,46 @@
+{
+  "floor": [
+    -2,
+    -1,
+    4,
+    3
+  ],
+  "resolution": 1000,
+  "placements": [
+    {
+      "id": "bike",
+      "x": -0.8,
+      "y": 0,
+      "z": 0,
+      "rotation": 0
+    },
+    {
+      "id": "bike",
+      "x": 2,
+      "y": 0,
+      "z": 1,
+      "rotation": 90
+    },
+    {
+      "id": "max",
+      "x": 0.1,
+      "y": 0,
+      "z": 1.3,
+      "rotation": 0
+    },
+    {
+      "id": "stool",
+      "x": -1.2,
+      "y": 0,
+      "z": 1.8,
+      "rotation": 0
+    },
+    {
+      "id": "bar_stool",
+      "x": 1,
+      "y": 0,
+      "z": 0,
+      "rotation": 0
+    }
+  ]
+}

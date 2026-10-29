@@ -1,0 +1,144 @@
+{
+  "placements": [
+    {
+      "id": "counter_corner",
+      "x": 0,
+      "z": 0,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "counter_mid",
+      "x": -1,
+      "z": 0,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "counter_sink",
+      "x": -2,
+      "z": 0,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "counter_end_r",
+      "x": -3,
+      "z": 0,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "counter_mid",
+      "x": 0,
+      "z": -1,
+      "rotation": 270,
+      "y": 0
+    },
+    {
+      "id": "counter_end_l",
+      "x": 0,
+      "z": -2,
+      "rotation": 270,
+      "y": 0
+    },
+    {
+      "id": "counter_end_l",
+      "x": 0,
+      "z": -5,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "counter_mid",
+      "x": -1,
+      "z": -5,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "counter_sink",
+      "x": -2,
+      "z": -5,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "counter_mid",
+      "x": -3,
+      "z": -5,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "counter_end_r",
+      "x": -4,
+      "z": -5,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "espresso_machine",
+      "x": -1,
+      "z": -5,
+      "rotation": 180,
+      "y": 0.9375
+    },
+    {
+      "id": "bar_stool",
+      "x": -1,
+      "z": -6,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "bar_stool",
+      "x": -3,
+      "z": -6,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "max",
+      "x": -2,
+      "z": -6.3,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "mug",
+      "x": -3.2,
+      "z": -5,
+      "rotation": 180,
+      "y": 0.9375
+    },
+    {
+      "id": "fridge",
+      "x": -5,
+      "z": 0,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "vending_machine",
+      "x": -6,
+      "z": 0,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "water_cooler",
+      "x": -7,
+      "z": 0,
+      "rotation": 180,
+      "y": 0
+    }
+  ],
+  "resolution": 1200,
+  "floor": [
+    -8,
+    -8,
+    2,
+    2
+  ]
+}

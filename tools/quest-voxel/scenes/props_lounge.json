@@ -1,0 +1,71 @@
+{
+  "floor": [
+    -2,
+    -2,
+    3,
+    3
+  ],
+  "resolution": 1400,
+  "placements": [
+    {
+      "id": "rug_round",
+      "x": 0,
+      "z": 0
+    },
+    {
+      "id": "beanbag_teal",
+      "x": -0.5,
+      "y": 0.0625,
+      "z": -0.3,
+      "rotation": 20
+    },
+    {
+      "id": "beanbag_coral",
+      "x": 0.5,
+      "y": 0.0625,
+      "z": 0.25,
+      "rotation": -20
+    },
+    {
+      "id": "armchair",
+      "x": 1.5,
+      "z": -0.6,
+      "rotation": -15
+    },
+    {
+      "id": "floor_lamp",
+      "x": 0.9,
+      "z": -1.35
+    },
+    {
+      "id": "plant_ficus",
+      "x": -1.4,
+      "z": -1.1
+    },
+    {
+      "id": "plant_snake",
+      "x": 1.8,
+      "z": 0.5
+    },
+    {
+      "id": "plant_hanging",
+      "x": -1.35,
+      "z": 0.4
+    },
+    {
+      "id": "dog_bed",
+      "x": 0,
+      "z": 1.4
+    },
+    {
+      "id": "plant_monstera",
+      "x": 2,
+      "z": -1.4
+    },
+    {
+      "id": "max",
+      "x": -0.9,
+      "z": 1.4
+    }
+  ]
+}

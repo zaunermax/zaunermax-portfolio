@@ -1,0 +1,263 @@
+/*
+ * Nameplates and speech bubbles drawn over the 3D office. Places get a little paper sign, Max a
+ * coral one with a pointer, coworkers a light pixel name with a hard ink outline (it reads on
+ * every floor colour without hiding the room).
+ */
+
+.layer {
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	overflow: hidden;
+	pointer-events: none;
+	--ink: #2b2433;
+	--paper: #fffaf2;
+	--pixel: var(--q-pixel), 'Jersey 15', ui-monospace, monospace;
+	/* Jersey 15 has a small x-height: match it to the old face so sizes stay put. */
+	--pixel-adjust: 0.46;
+	/* It has one weight: synthetic bold would smear the pixels. */
+	font-synthesis-weight: none;
+	--read: var(--q-read), 'Atkinson Hyperlegible Next', system-ui, sans-serif;
+	--ring2: 0 -2px 0 0 var(--ink), 0 2px 0 0 var(--ink), -2px 0 0 0 var(--ink), 2px 0 0 0 var(--ink);
+	--outline1: 1px 0 0 var(--ink), -1px 0 0 var(--ink), 0 1px 0 var(--ink), 0 -1px 0 var(--ink),
+		1px 1px 0 var(--ink), -1px -1px 0 var(--ink), 1px -1px 0 var(--ink), -1px 1px 0 var(--ink);
+	--px-tail-down: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 4' shape-rendering='crispEdges'><path fill='%232b2433' d='M0 0h1v1H0zM6 0h1v1H6zM1 1h1v1H1zM5 1h1v1H5zM2 2h1v1H2zM4 2h1v1H4zM3 3h1v1H3z'/><path fill='%23fffaf2' d='M1 0h5v1H1zM2 1h3v1H2zM3 2h1v1H3z'/></svg>");
+	--px-sparkle: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 7' shape-rendering='crispEdges'><path fill='%232b2433' d='M3 0h1v1H3zM3 1h1v1H3zM2 2h1v1H2zM4 2h1v1H4zM0 3h2v1H0zM5 3h2v1H5zM2 4h1v1H2zM4 4h1v1H4zM3 5h1v1H3zM3 6h1v1H3z'/><path fill='%23ffe39a' d='M3 2h1v1H3zM2 3h1v1H2zM4 3h1v1H4zM3 4h1v1H3z'/><path fill='%23f2b84b' d='M3 3h1v1H3z'/></svg>");
+	--px-arrow: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 4' shape-rendering='crispEdges'><path fill='%232b2433' d='M0 0h1v1H0zM6 0h1v1H6zM1 1h1v1H1zM5 1h1v1H5zM2 2h1v1H2zM4 2h1v1H4zM3 3h1v1H3z'/><path fill='%23e8836b' d='M1 0h5v1H1zM2 1h3v1H2zM3 2h1v1H3z'/></svg>");
+}
+
+.anchor {
+	position: absolute;
+	left: 0;
+	top: 0;
+	opacity: 0;
+	transition: opacity 0.15s linear;
+	will-change: transform, opacity;
+}
+
+.anchor > .plate {
+	position: absolute;
+	left: 0;
+	bottom: 0;
+	/* --dx slides the sign back on screen near the edges (labels.tsx). */
+	transform: translateX(calc(-50% + var(--dx, 0px)));
+}
+
+.anchor > .bubble {
+	position: absolute;
+	left: 0;
+	bottom: 38px;
+	transform: translateX(calc(-50% + var(--dx, 0px)));
+	animation: bubbleIn 0.3s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+@keyframes bubbleIn {
+	from {
+		opacity: 0;
+		transform: translate(calc(-50% + var(--dx, 0px)), 8px) scale(0.85);
+	}
+}
+
+.plate {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	white-space: nowrap;
+	user-select: none;
+	pointer-events: none;
+	font-family: var(--pixel);
+	font-size-adjust: var(--pixel-adjust);
+	font-weight: 600;
+	line-height: 1.1;
+}
+
+/* Coworkers: just a name, light and outlined. */
+.plate[data-tone='friendly'] {
+	font-size: 15px;
+	color: #e2ecd0;
+	text-shadow:
+		var(--outline1),
+		0 2px 0 var(--ink);
+}
+
+/* Places: a small paper sign with a sparkle. */
+.plate[data-tone='place'] {
+	flex-direction: row;
+	gap: 6px;
+	padding: 3px 8px 4px 6px;
+	font-size: 15px;
+	color: var(--ink);
+	background: var(--paper);
+	box-shadow:
+		var(--ring2),
+		0 4px 0 0 var(--ink);
+}
+
+.plate[data-tone='place']::before {
+	content: '';
+	width: 11px;
+	height: 11px;
+	background: var(--px-sparkle) 0 0 / 100% 100% no-repeat;
+}
+
+/* Max: a compact coral pill with his job, hanging well above his bun and pointing down at him. */
+.plate[data-tone='max'] {
+	position: relative;
+	flex-direction: row;
+	align-items: baseline;
+	gap: 6px;
+	margin-bottom: 24px;
+	padding: 3px 9px 4px;
+	color: var(--ink);
+	background: #e8836b;
+	box-shadow:
+		var(--ring2),
+		0 4px 0 0 var(--ink),
+		inset 0 2px 0 0 rgb(255 255 255 / 0.35);
+}
+
+.plate[data-tone='max']::after {
+	content: '';
+	position: absolute;
+	left: clamp(12px, calc(50% - var(--dx, 0px)), calc(100% - 12px));
+	top: calc(100% + 6px);
+	width: 14px;
+	height: 8px;
+	margin-left: -7px;
+	background: var(--px-arrow) 0 0 / 100% 100% no-repeat;
+}
+
+.plateName {
+	display: block;
+}
+
+.plate[data-tone='max'] .plateName {
+	font-size: 15px;
+	font-weight: 700;
+	color: var(--paper);
+	text-shadow: var(--outline1);
+}
+
+.plateTitle {
+	display: block;
+	font-family: var(--read);
+	font-size: 11.5px;
+	font-weight: 700;
+}
+
+/* Touch screens: a pulsing "tap to talk" tag on top of Max's sign, clear of his head. */
+.plateHint {
+	position: absolute;
+	left: 50%;
+	bottom: calc(100% + 6px);
+	transform: translateX(-50%);
+	padding: 2px 7px 3px;
+	font-family: var(--pixel);
+	font-size-adjust: var(--pixel-adjust);
+	font-size: 13px;
+	white-space: nowrap;
+	color: var(--ink);
+	background: #ffe39a;
+	box-shadow: var(--ring2);
+	animation: tapPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes tapPulse {
+	50% {
+		transform: translateX(-50%) scale(1.08);
+	}
+}
+
+/* Long names never sprawl across a phone. */
+.plateName {
+	max-width: 46vw;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+@media (max-width: 640px) {
+	.plate[data-tone='max'] .plateTitle {
+		display: none;
+	}
+
+	.plate[data-tone='place'],
+	.plate[data-tone='friendly'] {
+		font-size: 13px;
+	}
+
+	.bubble {
+		max-width: min(250px, 70vw);
+	}
+}
+
+.bubble {
+	position: relative;
+	max-width: 250px;
+	width: max-content;
+	padding: 7px 12px 8px;
+	background: var(--paper);
+	color: var(--ink);
+	box-shadow:
+		var(--ring2),
+		0 4px 0 0 rgb(43 36 51 / 0.25);
+	font-family: var(--read);
+	font-size: 15.5px;
+	line-height: 1.35;
+	white-space: normal;
+	text-align: center;
+}
+
+/* A vignette's caption: a small sticky note over the scene, quieter than a speech bubble. */
+.anchor > .caption {
+	position: absolute;
+	left: 0;
+	bottom: 30px;
+	transform: translateX(calc(-50% + var(--dx, 0px)));
+}
+
+.caption {
+	width: max-content;
+	max-width: 220px;
+	padding: 3px 9px 5px;
+	font-family: var(--pixel);
+	font-size-adjust: var(--pixel-adjust);
+	font-size: 15px;
+	line-height: 1.1;
+	text-align: center;
+	color: var(--ink);
+	background: #fff0c7;
+	box-shadow:
+		var(--ring2),
+		0 3px 0 0 rgb(43 36 51 / 0.3);
+}
+
+.caption::after {
+	content: '';
+	position: absolute;
+	left: clamp(12px, calc(50% - var(--dx, 0px)), calc(100% - 12px));
+	top: 100%;
+	width: 3px;
+	height: 12px;
+	margin-left: -1px;
+	background: var(--ink);
+}
+
+.bubble::after {
+	content: '';
+	position: absolute;
+	/* The tail keeps pointing at the speaker when the bubble slides in from an edge. */
+	left: clamp(14px, calc(50% - var(--dx, 0px)), calc(100% - 14px));
+	top: 100%;
+	width: 21px;
+	height: 12px;
+	margin: -1px 0 0 -10px;
+	background: var(--px-tail-down) 0 0 / 100% 100% no-repeat;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.anchor > .bubble,
+	.plateHint {
+		animation: none;
+	}
+}

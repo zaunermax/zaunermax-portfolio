@@ -1,0 +1,81 @@
+{
+  "floor": [
+    -1,
+    -3,
+    7,
+    4
+  ],
+  "resolution": 1200,
+  "placements": [
+    {
+      "id": "counter_end",
+      "x": 0,
+      "z": 0,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "counter_sink",
+      "x": 1,
+      "z": 0,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "counter_mid",
+      "x": 2,
+      "z": 0,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "counter_corner",
+      "x": 3,
+      "z": 0,
+      "rotation": 180,
+      "y": 0
+    },
+    {
+      "id": "counter_mid",
+      "x": 3,
+      "z": -1,
+      "rotation": 90,
+      "y": 0
+    },
+    {
+      "id": "counter_end",
+      "x": 3,
+      "z": -2,
+      "rotation": 270,
+      "y": 0
+    },
+    {
+      "id": "espresso_machine",
+      "x": 2,
+      "z": 0,
+      "rotation": 0,
+      "y": 0.9375
+    },
+    {
+      "id": "fridge",
+      "x": 5,
+      "z": 0,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "water_cooler",
+      "x": 5,
+      "z": 2,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "snack_table",
+      "x": 1,
+      "z": 2,
+      "rotation": 0,
+      "y": 0
+    }
+  ]
+}

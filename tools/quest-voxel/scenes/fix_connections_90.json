@@ -1,0 +1,131 @@
+{
+  "placements": [
+    {
+      "id": "bookshelf",
+      "x": 0,
+      "z": 0,
+      "rotation": 90
+    },
+    {
+      "id": "bookshelf_b",
+      "x": 0,
+      "z": -1,
+      "rotation": 90
+    },
+    {
+      "id": "bookshelf",
+      "x": 0,
+      "z": -2,
+      "rotation": 90
+    },
+    {
+      "id": "bookshelf_b",
+      "x": 0,
+      "z": -3,
+      "rotation": 90
+    },
+    {
+      "id": "bookshelf",
+      "x": 0,
+      "z": -4,
+      "rotation": 90
+    },
+    {
+      "id": "max",
+      "x": 0,
+      "z": -5.5,
+      "rotation": 90
+    },
+    {
+      "id": "meeting_end",
+      "x": 3,
+      "z": 0,
+      "rotation": 90
+    },
+    {
+      "id": "meeting_mid",
+      "x": 3,
+      "z": -1,
+      "rotation": 90
+    },
+    {
+      "id": "meeting_mid",
+      "x": 3,
+      "z": -2,
+      "rotation": 90
+    },
+    {
+      "id": "meeting_mid",
+      "x": 3,
+      "z": -3,
+      "rotation": 90
+    },
+    {
+      "id": "meeting_end",
+      "x": 3,
+      "z": -4,
+      "rotation": 270
+    },
+    {
+      "id": "planter_end",
+      "x": 5,
+      "z": 0,
+      "rotation": 90
+    },
+    {
+      "id": "planter_mid",
+      "x": 5,
+      "z": -1,
+      "rotation": 90
+    },
+    {
+      "id": "planter_mid_b",
+      "x": 5,
+      "z": -2,
+      "rotation": 90
+    },
+    {
+      "id": "planter_mid",
+      "x": 5,
+      "z": -3,
+      "rotation": 90
+    },
+    {
+      "id": "planter_end",
+      "x": 5,
+      "z": -4,
+      "rotation": 270
+    },
+    {
+      "id": "stage_block",
+      "x": 3,
+      "z": -6,
+      "rotation": 90
+    },
+    {
+      "id": "stage_block",
+      "x": 4,
+      "z": -6,
+      "rotation": 270
+    },
+    {
+      "id": "stage_block",
+      "x": 3,
+      "z": -7,
+      "rotation": 180
+    },
+    {
+      "id": "stage_block",
+      "x": 4,
+      "z": -7,
+      "rotation": 0
+    }
+  ],
+  "resolution": 1200,
+  "floor": [
+    -1,
+    -8,
+    7,
+    2
+  ]
+}

@@ -1,0 +1,14 @@
+@import '@fontsource/jersey-15/latin-400.css';
+@import '@fontsource/jersey-15/latin-ext-400.css';
+@import '@fontsource-variable/atkinson-hyperlegible-next/wght.css';
+@import '@fontsource-variable/atkinson-hyperlegible-next/wght-italic.css';
+@import '@fontsource-variable/schibsted-grotesk/wght.css';
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/latin-600.css';
+
+:root {
+	--q-pixel: 'Jersey 15', monospace;
+	--q-read: 'Atkinson Hyperlegible Next Variable', system-ui, sans-serif;
+	--os-font-ui: 'Schibsted Grotesk Variable', system-ui, sans-serif;
+	--os-font-mono: 'IBM Plex Mono', monospace;
+}

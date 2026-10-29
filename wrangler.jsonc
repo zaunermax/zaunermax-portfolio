@@ -1,0 +1,61 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "zaunermax-beta",
+	"account_id": "6894de59445d940fd8982eb1159d2836",
+	"main": "src/server.ts",
+	"compatibility_date": "2026-10-29",
+	"compatibility_flags": ["nodejs_compat"],
+	"upload_source_maps": true,
+	"workers_dev": false,
+	"preview_urls": false,
+	"routes": [
+		{
+			"pattern": "beta.zaunermax.at",
+			"custom_domain": true,
+		},
+	],
+	"assets": {
+		"not_found_handling": "none",
+		"run_worker_first": ["/api/*"],
+	},
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "QUEST_FORGE",
+				"class_name": "QuestForge",
+			},
+			{
+				"name": "QUEST_LIMITS",
+				"class_name": "QuestLimits",
+			},
+		],
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": ["QuestForge", "QuestLimits"],
+		},
+	],
+	"vars": {
+		"SITE_URL": "https://beta.zaunermax.at",
+		"QUEST_WORLD_COOLDOWN_MINUTES": "60",
+		"QUEST_WORLD_MODEL": "gpt-6-luna",
+		"QUEST_CHAT_MODEL": "",
+		"OPENAI_MODEL": "gpt-4.1-mini",
+		"SANITY_API_VERSION": "2023-07-28",
+		"SANITY_PROJECT_ID": "m2r7u6t6",
+		"SANITY_DATASET": "production",
+	},
+	"secrets": {
+		"required": ["OPENAI_API_KEY"],
+	},
+	"observability": {
+		"enabled": true,
+		"traces": {
+			"enabled": true,
+		},
+	},
+	"limits": {
+		"cpu_ms": 30000,
+	},
+}

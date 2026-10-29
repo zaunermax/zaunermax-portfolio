@@ -5,3 +5,11 @@ next-env.d.ts
 playwright-report
 test-results
 AGENTS.md
+
+dist
+.wrangler
+.migration-research
+src/routeTree.gen.ts
+worker-configuration.d.ts
+# Quest retains its intentionally hand-formatted source.
+src/quest

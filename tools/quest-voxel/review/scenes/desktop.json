@@ -1,0 +1,176 @@
+{
+ "floor": [
+  -1,
+  -1,
+  5,
+  3
+ ],
+ "resolution": 1400,
+ "views": [
+  0,
+  180
+ ],
+ "placements": [
+  {
+   "id": "desk_end_l",
+   "x": 0,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "desk_mid",
+   "x": 1,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "desk_mid",
+   "x": 2,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "desk_end_r",
+   "x": 3,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "monitor_dual",
+   "x": 0,
+   "z": -0.25,
+   "rotation": 0,
+   "y": 0.75
+  },
+  {
+   "id": "keyboard_mouse",
+   "x": 0,
+   "z": 0.2,
+   "rotation": 0,
+   "y": 0.75
+  },
+  {
+   "id": "mug",
+   "x": 0.35,
+   "z": -0.05,
+   "rotation": 0,
+   "y": 0.75
+  },
+  {
+   "id": "rubber_duck",
+   "x": -0.35,
+   "z": 0.05,
+   "rotation": 0,
+   "y": 0.75
+  },
+  {
+   "id": "monitor",
+   "x": 1,
+   "z": -0.3,
+   "rotation": 0,
+   "y": 0.75
+  },
+  {
+   "id": "mug_boss",
+   "x": 1.35,
+   "z": 0,
+   "rotation": 0,
+   "y": 0.75
+  },
+  {
+   "id": "coffee_cup_togo",
+   "x": 0.7,
+   "z": 0,
+   "rotation": 0,
+   "y": 0.75
+  },
+  {
+   "id": "red_stapler",
+   "x": 1.1,
+   "z": 0.25,
+   "rotation": 0,
+   "y": 0.75
+  },
+  {
+   "id": "paper_stack",
+   "x": 0.8,
+   "z": 0.3,
+   "rotation": 0,
+   "y": 0.75
+  },
+  {
+   "id": "laptop",
+   "x": 2,
+   "z": -0.1,
+   "rotation": 0,
+   "y": 0.75
+  },
+  {
+   "id": "the_internet",
+   "x": 2.35,
+   "z": -0.3,
+   "rotation": 0,
+   "y": 0.75
+  },
+  {
+   "id": "trophy",
+   "x": 1.65,
+   "z": -0.3,
+   "rotation": 0,
+   "y": 0.75
+  },
+  {
+   "id": "headphones",
+   "x": 2.3,
+   "z": 0.25,
+   "rotation": 0,
+   "y": 0.75
+  },
+  {
+   "id": "plant_desk",
+   "x": 1.65,
+   "z": 0.25,
+   "rotation": 0,
+   "y": 0.75
+  },
+  {
+   "id": "pizza_box",
+   "x": 3,
+   "z": 0,
+   "rotation": 0,
+   "y": 0.75
+  },
+  {
+   "id": "desk_lamp",
+   "x": 3.35,
+   "z": -0.3,
+   "rotation": 0,
+   "y": 0.75
+  },
+  {
+   "id": "office_chair",
+   "x": 0,
+   "z": 0.95,
+   "rotation": 180,
+   "y": 0
+  },
+  {
+   "id": "max",
+   "x": 1,
+   "z": 1.1,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "gaming_chair",
+   "x": 2,
+   "z": 0.95,
+   "rotation": 180,
+   "y": 0
+  }
+ ]
+}

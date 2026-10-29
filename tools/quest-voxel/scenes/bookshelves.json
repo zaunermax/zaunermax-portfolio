@@ -1,0 +1,9 @@
+{
+  "resolution": 1100,
+  "floor": [-1, -1, 4, 2],
+  "placements": [
+    {"id":"bookshelf", "x":0},
+    {"id":"bookshelf", "x":1},
+    {"id":"bookshelf", "x":2}
+  ]
+}

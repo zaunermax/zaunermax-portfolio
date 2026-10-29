@@ -1,0 +1,38 @@
+{
+ "floor": [
+  -1,
+  -1,
+  4,
+  2
+ ],
+ "resolution": 1200,
+ "views": [
+  0,
+  90,
+  180,
+  270
+ ],
+ "placements": [
+  {
+   "id": "beanbag_teal",
+   "x": 0.0,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "beanbag_coral",
+   "x": 1.1,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  },
+  {
+   "id": "armchair",
+   "x": 2.2,
+   "z": 0,
+   "rotation": 0,
+   "y": 0
+  }
+ ]
+}

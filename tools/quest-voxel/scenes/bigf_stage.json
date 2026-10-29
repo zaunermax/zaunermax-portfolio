@@ -1,0 +1,67 @@
+{
+  "floor": [
+    -1,
+    -1,
+    4,
+    3
+  ],
+  "resolution": 1200,
+  "placements": [
+    {
+      "id": "stage_block",
+      "x": 0,
+      "z": 0,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "stage_block",
+      "x": 0,
+      "z": 1,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "stage_block",
+      "x": 1,
+      "z": 0,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "stage_block",
+      "x": 1,
+      "z": 1,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "stage_block",
+      "x": 2,
+      "z": 0,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "stage_block",
+      "x": 2,
+      "z": 1,
+      "rotation": 0,
+      "y": 0
+    },
+    {
+      "id": "podium",
+      "x": 1,
+      "z": 1,
+      "rotation": 0,
+      "y": 0.25
+    },
+    {
+      "id": "projector_screen",
+      "x": 1,
+      "z": 0,
+      "rotation": 0,
+      "y": 0.25
+    }
+  ]
+}

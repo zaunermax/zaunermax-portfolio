@@ -1,83 +1,50 @@
-# Welcome to my portfolio repository 👋
+# Max Zauner’s portfolio beta
 
-[![wakatime](https://wakatime.com/badge/user/0723bbca-bed4-44e0-90be-413a9eff4dfb/project/65246076-b67c-47e7-ac2e-8600ea23a1e7.svg?style=for-the-badge)](https://wakatime.com/badge/user/0723bbca-bed4-44e0-90be-413a9eff4dfb/project/65246076-b67c-47e7-ac2e-8600ea23a1e7)
-
-Welcome to my portfolio repository. I created this project to further strengthen my
-knowledge in React's upcoming RSC pattern and to work more with the technology. Working
-with the automatic caching and revalidation function of Next.js was a priority for me as I
-wanted to test out how the technology behaves when having to calculate content which takes
-at least a few seconds.
-
-I also opted to use a CMS called [Sanity](https://www.sanity.io/). I wanted to see how the
-caching and revalidation can be combined with third party CMS.
-
-This neat idea formed in my head, where I would feed some of my personal information to a
-LLM and then not only make it answer questions about me but also come up with questions
-about me. So that's what I implemented: A portfolio where you can ask anything about me,
-and a LLM will answer your questions (granted, I provided the desired information ofc.)
-
-The time I've spent on the visuals of the terminal is too much though 🙈. Nevertheless, I
-hope you enjoy visiting my site!
-
-## Technology
-
-Technologies used in this project:
-
-- [Next.js](https://nextjs.org/)
-- [React](https://react.dev/)
-- [Sanity CMS](https://www.sanity.io/)
-- [OpenAI](https://www.npmjs.com/package/openai)
-- [Some cool typewriter lib](https://www.npmjs.com/package/react-type-animation)
-- [Tailwind CSS](https://tailwindcss.com/)
-- [shadcn/ui](https://ui.shadcn.com)
+Quest runs at `/`; maxOS runs at `/os`. This branch uses TanStack Start, React 19,
+Vite 8 and Cloudflare Workers. The existing portfolio remains at
+[zaunermax.at](https://zaunermax.at). Links to its wiki, talks and terminal stay on that origin.
+The beta sends `robots: noindex`.
 
 ## Local development
 
-Use Node 24 LTS (see `.node-version`) and the pinned pnpm version in `package.json`. The
-dependencies require at least Node 22.12.
+Use Node 24 and the pinned pnpm 12.15.0.
 
 ```sh
-corepack enable
 pnpm install --frozen-lockfile
-cp .env.example .env # Skip this if your existing .env is configured.
+cp .dev.vars.example .dev.vars
+# Fill OPENAI_API_KEY, OPENAI_MODEL and the SANITY_* fields.
 pnpm dev
 ```
 
-Sanity supplies the introduction, wiki, talks, and context used to answer questions.
-`/studio` embeds the Sanity Studio; its existing project login and permissions apply. The
-public site reads published documents only. Keep the Sanity API date pinned unless
-intentionally changing query semantics.
+`pnpm dev` serves port 3000 using workerd and the same Durable Objects as production.
+`.dev.vars` is ignored. During development all its keys are loaded; production requires
+`OPENAI_API_KEY` and reads the other configuration from Wrangler vars or optional secrets.
+Remove blank overrides to inherit values from `wrangler.jsonc`. Sanity reads only published
+content through its API CDN with a pinned API version; there is no CMS cache or webhook here.
 
-## Architecture after the upgrade
+The local QuestForge object starts with the committed ReplySprout office. Its world, history,
+lock and cooldown persist in `.wrangler/state` across restarts. The global object name is
+`global`; changing its name, Worker name or class names changes storage identity.
 
-- Next.js 16 App Router, React 19, stable React Compiler, and Turbopack.
-- Cache Components cache CMS reads by document type. The signed Sanity webhook at
-  `/api/revalidate` expires matching tags immediately. Introduction sequences are cached
-  for five hours; generated question suggestions are cached by mode for five minutes. The
-  explicit “reload them” action requests fresh suggestions through POST.
-- AI SDK 7 uses the OpenAI Responses API for streaming and schema-validated suggestions.
-  `OPENAI_MODEL` remains configurable; this upgrade preserves the configured model rather
-  than changing answer quality or cost implicitly. The OpenAI SDK handles moderation.
-- Each question sends CMS context and that question only. Previous answers remain in an
-  in-memory React context across site navigation, and disappear on a full reload. They are
-  never sent as conversation history. Responses use `store: false`.
-- The terminal uses `useCompletion` with a plain-text stream, cancellation, and explicit
-  browser autocomplete suppression. Provider failures are surfaced as stream errors.
-- Homepage sentences are fetched in a Server Component and passed into the animation.
-  React Query and Jotai are no longer needed.
-- Tailwind 4 uses CSS theme definitions in `src/app/globals.css`, preserving the original
-  palette, borders, panel geometry, responsive container, and class-based dark mode. Some
-  classes that did nothing in v3 become valid in v4: do not reintroduce `mt-15` or `w-100`
-  on the file panels.
+Set `QUEST_FAKE_GENERATOR=1` in `.dev.vars` and restart the server to exercise world generation
+without OpenAI. World responses then include `X-Quest-Generator: fake`, and POST streams a
+three-second fake office. This flag and generator are eliminated from production builds.
+The shared forge continues after a visitor disconnects, with a 150-second total deadline
+and a three-minute persisted lease. Interrupted runs expire rather than retry paid calls.
+Replay/follow is available while the DO’s current job lives; a restart keeps the final world
+and lease but loses the running stream.
 
-TypeScript 6.0.3 and ESLint 9.39.5 are intentionally the newest versions supported by
-Next's current lint dependencies. Other direct runtime dependencies use current stable
-releases, pinned with the lockfile. pnpm's release-age window is disabled to allow the
-explicitly requested newest releases, including packages published on the upgrade date.
-Narrow overrides keep Sanity’s pinned CLI dependencies patched and its external-store shim
-compatible with React 19; `pnpm audit` and `pnpm peers check` are clean.
+Opening either page in a browser can request AI suggestions. World POST, chat and completion
+use the configured OpenAI account unless intercepted by tests (the fake flag only covers
+world generation). Tests mock inference and suggestions; no test needs an OpenAI key.
 
-## Verification
+Contact keeps the Resend REST integration. With no `RESEND_API_KEY` or `CONTACT_FROM_EMAIL`,
+development logs the email and production returns the existing 503 with Max’s direct email.
+Email stays unconfigured on beta. Chat/contact limits use SQLite fixed-window counters in a
+separate QuestLimits object. Suggestions cache per mode in the Workers Cache API for 300 seconds;
+a POST refresh bypasses the cached read and replaces the entry.
+
+## Checks and tooling
 
 ```sh
 pnpm lint
@@ -86,21 +53,28 @@ pnpm test
 pnpm build
 pnpm exec playwright install chromium
 pnpm test:e2e
-pnpm format:check
+pnpm exec wrangler deploy --dry-run
 ```
 
-API unit tests mock the external services. Browser tests mock inference and suggestion
-requests, and cover terminal submission, incremental text, errors, transcript isolation,
-focus recovery, and panel geometry at mobile and desktop widths in both themes. They use
-real published Sanity content, so configured CMS access is required. `test:e2e` starts a
-localhost-only dev server on port 3100 if one is not already running.
+The browser smoke tests run Vite on port 3100, load the real pages and GLBs, and intercept all
+inference/suggestion requests. To reuse an existing local server, set
+`PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000`. `PLAYWRIGHT_TEST_PRODUCTION=1` uses `pnpm preview`
+against an existing build. Unit tests exercise domain logic, handlers, stream protocols,
+fencing, SQLite adapter transactions and the suggestion cache. `pnpm typecheck` regenerates
+`worker-configuration.d.ts`; Vite regenerates the committed `src/routeTree.gen.ts`.
 
-A production build does not generate AI suggestions. Opening the homepage or calling
-`/api/suggestions` on a real local server can generate them; submitting a question calls
-moderation and inference. Those requests use the configured OpenAI account.
+Offline voxel tools remain under `tools/quest-voxel`; Sharp and glTF tooling are development
+only. Existing `/lab/quest/*` asset URLs are unchanged. Preserve the Quest source formatting;
+format new files only.
 
-Migration references:
-[Next.js 16](https://nextjs.org/docs/app/guides/upgrading/version-16),
-[AI SDK 7](https://ai-sdk.dev/docs/migration-guides/migration-guide-7-0),
-[Tailwind 4](https://tailwindcss.com/docs/upgrade-guide), and
-[OpenAI Responses](https://developers.openai.com/api/docs/guides/migrate-to-responses).
+## Deployment configuration
+
+`wrangler.jsonc` prepares Worker `zaunermax-beta` with only the exact custom domain
+`beta.zaunermax.at`. Deployment, authentication and remote resource changes require owner
+authorization. No deployment or Cloudflare resource change is part of this migration.
+The `deploy` script builds then invokes Wrangler; the generated configuration is under
+`dist/server` and `.wrangler/deploy`. `pnpm preview` runs that build locally.
+
+The integration follows the [Cloudflare TanStack Start guide](https://developers.cloudflare.com/workers/framework-guides/web-apps/tanstack-start/)
+and [Start’s server entry API](https://tanstack.com/start/latest/docs/framework/react/guide/server-entry-point).
+The specification and dated research are in `.migration-research/PLAN.md`.
