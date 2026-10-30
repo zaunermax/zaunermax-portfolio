@@ -129,6 +129,9 @@ export const LIMITS = {
 	zones: 13,
 	cast: 14,
 	minCast: 6,
+	remarks: 8,
+	talks: 3,
+	talkLines: 6,
 } as const;
 
 export type TimeOfDay = (typeof timesOfDay)[number];
@@ -184,7 +187,9 @@ const castMember = z.object({
 				.array(z.enum(LOOK.accessory))
 				.describe('0-2 items; glasses on at most a quarter of the cast'),
 		})
-		.describe('Their style (people only; pets ignore it). Skin tone is chosen by the game.'),
+		// Nullable for pets: a required look a pet cannot use made the model stall in whitespace.
+		.nullable()
+		.describe('Their style; null for pets. Skin tone is chosen by the game.'),
 });
 
 export const briefSchema = z.object({
@@ -216,7 +221,7 @@ export const briefSchema = z.object({
 });
 
 export type BriefOutput = z.infer<typeof briefSchema>;
-export type Look = z.infer<typeof castMember>['look'];
+export type Look = NonNullable<z.infer<typeof castMember>['look']>;
 
 /** A sanitized brief: always complete in shape, possibly with empty or short parts. */
 export type Brief = {
@@ -239,4 +244,15 @@ export type Brief = {
 		look: Look | null;
 	}[];
 	closing: string;
+	/**
+	 * Real facts about Max for the staff to mention, written by a separate grounded model call
+	 * (chatter.server.ts). Absent on older offices; the compiler then uses DEFAULT_CHATTER.
+	 */
+	chatter?: Chatter;
+};
+
+/** Office chatter about Max: passing remarks and short two-person talks (alternating lines). */
+export type Chatter = {
+	remarks: string[];
+	talks: string[][];
 };

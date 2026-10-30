@@ -48,7 +48,7 @@
 		"QUEST_MULTIPLAYER": "1",
 		"SITE_URL": "https://beta.zaunermax.at",
 		"QUEST_WORLD_COOLDOWN_MINUTES": "60",
-		"QUEST_WORLD_MODEL": "gpt-6-luna",
+		"QUEST_WORLD_MODEL": "gpt-6.1-sol",
 		"QUEST_CHAT_MODEL": "",
 		"OPENAI_MODEL": "gpt-4.1-mini",
 		"SANITY_API_VERSION": "2023-07-28",

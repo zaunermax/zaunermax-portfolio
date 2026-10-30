@@ -37,6 +37,7 @@ import {
 	WORLD_VERSION,
 	type Activity,
 	type Brief,
+	type Chatter,
 	type EventKind,
 	type LandmarkId,
 	type ZoneKind,
@@ -56,7 +57,9 @@ import {
 	type Room,
 	type Spot,
 	type SpotKind,
+	type Talk,
 } from './types';
+import { DEFAULT_CHATTER } from './default-world';
 
 /*
  * The compiler: brief + seed in, a fully resolved office out.
@@ -780,6 +783,48 @@ function vignettes(
 	}
 }
 
+/** How far apart (in cells) two people may stand to chat with each other. */
+const TALK_REACH = 2.5;
+
+/**
+ * Who says what about Max: each remark goes to one of the named people (then to anyone else),
+ * each talk to the closest two people in one room (at least one of them named), nobody in two
+ * talks. The first talk is the one nearest Max's desk, so every visitor overhears one early.
+ */
+function assignChatter(actors: Actor[], castCount: number, chatter: Chatter, seed: number, near: Cell | null): Talk[] {
+	const rng = rngFor(seed, 'chatter');
+	const named = shuffle(rng, actors.slice(0, castCount).filter((a) => a.appearance));
+	const others = shuffle(rng, actors.slice(castCount).filter((a) => a.appearance && !a.caption));
+	const speakers = [...named, ...others];
+	chatter.remarks.forEach((remark, i) => {
+		if (speakers[i]) speakers[i].remark = remark;
+	});
+	const people = actors.filter((a) => a.appearance);
+	const busy = new Set<string>();
+	const talks: Talk[] = [];
+	for (const lines of chatter.talks) {
+		let best: { a: Actor; b: Actor; d: number } | null = null;
+		for (const a of named) {
+			if (busy.has(a.id)) continue;
+			for (const b of people) {
+				if (b === a || busy.has(b.id) || b.room !== a.room) continue;
+				if (Math.hypot(a.x - b.x, a.y - b.y) > TALK_REACH) continue;
+				const d =
+					near && !talks.length
+						? Math.hypot((a.x + b.x) / 2 - near.x - 0.5, (a.y + b.y) / 2 - near.y - 0.5)
+						: Math.hypot(a.x - b.x, a.y - b.y);
+				if (!best || d < best.d) best = { a, b, d };
+			}
+		}
+		if (!best) break;
+		busy.add(best.a.id);
+		busy.add(best.b.id);
+		best.a.chats = best.b.chats = true;
+		talks.push({ a: best.a.id, b: best.b.id, lines });
+	}
+	return talks;
+}
+
 /** Someone always works the coffee bar: a barista behind the counter if nobody is there yet. */
 function staffCoffeeBar(crowd: Crowd, seed: number) {
 	const room = crowd.roomOf(['coffee']);
@@ -1072,6 +1117,7 @@ export function compileWorld(brief: Brief, seed: number, options: CompileOptions
 	);
 	castActors(brief, crowd, seed, eventKind);
 	const castCount = crowd.actors.length;
+	let talks: Talk[] = [];
 	if (!partial) {
 		extras(
 			crowd,
@@ -1082,6 +1128,7 @@ export function compileWorld(brief: Brief, seed: number, options: CompileOptions
 		companions(crowd, seed, out.furniture, event);
 		staffCoffeeBar(crowd, seed);
 		vignettes(crowd, seed, { furniture: out.furniture, decor: out.decor, landmark });
+		talks = assignChatter(crowd.actors, castCount, brief.chatter ?? DEFAULT_CHATTER, seed, landmark.max?.interact ?? null);
 	}
 	tuckEmptySeats(out.furniture, crowd.actors, grid.blocked);
 	// Keep playful hair and glasses in proportion: the named cast first, then the extras.
@@ -1127,6 +1174,7 @@ export function compileWorld(brief: Brief, seed: number, options: CompileOptions
 		landmark,
 		max,
 		npcs: crowd.actors,
+		talks,
 		event,
 		spawn,
 		entrance: plan.entrance,

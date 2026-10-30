@@ -4,7 +4,9 @@ const mocks = vi.hoisted(() => ({
 	streamText: vi.fn(),
 	moderate: vi.fn(),
 	responses: vi.fn((id: string) => ({ modelId: id })),
+	chatter: vi.fn(),
 }));
+vi.mock('./chatter.server', () => ({ generateChatter: mocks.chatter }));
 vi.mock('@/server/openai-client.server', () => ({
 	getAIProvider: () => ({ responses: mocks.responses }),
 	getOpenAI: () => ({ moderations: { create: mocks.moderate } }),
@@ -14,10 +16,11 @@ vi.mock('ai', async (original) => ({
 	streamText: mocks.streamText,
 }));
 
-import { defaultBrief } from './default-world';
+import { DEFAULT_CHATTER, defaultBrief } from './default-world';
 import { optionalRoomCount, planFloor } from './floorplan';
 import {
 	buildRunPrompt,
+	CHATTER_GRACE_MS,
 	DEFAULT_WORLD_MODEL,
 	generateWorld,
 	pickPremise,
@@ -82,6 +85,7 @@ beforeEach(() => {
 	vi.clearAllMocks();
 	vi.stubEnv('QUEST_WORLD_MODEL', '');
 	mocks.moderate.mockResolvedValue({ results: [{ flagged: false }] });
+	mocks.chatter.mockResolvedValue(null);
 });
 
 describe('generateWorld', () => {
@@ -122,16 +126,61 @@ describe('generateWorld', () => {
 		expect(step.value.brief).toEqual(defaultBrief);
 	});
 
-	it('defaults to gpt-6-luna with low reasoning, one attempt, no storage and a timeout', async () => {
+	it('adds the office chatter, written alongside the brief, to the finished brief', async () => {
+		const chatter = { remarks: ['Max owns an ErgoDox EZ.'], talks: [] };
+		mocks.chatter.mockResolvedValue(chatter);
+		fakeStream(defaultBrief);
+		const { streamed, result } = await drain(generateWorld({ seed: 850 }));
+		expect(mocks.chatter).toHaveBeenCalledTimes(1);
+		expect(mocks.chatter.mock.calls[0][0].premise).toEqual(expect.any(String));
+		// Nothing on display yet, so nothing to avoid repeating.
+		expect(mocks.chatter.mock.calls[0][0].previous).toBeNull();
+		expect(result.brief).toEqual({ ...defaultBrief, chatter });
+		// The build log never waits for it: only the persisted brief carries it.
+		expect(streamed.at(-1)).toEqual(defaultBrief);
+		expect(streamed.every((b) => !b.chatter)).toBe(true);
+	});
+
+	it('deploys without chatter that is still not done a few seconds after the office', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+		try {
+			mocks.chatter.mockReturnValue(new Promise(() => {}));
+			fakeStream(defaultBrief);
+			const pending = drain(generateWorld({ seed: 850 }));
+			await vi.advanceTimersByTimeAsync(CHATTER_GRACE_MS);
+			const { result } = await pending;
+			expect(result.brief).toEqual(defaultBrief);
+			expect((mocks.chatter.mock.calls[0][0].signal as AbortSignal).aborted).toBe(true);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('asks for Ultrafast only from models that offer it', async () => {
+		vi.stubEnv('QUEST_WORLD_MODEL', 'gpt-6-luna');
+		fakeStream(defaultBrief);
+		await drain(generateWorld());
+		expect((mocks.streamText.mock.calls[0][0] as StreamOptions).providerOptions).toEqual({ openai: { store: false } });
+	});
+
+	it('stops the chatter call once the run is over, whatever the outcome', async () => {
+		fakeStream(defaultBrief, { error: new Error('boom'), cut: 20 });
+		await expect(drain(generateWorld())).rejects.toThrow(/did not answer/);
+		expect((mocks.chatter.mock.calls[0][0].signal as AbortSignal).aborted).toBe(true);
+	});
+
+	it('defaults to gpt-6.1-sol in Ultrafast mode with low reasoning, one attempt, no storage and a timeout', async () => {
 		fakeStream(defaultBrief);
 		await drain(generateWorld({ previous: { company: 'Old Co', vibe: 'cozy' } }));
-		expect(mocks.responses).toHaveBeenCalledWith('gpt-6-luna');
+		expect(mocks.responses).toHaveBeenCalledWith('gpt-6.1-sol');
+		// An office without chatter of its own shows the default lines.
+		expect(mocks.chatter.mock.calls[0][0].previous).toEqual(DEFAULT_CHATTER);
 		const options = mocks.streamText.mock.calls[0][0] as StreamOptions;
 		expect(options.reasoning).toBe('low');
 		expect(options.maxRetries).toBe(0);
 		expect(options.maxOutputTokens).toBeLessThanOrEqual(12_000);
 		expect(options.abortSignal).toBeInstanceOf(AbortSignal);
-		expect(options.providerOptions).toEqual({ openai: { store: false } });
+		expect(options.providerOptions).toEqual({ openai: { store: false, serviceTier: 'ultrafast' } });
 		expect(options.instructions).toBe(WORLD_INSTRUCTIONS);
 		expect(options.prompt).toContain('"Old Co"');
 	});

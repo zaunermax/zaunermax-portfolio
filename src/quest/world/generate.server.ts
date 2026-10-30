@@ -1,7 +1,9 @@
 import { randomInt } from 'node:crypto';
 import { Output, streamText, type LanguageModelUsage } from 'ai';
 import { getAIProvider, getOpenAI } from '@/server/openai-client.server';
+import { generateChatter } from './chatter.server';
 import { compileWorld } from './compile';
+import { DEFAULT_CHATTER } from './default-world';
 import { optionalRoomCount, planFloor } from './floorplan';
 import { pick } from './random';
 import { sanitizeBrief, settledPart } from './sanitize';
@@ -33,9 +35,30 @@ import { checkWorld } from './validate';
  */
 
 export const GENERATION_TIMEOUT_MS = 90_000;
-/** A brief is ~2.5k tokens; reasoning tokens count against this too. */
-export const MAX_OUTPUT_TOKENS = 8_000;
-export const DEFAULT_WORLD_MODEL = 'gpt-6-luna';
+/**
+ * A brief is ~2–2.5k tokens; reasoning tokens count against this too. Twice that leaves room for
+ * a full cast while an answer that runs away (one in a few) is cut off before it stalls the build.
+ */
+export const MAX_OUTPUT_TOKENS = 5_000;
+export const DEFAULT_WORLD_MODEL = 'gpt-6.1-sol';
+
+/** Models that offer OpenAI's Ultrafast tier; any other QUEST_WORLD_MODEL runs at standard speed. */
+export const ULTRAFAST_MODELS: ReadonlySet<string> = new Set(['gpt-6.1-sol', 'gpt-6-astra']);
+/** How long a finished office waits for its chatter before it deploys without it. */
+export const CHATTER_GRACE_MS = 8_000;
+
+/** `work`, or null if it takes longer than `ms`. */
+async function withGrace<T>(work: Promise<T>, ms: number): Promise<T | null> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const late = new Promise<null>((resolve) => {
+		timer = setTimeout(() => resolve(null), ms);
+	});
+	try {
+		return await Promise.race([work, late]);
+	} finally {
+		clearTimeout(timer);
+	}
+}
 
 export function worldModelId() {
 	return process.env.QUEST_WORLD_MODEL?.trim() || DEFAULT_WORLD_MODEL;
@@ -112,7 +135,7 @@ Pick "none" now and then; when there is an event, give it a funny title.
 
 # Cast
 ${LIMITS.minCast}-${LIMITS.cast} people and pets who work here. character is one of: ${list(characterIds)} (office_dog and office_cat are pets; the barista works the coffee bar). zone must be one of your zones. activity is one of: ${list(activities)}. Put people where their activity makes sense: typing at desks, presenting or attending at the meetup corner (attending fits an event best), serving at the coffee bar, fixing in the server room, gaming in the game corner, calling from the phone booths, two people chatting in the same zone, and so on. If there is an event, put 2-4 cast members at it.
-look: build every person from the character kit: a face, hairstyle, hair colour, optional headwear, top, bottom, three clothing colours and 0-2 accessories. Make the cast look varied, and let any style suit anyone: do not tie looks to gender. Keep it grounded: mostly natural hair colours (a playful colour on at most one in five people), glasses on at most one in four, headwear on a few. Caps, beanies and berets only go with buzz or side_part hair; a headwrap goes over any hairstyle. Never mention skin: the game picks skin tones itself so every office is diverse. Pets get any look, it is ignored.
+look: build every person from the character kit: a face, hairstyle, hair colour, optional headwear, top, bottom, three clothing colours and 0-2 accessories. Make the cast look varied, and let any style suit anyone: do not tie looks to gender. Keep it grounded: mostly natural hair colours (a playful colour on at most one in five people), glasses on at most one in four, headwear on a few. Caps, beanies and berets only go with buzz or side_part hair; a headwrap goes over any hairstyle. Never mention skin: the game picks skin tones itself so every office is diverse. Pets get look null.
 line: one or two short sentences in character, without quotation marks, about this office: its work, its rituals, its small absurdities. Office humour, IT Crowd and The Office energy. Pets make sounds or actions, e.g. "*knocks a mug off the desk* Mrrp."
 
 # Writing
@@ -184,7 +207,7 @@ export type GenerateWorldOptions = {
 	/** Cancels the model call (in addition to the built-in timeout). */
 	signal?: AbortSignal;
 	/** The office on display, so the next one differs. */
-	previous?: Pick<Brief, 'company' | 'vibe'> | null;
+	previous?: Pick<Brief, 'company' | 'vibe' | 'chatter'> | null;
 	/** The floorplan seed; random by default. */
 	seed?: number;
 };
@@ -238,17 +261,33 @@ export function usableBrief(brief: Brief) {
  * returns the final brief once it has been compiled, checked and moderated.
  * Throws WorldGenerationError (with a visitor-safe message) when the result is unusable.
  */
-export async function* generateWorld({
-	signal,
-	previous,
-	seed = newSeed(),
-}: GenerateWorldOptions = {}): AsyncGenerator<Brief, GeneratedWorld> {
+export async function* generateWorld(options: GenerateWorldOptions = {}): AsyncGenerator<Brief, GeneratedWorld> {
+	// However the run ends, a chatter call still going is no longer worth paying for.
+	const done = new AbortController();
+	try {
+		return yield* buildWorld(options, done.signal);
+	} finally {
+		done.abort();
+	}
+}
+
+async function* buildWorld(
+	{ signal, previous, seed = newSeed() }: GenerateWorldOptions,
+	finished: AbortSignal,
+): AsyncGenerator<Brief, GeneratedWorld> {
 	const model = worldModelId();
 	const premise = pickPremise(seed, previous);
 	const startedAt = Date.now();
 	const timeout = AbortSignal.timeout(GENERATION_TIMEOUT_MS);
 	const abortSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
 	let streamError: unknown = null;
+	// The staff's chatter about Max is a separate, grounded call: it runs alongside the brief.
+	const chatter = generateChatter({
+		premise: premise.premise,
+		// Offices without chatter of their own show the default lines.
+		previous: previous ? (previous.chatter ?? DEFAULT_CHATTER) : null,
+		signal: AbortSignal.any([abortSignal, finished]),
+	});
 
 	const result = streamText({
 		model: getAIProvider().responses(model),
@@ -264,7 +303,11 @@ export async function* generateWorld({
 		// One attempt only: a retry could double the cost of a run.
 		maxRetries: 0,
 		abortSignal,
-		providerOptions: { openai: { store: false } },
+		// Ultrafast: the office builds live in front of the visitor, so speed beats the token premium
+		// (about 9s instead of 25s in Fast mode for roughly 3x the price). Only some models offer it.
+		providerOptions: {
+			openai: { store: false, ...(ULTRAFAST_MODELS.has(model) ? { serviceTier: 'ultrafast' } : {}) },
+		},
 		onError: ({ error }) => {
 			streamError ??= error;
 		},
@@ -322,10 +365,12 @@ export async function* generateWorld({
 				Promise.resolve(result.finishReason).catch(() => null),
 			]);
 
-	await moderate(brief, signal);
+	// The chatter finishes alongside the checks, given a little grace at most: the office never
+	// waits long for it (the default lines stand in). Only the persisted brief carries it.
+	const [extra] = await Promise.all([withGrace(chatter, CHATTER_GRACE_MS), moderate(brief, signal)]);
 
 	return {
-		brief,
+		brief: extra ? { ...brief, chatter: extra } : brief,
 		seed,
 		model,
 		premise,

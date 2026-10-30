@@ -7,6 +7,7 @@ import {
 	useEffect,
 	useEffectEvent,
 	useMemo,
+	useRef,
 	useState,
 	useSyncExternalStore,
 } from 'react';
@@ -15,6 +16,7 @@ import { useMaxChat } from '../chat/use-max-chat';
 import { lookFor } from '../room/presence';
 import { useRoom } from '../room/use-room';
 import { GameBus, type Interactable } from '../scene/bus';
+import { createChatter, HOLD_RANGE, readMs, type ChatterDirector } from '../scene/chatter';
 import { compileWorld } from '../world/compile';
 import { defaultBrief, DEFAULT_SEED } from '../world/default-world';
 import { briefForSeed } from '../world/offline-briefs';
@@ -320,15 +322,56 @@ export function QuestApp({
 			});
 	}, [nearby, log, world.worldId]);
 
+	// --- the staff mention Max as the visitor walks by; quiet while a window or the overview is up
+	const chatter = useMemo(() => createChatter(compiled), [compiled]);
+	/** Who answers the next greeting with their remark about Max, for the prompt. */
+	const [askAbout, setAskAbout] = useState<{ chatter: ChatterDirector; ids: ReadonlySet<string> } | null>(null);
+	// It waits for the welcome card to shrink, so the first talk is not said behind it.
+	const chatting =
+		sceneReady && !introActive && !generating && !overview && open === null && !hidden && zoneState === 'small';
+	/** Who the visitor is listening to: their bubble stays open while the visitor stays near. */
+	const listening = useRef<string | null>(null);
+	useEffect(() => {
+		if (!chatting) return;
+		const timer = setInterval(() => {
+			const now = performance.now();
+			const held = listening.current && bus.npcs.get(listening.current);
+			if (held && Math.hypot(held.x - bus.player.x, held.y - bus.player.y) <= HOLD_RANGE)
+				bus.holdSpeech(listening.current!, now + 800);
+			else listening.current = null;
+			const goal = bus.goal?.kind === 'npc' ? bus.goal.id : undefined;
+			const said = chatter.tick(now, bus.player, (a) => bus.npcs.get(a.id) ?? a, goal);
+			if (!said) return;
+			bus.say(said.actor.id, said.text, said.ms);
+			if (said.kind === 'remark') listening.current = said.actor.id;
+			log.push({
+				id: `chatter-${said.actor.id}-${Date.now()}`,
+				kind: 'npc',
+				speaker: said.actor.name || 'Colleague',
+				text: said.text,
+				ambient: true,
+			});
+		}, 250);
+		return () => clearInterval(timer);
+	}, [chatting, chatter, bus, log]);
+
 	// --- what happens when the visitor arrives somewhere or presses F
 	const onInteract = useEffectEvent((t: Interactable) => {
 		if (t.kind === 'npc') {
-			bus.say(t.id, t.line);
+			const text = chatter.greet(performance.now(), t.id, t.line);
+			setAskAbout((prev) => {
+				const ids = new Set(prev?.chatter === chatter ? prev.ids : []);
+				if (chatter.remarkNext(t.id)) ids.add(t.id);
+				else ids.delete(t.id);
+				return { chatter, ids };
+			});
+			bus.say(t.id, text, readMs(text));
+			listening.current = t.id;
 			log.push({
 				id: `npc-${t.id}-${Date.now()}`,
 				kind: 'npc',
 				speaker: t.name,
-				text: t.line,
+				text,
 			});
 			return;
 		}
@@ -556,6 +599,7 @@ export function QuestApp({
 					xp={xp}
 					nearby={open ? null : nearby}
 					touch={touch}
+					aboutMax={nearby?.kind === 'npc' && askAbout?.chatter === chatter && askAbout.ids.has(nearby.id)}
 					onInteract={() => bus.interact()}
 				/>
 

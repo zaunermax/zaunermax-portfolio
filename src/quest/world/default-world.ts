@@ -1,4 +1,4 @@
-import type { Brief } from './schema';
+import type { Brief, Chatter } from './schema';
 
 /**
  * The hand-written office shown until a visitor redeploys one. Its seed was picked by eye for
@@ -137,4 +137,42 @@ export const defaultBrief: Brief = {
 		},
 	],
 	closing: 'The coffee is hot, the build is green, and the office is open. Come on in!',
+};
+
+/**
+ * What the staff say about Max in offices without chatter of their own (the offline offices and
+ * those deployed before chatter existed). Picked from generated chatter and checked against the
+ * CMS notes it was written from; keep it to facts that are still true.
+ */
+export const DEFAULT_CHATTER: Chatter = {
+	remarks: [
+		'Max runs a one-person software business. The org chart must be wonderfully short.',
+		"Max owns an ErgoDox EZ. I still can't tell which half to say hello to.",
+		"Max wrote his master's thesis on React and D3. Even the charts had homework.",
+		'Max loves Interrail and avoids flying where he can. A timetable he actually likes.',
+		"Max is building a free software suite for his community's events. The scope has scope.",
+		'Max once taught kids Python, git and circuits at a coding camp. Some summer job.',
+		'Max spent two and a half months in Sweden. He can small-talk in Swedish now.',
+		'Max runs local models for privacy-critical work. Some things stay on the machine.',
+	],
+	talks: [
+		[
+			'Max would rather take longer than ship something sloppy.',
+			'Even with a deadline?',
+			'Especially then. Software is a craft to him.',
+			'So no half-baked releases. Noted.',
+		],
+		[
+			'Max sees AI as a tool, not a magic wand.',
+			"So it won't fix our meeting schedule?",
+			"He uses it a lot, but it isn't free. Think of the electricity.",
+			'There goes my entire prompt.',
+		],
+		[
+			'Max always pushed for workshops to teach the juniors.',
+			'Teaching good engineering, not just syntax?',
+			'Exactly. He loves learning new things and passing them on.',
+			"Finally, a workshop that isn't just about the biscuits.",
+		],
+	],
 };

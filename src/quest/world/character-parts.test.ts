@@ -57,7 +57,7 @@ describe('character-parts mirror', () => {
 	});
 
 	it('drives the brief schema, so the model can only pick real parts', () => {
-		const look = briefSchema.shape.cast.element.shape.look.shape;
+		const look = briefSchema.shape.cast.element.shape.look.unwrap().shape;
 		expect(look.face.options).toEqual(catalog.categories.face);
 		expect(look.hair.options).toEqual(catalog.categories.hair);
 		expect(look.headwear.options).toEqual(['none', ...catalog.categories.headwear]);
