@@ -10,6 +10,7 @@ import {
 	vibes,
 	zoneKinds,
 	type Brief,
+	type Chatter,
 	type LandmarkId,
 	type Look,
 	type ZoneKind,
@@ -33,6 +34,8 @@ export const TEXT_LIMITS = {
 	eventTitle: 48,
 	castName: 20,
 	castLine: 110,
+	remark: 110,
+	talkLine: 100,
 } as const;
 
 type Raw = Record<string, unknown>;
@@ -243,8 +246,41 @@ function eventOf(value: unknown): Brief['event'] {
 	};
 }
 
+/** Chatter never links anywhere: a line with a URL or an email address is dropped. */
+const LINKISH = /https?:|www\.|\.(?:at|com|wtf|io|dev)\b|@/i;
+
+function chatterLine(value: unknown, max: number) {
+	// Models like to label who speaks ("A: …"); the game shows that with the bubble instead.
+	const text = cleanText(unquote(cleanText(value, max + 8).replace(/^[AB]\s*:\s*/, '')), max);
+	return LINKISH.test(text) ? '' : text;
+}
+
+/** Valid chatter with at least one line, or undefined. */
+export function chatterOf(value: unknown): Chatter | undefined {
+	if (!isRecord(value)) return undefined;
+	const remarks = Array.isArray(value.remarks)
+		? [...new Set(value.remarks.slice(0, MAX_SCANNED).map((r) => chatterLine(r, TEXT_LIMITS.remark)))]
+				.filter(Boolean)
+				.slice(0, LIMITS.remarks)
+		: [];
+	const talks = Array.isArray(value.talks)
+		? value.talks
+				.slice(0, MAX_SCANNED)
+				.map((t) =>
+					Array.isArray(t)
+						? t.slice(0, LIMITS.talkLines).map((l) => chatterLine(l, TEXT_LIMITS.talkLine))
+						: [],
+				)
+				// A talk with a hole in it no longer alternates properly: all lines or nothing.
+				.filter((lines) => lines.length >= 2 && lines.every(Boolean))
+				.slice(0, LIMITS.talks)
+		: [];
+	return remarks.length || talks.length ? { remarks, talks } : undefined;
+}
+
 export function sanitizeBrief(raw: unknown): Brief {
 	const value = isRecord(raw) ? raw : {};
+	const chatter = chatterOf(value.chatter);
 	return {
 		company: cleanText(value.company, TEXT_LIMITS.company),
 		tagline: cleanText(value.tagline, TEXT_LIMITS.tagline),
@@ -257,6 +293,7 @@ export function sanitizeBrief(raw: unknown): Brief {
 		event: eventOf(value.event),
 		cast: castOf(value.cast),
 		closing: cleanText(value.closing, TEXT_LIMITS.story),
+		...(chatter ? { chatter } : {}),
 	};
 }
 

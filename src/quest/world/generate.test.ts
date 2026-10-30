@@ -4,7 +4,9 @@ const mocks = vi.hoisted(() => ({
 	streamText: vi.fn(),
 	moderate: vi.fn(),
 	responses: vi.fn((id: string) => ({ modelId: id })),
+	chatter: vi.fn(),
 }));
+vi.mock('./chatter.server', () => ({ generateChatter: mocks.chatter }));
 vi.mock('@/server/openai-client.server', () => ({
 	getAIProvider: () => ({ responses: mocks.responses }),
 	getOpenAI: () => ({ moderations: { create: mocks.moderate } }),
@@ -82,6 +84,7 @@ beforeEach(() => {
 	vi.clearAllMocks();
 	vi.stubEnv('QUEST_WORLD_MODEL', '');
 	mocks.moderate.mockResolvedValue({ results: [{ flagged: false }] });
+	mocks.chatter.mockResolvedValue(null);
 });
 
 describe('generateWorld', () => {
@@ -120,6 +123,19 @@ describe('generateWorld', () => {
 		expect(lastBeforeModeration).toEqual(defaultBrief);
 		expect(lastBeforeModeration!.closing).not.toBe('');
 		expect(step.value.brief).toEqual(defaultBrief);
+	});
+
+	it('adds the office chatter, written alongside the brief, to the finished brief', async () => {
+		const chatter = { remarks: ['Max owns an ErgoDox EZ.'], talks: [] };
+		mocks.chatter.mockResolvedValue(chatter);
+		fakeStream(defaultBrief);
+		const { streamed, result } = await drain(generateWorld({ seed: 850 }));
+		expect(mocks.chatter).toHaveBeenCalledTimes(1);
+		expect(mocks.chatter.mock.calls[0][0].premise).toEqual(expect.any(String));
+		expect(result.brief).toEqual({ ...defaultBrief, chatter });
+		expect(streamed.at(-1)).toEqual(result.brief);
+		// Only the brief that is done carries it.
+		expect(streamed.slice(0, -1).every((b) => !b.chatter)).toBe(true);
 	});
 
 	it('defaults to gpt-6-luna with low reasoning, one attempt, no storage and a timeout', async () => {

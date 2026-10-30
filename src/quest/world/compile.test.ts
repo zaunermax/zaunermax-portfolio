@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SKIN } from './character-parts';
 import { compileWorld, findPath, meetupAttendance, reachable } from './compile';
-import { defaultBrief, DEFAULT_SEED } from './default-world';
+import { DEFAULT_CHATTER, defaultBrief, DEFAULT_SEED } from './default-world';
 import { assignZones, DOUBLE_ZONES, planFloor } from './floorplan';
 import { cellIndex, deskLayout, EVENT_AUDIENCE, RIGHT, runAssets, topHalf } from './furnish';
 import { DESK_TOP, SEAT_FORWARD, SEAT_TOP } from './catalog';
@@ -486,5 +486,41 @@ describe('seating, pods and small stories', () => {
 			const bar = world.rooms.find((r) => r.kind === 'coffee');
 			if (bar) expect(world.npcs.some((n) => n.room === bar.index && n.pose === 'serve' && n.character === 'barista'), `seed ${seed}`).toBe(true);
 		}
+	});
+});
+
+describe('office chatter', () => {
+	it('gives remarks to named people and talks to people standing close together', () => {
+		for (const seed of [DEFAULT_SEED, 7, 42, 1234]) {
+			const world = compileWorld(defaultBrief, seed);
+			const byId = new Map(world.npcs.map((a) => [a.id, a]));
+			const remarks = world.npcs.filter((a) => a.remark);
+			expect(remarks.length).toBeGreaterThan(0);
+			for (const a of remarks) expect(a.interactive && a.appearance).toBeTruthy();
+			expect(new Set(remarks.map((a) => a.remark)).size).toBe(remarks.length);
+			expect(world.talks.length).toBeGreaterThan(0);
+			const people = world.talks.flatMap((t) => [t.a, t.b]);
+			expect(new Set(people).size).toBe(people.length);
+			for (const t of world.talks) {
+				const a = byId.get(t.a)!;
+				const b = byId.get(t.b)!;
+				expect(a.interactive).toBe(true);
+				expect(a.room).toBe(b.room);
+				expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeLessThanOrEqual(2.5);
+				expect(a.chats && b.chats).toBe(true);
+			}
+		}
+	});
+
+	it("uses the office's own chatter, else the default, and none while building", () => {
+		const own = { remarks: ['Only remark.'], talks: [['One.', 'Two.']] };
+		const world = compileWorld({ ...defaultBrief, chatter: own }, DEFAULT_SEED);
+		expect(world.npcs.filter((a) => a.remark).map((a) => a.remark)).toEqual(['Only remark.']);
+		expect(world.talks.map((t) => t.lines)).toEqual([['One.', 'Two.']]);
+		const fallback = compileWorld(defaultBrief, DEFAULT_SEED);
+		expect(fallback.talks[0].lines).toEqual(DEFAULT_CHATTER.talks[0]);
+		const partial = compileWorld(defaultBrief, DEFAULT_SEED, { partial: true });
+		expect(partial.talks).toEqual([]);
+		expect(partial.npcs.some((a) => a.remark)).toBe(false);
 	});
 });

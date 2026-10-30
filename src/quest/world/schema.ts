@@ -129,6 +129,9 @@ export const LIMITS = {
 	zones: 13,
 	cast: 14,
 	minCast: 6,
+	remarks: 8,
+	talks: 3,
+	talkLines: 6,
 } as const;
 
 export type TimeOfDay = (typeof timesOfDay)[number];
@@ -239,4 +242,15 @@ export type Brief = {
 		look: Look | null;
 	}[];
 	closing: string;
+	/**
+	 * Real facts about Max for the staff to mention, written by a separate grounded model call
+	 * (chatter.server.ts). Absent on older offices; the compiler then uses DEFAULT_CHATTER.
+	 */
+	chatter?: Chatter;
+};
+
+/** Office chatter about Max: passing remarks and short two-person talks (alternating lines). */
+export type Chatter = {
+	remarks: string[];
+	talks: string[][];
 };

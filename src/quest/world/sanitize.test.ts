@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { randomLook } from './appearance';
 import { defaultBrief } from './default-world';
-import { cleanText, sanitizeBrief, settledPart, TEXT_LIMITS } from './sanitize';
+import { chatterOf, cleanText, sanitizeBrief, settledPart, TEXT_LIMITS } from './sanitize';
 import { briefSchema, LIMITS } from './schema';
 
 describe('sanitizeBrief', () => {
@@ -136,5 +136,32 @@ describe('cleanText', () => {
 	});
 	it('returns an empty string for non-strings', () => {
 		expect(cleanText(42, 10)).toBe('');
+	});
+});
+
+describe('chatterOf', () => {
+	it('keeps clean lines and drops labels, links, duplicates and broken talks', () => {
+		const chatter = chatterOf({
+			remarks: ['"Max owns an ErgoDox EZ."', 'Max owns an ErgoDox EZ.', 'See zaunermax.at', 'Mail hello@x.io', 42, ''],
+			talks: [['A: Trains?', 'B: Trains.'], ['Only one line'], ['Fine', 'https://example.com'], 'nope'],
+		});
+		expect(chatter).toEqual({ remarks: ['Max owns an ErgoDox EZ.'], talks: [['Trains?', 'Trains.']] });
+	});
+
+	it('caps the counts and lengths', () => {
+		const chatter = chatterOf({
+			remarks: Array.from({ length: 20 }, (_, i) => `Remark ${i} ${'x'.repeat(200)}`),
+			talks: Array.from({ length: 5 }, () => Array.from({ length: 9 }, (_, i) => `Line ${i}`)),
+		})!;
+		expect(chatter.remarks).toHaveLength(LIMITS.remarks);
+		expect(Math.max(...chatter.remarks.map((r) => r.length))).toBeLessThanOrEqual(TEXT_LIMITS.remark);
+		expect(chatter.talks).toHaveLength(LIMITS.talks);
+		expect(chatter.talks[0]).toHaveLength(LIMITS.talkLines);
+	});
+
+	it('is absent from briefs without any', () => {
+		expect(chatterOf({ remarks: [], talks: [] })).toBeUndefined();
+		expect('chatter' in sanitizeBrief(defaultBrief)).toBe(false);
+		expect(sanitizeBrief({ ...defaultBrief, chatter: { remarks: ['Hi.'] } }).chatter).toEqual({ remarks: ['Hi.'], talks: [] });
 	});
 });

@@ -159,7 +159,14 @@ export type Actor = {
 	appearance: Appearance | null;
 	/** A little story told over this actor's head (a vignette's caption), always shown nearby. */
 	caption?: string;
+	/** Something true about Max they mention when the visitor passes by (or on a second F). */
+	remark?: string;
+	/** Has a part in a talk, so their speech bubbles need an anchor even without a nameplate. */
+	chats?: boolean;
 };
+
+/** Two people near each other who chat about Max when the visitor comes close: a, b, a, b… */
+export type Talk = { a: string; b: string; lines: string[] };
 
 export type LandmarkEntity = {
 	id: string;
@@ -225,6 +232,7 @@ export type CompiledWorld = {
 	/** Max himself, at his desk. */
 	max: Actor | null;
 	npcs: Actor[];
+	talks: Talk[];
 	event: { kind: EventKind; title: string; room: number } | null;
 	spawn: Cell;
 	/** The front door: `w` cells of the horizontal edge at row `y`. */

@@ -15,6 +15,7 @@ import { useMaxChat } from '../chat/use-max-chat';
 import { lookFor } from '../room/presence';
 import { useRoom } from '../room/use-room';
 import { GameBus, type Interactable } from '../scene/bus';
+import { createChatter } from '../scene/chatter';
 import { compileWorld } from '../world/compile';
 import { defaultBrief, DEFAULT_SEED } from '../world/default-world';
 import { briefForSeed } from '../world/offline-briefs';
@@ -320,15 +321,35 @@ export function QuestApp({
 			});
 	}, [nearby, log, world.worldId]);
 
+	// --- the staff mention Max as the visitor walks by; quiet while a window or the overview is up
+	const chatter = useMemo(() => createChatter(compiled), [compiled]);
+	const chatting = sceneReady && !introActive && !generating && !overview && open === null && !hidden;
+	useEffect(() => {
+		if (!chatting) return;
+		const timer = setInterval(() => {
+			const said = chatter.tick(performance.now(), bus.player, (a) => bus.npcs.get(a.id) ?? a);
+			if (!said) return;
+			bus.say(said.actor.id, said.text, said.ms);
+			log.push({
+				id: `chatter-${said.actor.id}-${Date.now()}`,
+				kind: 'npc',
+				speaker: said.actor.name || 'Colleague',
+				text: said.text,
+			});
+		}, 250);
+		return () => clearInterval(timer);
+	}, [chatting, chatter, bus, log]);
+
 	// --- what happens when the visitor arrives somewhere or presses F
 	const onInteract = useEffectEvent((t: Interactable) => {
 		if (t.kind === 'npc') {
-			bus.say(t.id, t.line);
+			const text = chatter.greet(t.id, t.line);
+			bus.say(t.id, text);
 			log.push({
 				id: `npc-${t.id}-${Date.now()}`,
 				kind: 'npc',
 				speaker: t.name,
-				text: t.line,
+				text,
 			});
 			return;
 		}

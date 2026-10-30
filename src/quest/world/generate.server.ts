@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto';
 import { Output, streamText, type LanguageModelUsage } from 'ai';
 import { getAIProvider, getOpenAI } from '@/server/openai-client.server';
+import { generateChatter } from './chatter.server';
 import { compileWorld } from './compile';
 import { optionalRoomCount, planFloor } from './floorplan';
 import { pick } from './random';
@@ -249,6 +250,8 @@ export async function* generateWorld({
 	const timeout = AbortSignal.timeout(GENERATION_TIMEOUT_MS);
 	const abortSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
 	let streamError: unknown = null;
+	// The staff's chatter about Max is a separate, grounded call: it runs alongside the brief.
+	const chatter = generateChatter({ premise: premise.premise, signal: abortSignal });
 
 	const result = streamText({
 		model: getAIProvider().responses(model),
@@ -306,6 +309,8 @@ export async function* generateWorld({
 				: 'The redeploy produced too little to build an office.',
 			{ cause: streamError ?? undefined },
 		);
+	const extra = await chatter;
+	if (extra) brief = { ...brief, chatter: extra };
 	// The last cast member and the closing only settle once the model is done: show them now,
 	// not after the checks below, so the build log never stalls on its final step.
 	if (JSON.stringify(brief) !== last) yield brief;
