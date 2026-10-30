@@ -923,8 +923,8 @@ export function ControlsWindow({
 					))}
 				</dl>
 				<p className={styles.touchNote}>
-					On a phone: tap the floor to walk, tap a person or place to visit it and pinch
-					to zoom.
+					On a phone: tap the floor to walk there or hold a finger down to keep walking
+					towards it, tap a person or place to visit it and pinch to zoom.
 				</p>
 			</div>
 		</AppWindow>
