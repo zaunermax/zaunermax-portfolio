@@ -338,24 +338,24 @@ export function QuestApp({
 
 	const toggle = (id: WindowId) => setOpen((o) => (o === id ? null : id));
 
+	// Any window opening ends the walk in progress, so its arrival cannot swap the window.
+	useEffect(() => {
+		if (open) bus.stop();
+	}, [open, bus]);
+
 	// Dock apps that live at a landmark walk the visitor over first; the window opens on arrival,
 	// like a minimap pin. Pressing again on the way skips the walk.
 	const visit = (landmark: LandmarkId) => {
 		const id = LANDMARK_WINDOW[landmark];
-		// Opening straight away ends any earlier walk, so its arrival cannot swap the window.
-		const openNow = () => {
-			bus.stop();
-			setOpen(id);
-		};
 		if (open === id) return setOpen(null);
 		if (bus.goal?.kind === 'landmark' && bus.goal.id === landmark) {
 			bus.warpTo({ kind: 'landmark', id: landmark });
 			return setOpen(id);
 		}
 		const there = nearby?.kind === 'landmark' && nearby.id === landmark;
-		if (there || overview || !compiled.landmark[landmark]) return openNow();
+		if (there || overview || !compiled.landmark[landmark]) return setOpen(id);
 		setOpen(null);
-		if (!bus.walkTo({ kind: 'landmark', id: landmark })) openNow();
+		if (!bus.walkTo({ kind: 'landmark', id: landmark })) setOpen(id);
 	};
 
 	const tellMax = () => {
