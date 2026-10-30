@@ -369,6 +369,13 @@
 		0 calc(var(--o) * 6) 0 rgb(43 36 51 / 0.22);
 }
 
+/* Without CSS round() the whole shadow list would be dropped, leaving paper text on paper. */
+@supports not (width: round(1px, 1px)) {
+	.zoneTitle {
+		--s: 2px;
+	}
+}
+
 .zoneSub {
 	margin: 0;
 	display: grid;

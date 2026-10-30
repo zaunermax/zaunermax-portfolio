@@ -62,32 +62,29 @@ function finishLoad() {
 	tick();
 }
 
-/** Starts the bar over, if the last load finished (coming back to the office, say). */
-export function restartLoad() {
-	if (shown < 1) return;
-	for (const s of STAGES) fraction[s] = 0;
-	shown = START;
-	emit();
-	start();
-}
-
 function subscribe(listener: () => void) {
 	listeners.add(listener);
 	start();
 	return () => {
 		listeners.delete(listener);
-		if (listeners.size === 0) stop();
+		if (listeners.size > 0) return;
+		stop();
+		// The last veil is gone after a finished load: the next one (coming back to the office,
+		// say) starts over, and reads the fresh value on its very first render.
+		if (shown >= 1) {
+			for (const s of STAGES) fraction[s] = 0;
+			shown = START;
+		}
 	};
 }
 
 const getShown = () => shown;
 const getServerShown = () => START;
 
-/** The bar's value (0 to 1). Marks the load finished when `ready`, starts it over otherwise. */
+/** The bar's value (0 to 1); marks the load finished once `ready`. */
 export function useLoadProgress(ready: boolean) {
 	useEffect(() => {
 		if (ready) finishLoad();
-		else restartLoad();
 	}, [ready]);
 	return useSyncExternalStore(subscribe, getShown, getServerShown);
 }
