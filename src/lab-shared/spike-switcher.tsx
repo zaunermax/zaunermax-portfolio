@@ -9,6 +9,9 @@ export function SpikeSwitcher() {
 	const pathname = useLocation({ select: (location) => location.pathname });
 	const current = spikes.find(({ href }) => pathname === href);
 
+	// Quest is the public front page now: keep the review pill off it.
+	if (pathname === '/') return null;
+
 	return (
 		<div className="fixed right-3 bottom-3 z-[1000] font-sans text-sm">
 			<Menu.Root>
