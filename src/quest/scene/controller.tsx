@@ -23,7 +23,7 @@ import { now } from './spawn';
  * The visitor and the camera. The camera is a fixed three-quarter view (pitch 50°) from the
  * south-east (CAMERA_YAW) that follows the visitor, Minecraft Dungeons style; Q/E turn it by
  * 90°, the wheel zooms a little. WASD walks relative to the camera; clicks walk along an A*
- * path on the grid.
+ * path on the grid. On touch, a finger held on the screen walks the visitor towards it.
  */
 
 const RUN = 4;
@@ -33,6 +33,16 @@ const OVERVIEW_PITCH = (62 * Math.PI) / 180;
 const MIN_DIST = 13;
 const MAX_DIST = 30;
 const OVERVIEW_DIST = 50;
+/** A touch held this long (or dragged this far) steers the visitor instead of tapping. */
+const HOLD_MS = 180;
+const HOLD_DRAG_PX = 10;
+/** A still finger lifted sooner than this still taps (a slow tap on a person must still reach them). */
+const HOLD_SWALLOW_MS = 400;
+/** Within this many cells of the finger the visitor stands still rather than jitter. */
+const HOLD_DEAD_ZONE = 0.45;
+
+/** The finger steering the visitor, in client px. */
+type Hold = { id: number; x: number; y: number; startX: number; startY: number; at: number; active: boolean };
 
 type Player = {
 	x: number;
@@ -53,6 +63,11 @@ type Rig = {
 };
 
 const viewProj = new THREE.Matrix4();
+// At the camera's focus height, so a finger on the visitor's body lands on the visitor.
+const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.6);
+const holdRay = new THREE.Raycaster();
+const holdNdc = new THREE.Vector2();
+const holdPoint = new THREE.Vector3();
 
 /** Free screen area around the HUD, in px from each edge, re-measured a few times a second. */
 type Insets = { top: number; bottom: number; left: number; right: number };
@@ -205,6 +220,7 @@ export function Controller({
 	const ringAt = useRef<{ x: number; y: number; t: number } | null>(null);
 	const motion = useRef<Motion>({ moving: false, pose: 'stand', waveAt: -10, look: 0 });
 	const keys = useRef(new Set<string>());
+	const hold = useRef<Hold | null>(null);
 	const input = useRef(inputEnabled);
 	const worldRef = useRef(world);
 	const player = useRef<Player>({
@@ -227,7 +243,10 @@ export function Controller({
 
 	useEffect(() => {
 		input.current = inputEnabled;
-		if (!inputEnabled) keys.current.clear();
+		if (!inputEnabled) {
+			keys.current.clear();
+			hold.current = null;
+		}
 	}, [inputEnabled]);
 
 	// Keep the visitor out of anything a new world put where they stood.
@@ -300,20 +319,34 @@ export function Controller({
 
 	useEffect(() => bus.onWave(() => (motion.current.waveAt = now())), [bus]);
 
-	// Wheel and pinch zoom, within a narrow range.
+	// Wheel and pinch zoom, within a narrow range; a single held finger steers (see useFrame).
 	useEffect(() => {
 		const el = gl.domElement;
 		const r = rig.current;
 		const pointers = new Map<number, { x: number; y: number }>();
 		let pinch: number | null = null;
+		// A finger lifted after steering must not also tap-to-walk where it ended.
+		let swallowClick = false;
 		const onWheel = (e: WheelEvent) => {
 			e.preventDefault();
 			r.targetDist = THREE.MathUtils.clamp(r.targetDist * (1 + Math.sign(e.deltaY) * 0.1), MIN_DIST, MAX_DIST);
 		};
-		const onDown = (e: PointerEvent) => pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+		const onDown = (e: PointerEvent) => {
+			pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+			swallowClick = false;
+			hold.current =
+				pointers.size === 1 && e.pointerType !== 'mouse' && input.current
+					? { id: e.pointerId, x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, at: performance.now(), active: false }
+					: null;
+		};
 		const onMove = (e: PointerEvent) => {
 			if (!pointers.has(e.pointerId)) return;
 			pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+			const h = hold.current;
+			if (h && h.id === e.pointerId) {
+				h.x = e.clientX;
+				h.y = e.clientY;
+			}
 			if (pointers.size !== 2) return;
 			const [a, b] = [...pointers.values()];
 			const d = Math.hypot(a.x - b.x, a.y - b.y);
@@ -323,15 +356,33 @@ export function Controller({
 		const onUp = (e: PointerEvent) => {
 			pointers.delete(e.pointerId);
 			if (pointers.size < 2) pinch = null;
+			if (hold.current?.id === e.pointerId) {
+				// Drags are ignored by every click handler already (e.delta); long still holds are not.
+				swallowClick = hold.current.active && performance.now() - hold.current.at > HOLD_SWALLOW_MS;
+				hold.current = null;
+			}
+		};
+		const onClick = (e: MouseEvent) => {
+			if (!swallowClick) return;
+			swallowClick = false;
+			e.stopPropagation();
+		};
+		// Android opens a context menu on a long press; a held finger is walking, not asking.
+		const onContextMenu = (e: Event) => {
+			if (hold.current) e.preventDefault();
 		};
 		el.addEventListener('wheel', onWheel, { passive: false });
 		el.addEventListener('pointerdown', onDown);
+		el.addEventListener('click', onClick);
+		el.addEventListener('contextmenu', onContextMenu);
 		window.addEventListener('pointermove', onMove);
 		window.addEventListener('pointerup', onUp);
 		window.addEventListener('pointercancel', onUp);
 		return () => {
 			el.removeEventListener('wheel', onWheel);
 			el.removeEventListener('pointerdown', onDown);
+			el.removeEventListener('click', onClick);
+			el.removeEventListener('contextmenu', onContextMenu);
 			window.removeEventListener('pointermove', onMove);
 			window.removeEventListener('pointerup', onUp);
 			window.removeEventListener('pointercancel', onUp);
@@ -420,6 +471,26 @@ export function Controller({
 					iy += v[1];
 				}
 			}
+		// A held finger: walk towards the spot on the floor under it.
+		let hx = 0;
+		let hy = 0;
+		const h = hold.current;
+		if (h && !h.active && !overviewWanted && (performance.now() - h.at > HOLD_MS || Math.hypot(h.x - h.startX, h.y - h.startY) > HOLD_DRAG_PX))
+			h.active = true;
+		if (h?.active && !overviewWanted && input.current) {
+			const box = gl.domElement.getBoundingClientRect();
+			holdNdc.set(((h.x - box.left) / box.width) * 2 - 1, -((h.y - box.top) / box.height) * 2 + 1);
+			holdRay.setFromCamera(holdNdc, state.camera);
+			if (holdRay.ray.intersectPlane(ground, holdPoint)) {
+				const dx = holdPoint.x - p.x;
+				const dy = holdPoint.z - p.y;
+				const d = Math.hypot(dx, dy);
+				if (d > HOLD_DEAD_ZONE) {
+					hx = dx / d;
+					hy = dy / d;
+				}
+			}
+		}
 		let vx = 0;
 		let vy = 0;
 		if (ix || iy) {
@@ -433,6 +504,12 @@ export function Controller({
 			const len = Math.hypot(vx, vy) || 1;
 			vx = (vx / len) * RUN;
 			vy = (vy / len) * RUN;
+		} else if (h?.active && !overviewWanted) {
+			// Holding still counts as steering too: it cancels any tap-to-walk path.
+			p.path = [];
+			p.goal = null;
+			vx = hx * RUN;
+			vy = hy * RUN;
 		} else if (p.path.length && !overviewWanted) {
 			const next = p.path[0];
 			const dx = next.x - p.x;

@@ -497,7 +497,7 @@ export function QuestApp({
 					<div className={styles.touchHint} role="note">
 						<span className={styles.touchHintIcon} aria-hidden="true" />
 						<p>
-							Tap the floor to walk <span aria-hidden="true">&middot;</span> tap people to chat
+							Tap or hold the floor to walk <span aria-hidden="true">&middot;</span> tap people to chat
 						</p>
 						<button type="button" onClick={() => setStoredFlag(TOUCH_HINT_KEY)}>
 							Got it
