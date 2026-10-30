@@ -1231,8 +1231,12 @@ function dressEvent(kind: EventKind, ctx: RoomCtx, out: Furnished) {
 				const top = (['counter_mid', 'coffee_table', 'snack_table', 'counter_end_r'] as const)
 					.map((asset) => out.furniture.find((f) => f.room === ctx.rect.index && f.asset === asset))
 					.find((f) => f !== undefined);
-				if (top)
+				if (top) {
 					ctx.decorate([{ asset: 'birthday_cake', x: top.x + 0.5, z: top.y + 0.5, y: tops[top.asset]!, heading: 0 }]);
+					// The cake takes the barista bot's perch on the right cap.
+					const perch = out.spots.findIndex((s) => s.kind === 'perch' && Math.floor(s.x) === top.x && Math.floor(s.y) === top.y);
+					if (perch >= 0) out.spots.splice(perch, 1);
+				}
 			}
 			break;
 		}
