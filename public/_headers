@@ -1,0 +1,3 @@
+# Vite fingerprints everything under /assets, so browsers may keep it without revalidating.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

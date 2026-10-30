@@ -1,6 +1,6 @@
 'use client';
 
-import { useGLTF } from '@react-three/drei';
+import { useLoader } from '@react-three/fiber';
 import {
 	Component,
 	createContext,
@@ -12,14 +12,17 @@ import {
 	type ReactNode,
 } from 'react';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import { reportLoad, type LoadStage } from '../ui/load-progress';
 import { ASSETS, CHARACTERS, RIG_PARTS, type AssetId, type CharacterId } from '../world/catalog';
 import { hashString } from '../world/random';
 import { placeholderColor } from './palette';
 
 /**
  * The voxel kit from tools/quest-voxel: `office-kit.glb` (one top-level node per asset id) and
- * `characters.glb` (one node per character with jointed parts). Both load through drei's
- * useGLTF once the manifest says they exist; until then, and for any id the kit does not have
+ * `characters.glb` (one node per character with jointed parts). Both load through fiber's
+ * useLoader once the manifest says they exist; until then, and for any id the kit does not have
  * yet, a footprint-sized pastel placeholder stands in. A missing or broken file never breaks
  * the scene.
  */
@@ -296,10 +299,20 @@ class Quiet extends Component<{ children: ReactNode; name: string; onFail: () =>
 	}
 }
 
-/** Loads one kit GLB (meshopt-compressed) and hands its scene, converted, to `onLoad`. */
-function GlbLoader<T>({ url, convert, onLoad }: { url: string; convert: (scene: THREE.Object3D) => T; onLoad: (value: T) => void }) {
-	const gltf = useGLTF(url, false, true);
-	useEffect(() => onLoad(convert(gltf.scene)), [gltf, convert, onLoad]);
+const withMeshopt = (loader: GLTFLoader) => loader.setMeshoptDecoder(MeshoptDecoder);
+
+/**
+ * Loads one kit GLB (meshopt-compressed) and hands its scene, converted, to `onLoad`; its
+ * download counts towards the loading bar as `stage`.
+ */
+function GlbLoader<T>({ url, stage, convert, onLoad }: { url: string; stage: LoadStage; convert: (scene: THREE.Object3D) => T; onLoad: (value: T) => void }) {
+	const gltf = useLoader(GLTFLoader, url, withMeshopt, (e) => {
+		if (e.lengthComputable && e.total > 0) reportLoad(stage, e.loaded / e.total);
+	});
+	useEffect(() => {
+		onLoad(convert(gltf.scene));
+		reportLoad(stage, 1);
+	}, [gltf, stage, convert, onLoad]);
 	return null;
 }
 
@@ -311,11 +324,18 @@ export function KitProvider({ children }: { children: ReactNode }) {
 	const [parts, setParts] = useState<PartsLibrary | null>(null);
 	/** Kit files that will never arrive (missing manifest, a broken GLB). */
 	const [failed, setFailed] = useState<ReadonlySet<string>>(() => new Set());
-	const fail = (name: string) => () => setFailed((f) => new Set([...f, name]));
+	const fail = (name: LoadStage) => () => {
+		reportLoad(name, 1);
+		setFailed((f) => new Set([...f, name]));
+	};
 
 	useEffect(() => {
 		let live = true;
-		const give = () => live && setFailed(new Set(['manifest']));
+		const give = () => {
+			if (!live) return;
+			for (const stage of ['office', 'characters', 'parts'] as const) reportLoad(stage, 1);
+			setFailed(new Set(['manifest']));
+		};
 		fetch(`${BASE}/kit-manifest.json`, { cache: 'no-store' })
 			.then((r) => (r.ok ? r.text() : null))
 			.then((text) => {
@@ -351,17 +371,17 @@ export function KitProvider({ children }: { children: ReactNode }) {
 				<>
 					<Quiet name="office-kit.glb" onFail={fail('office')}>
 						<Suspense fallback={null}>
-							<GlbLoader url={`${BASE}/office-kit.glb?v=${manifest.version}`} convert={officeAssets} onLoad={setAssets} />
+							<GlbLoader url={`${BASE}/office-kit.glb?v=${manifest.version}`} stage="office" convert={officeAssets} onLoad={setAssets} />
 						</Suspense>
 					</Quiet>
 					<Quiet name="characters.glb" onFail={fail('characters')}>
 						<Suspense fallback={null}>
-							<GlbLoader url={`${BASE}/characters.glb?v=${manifest.version}`} convert={characterKits} onLoad={setCharacters} />
+							<GlbLoader url={`${BASE}/characters.glb?v=${manifest.version}`} stage="characters" convert={characterKits} onLoad={setCharacters} />
 						</Suspense>
 					</Quiet>
 					<Quiet name="character-parts.glb" onFail={fail('parts')}>
 						<Suspense fallback={null}>
-							<GlbLoader url={`${BASE}/character-parts.glb?v=${manifest.version}`} convert={partsLibrary} onLoad={setParts} />
+							<GlbLoader url={`${BASE}/character-parts.glb?v=${manifest.version}`} stage="parts" convert={partsLibrary} onLoad={setParts} />
 						</Suspense>
 					</Quiet>
 				</>

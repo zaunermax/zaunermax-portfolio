@@ -46,6 +46,7 @@ import {
 	useSessionFlag,
 	useStoredFlag,
 } from './hooks';
+import { reportLoad } from './load-progress';
 import { cx, LayerContext } from './window';
 import {
 	CharacterWindow,
@@ -171,6 +172,9 @@ export function QuestApp({
 		at: Date.parse(initial.world.createdAt) || 0,
 	});
 	if (born.id !== world.worldId && now) setBorn({ id: world.worldId, at: now });
+
+	// The page's data is in and the app is up: the first stretch of the loading bar.
+	useEffect(() => reportLoad('page', 1), []);
 
 	// Dev-only handle for poking at the scene from the console and screenshot scripts.
 	useEffect(() => {
