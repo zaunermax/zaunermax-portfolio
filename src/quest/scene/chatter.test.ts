@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Actor } from '../world/types';
-import { createChatter, PAUSE_MS } from './chatter';
+import { createChatter, PAUSE_MS, PERSON_REST_MS, TALK_REPLAY_MS } from './chatter';
 
 const person = (id: string, x: number, y: number, remark?: string): Actor => ({
 	id,
@@ -24,10 +24,14 @@ const person = (id: string, x: number, y: number, remark?: string): Actor => ({
 const npcs = [person('a', 2, 2, 'Max owns an ErgoDox.'), person('b', 3, 2), person('c', 20, 2, 'Max loves trains.')];
 const talks = [{ a: 'a', b: 'b', lines: ['One.', 'Two.', 'Three.'] }];
 const home = (a: Actor) => a;
+/** No idle chatter, so only the fresh lines play. */
+const never = () => 0.99;
+/** Idle chatter whenever it may happen, always picking the first option. */
+const always = () => 0;
 
 describe('createChatter', () => {
 	it('plays a nearby talk line by line, alternating speakers, then pauses', () => {
-		const chatter = createChatter({ npcs, talks });
+		const chatter = createChatter({ npcs, talks }, never);
 		const at = { x: 2, y: 4 };
 		const said: string[] = [];
 		let t = 0;
@@ -46,7 +50,7 @@ describe('createChatter', () => {
 	});
 
 	it('only speaks to a visitor nearby, and a talk they leave starts over later', () => {
-		const chatter = createChatter({ npcs, talks });
+		const chatter = createChatter({ npcs, talks }, never);
 		expect(chatter.tick(0, { x: 10, y: 10 }, home)).toBeNull();
 		expect(chatter.tick(0, { x: 2, y: 4 }, home)?.text).toBe('One.');
 		expect(chatter.tick(100, { x: 15, y: 15 }, home)).toBeNull();
@@ -54,7 +58,7 @@ describe('createChatter', () => {
 	});
 
 	it('says a passing remark once, with a pause before the next', () => {
-		const chatter = createChatter({ npcs, talks: [] });
+		const chatter = createChatter({ npcs, talks: [] }, never);
 		expect(chatter.tick(0, { x: 20, y: 3 }, home)?.text).toBe('Max loves trains.');
 		expect(chatter.tick(100, { x: 2, y: 3 }, home)).toBeNull();
 		expect(chatter.tick(PAUSE_MS, { x: 2, y: 3 }, home)?.text).toBe('Max owns an ErgoDox.');
@@ -62,18 +66,44 @@ describe('createChatter', () => {
 	});
 
 	it('leaves the remark to whoever the visitor is walking up to', () => {
-		const chatter = createChatter({ npcs, talks: [] });
+		const chatter = createChatter({ npcs, talks: [] }, never);
 		expect(chatter.tick(0, { x: 20, y: 3 }, home, 'c')).toBeNull();
 		expect(chatter.tick(0, { x: 20, y: 3 }, home)?.text).toBe('Max loves trains.');
 	});
 
+	it('replays a talk once it ended long enough ago', () => {
+		const chatter = createChatter({ npcs, talks }, never);
+		const at = { x: 2, y: 4 };
+		const firsts: number[] = [];
+		for (let t = 0; t < TALK_REPLAY_MS * 2; t += 250) if (chatter.tick(t, at, home)?.text === 'One.') firsts.push(t);
+		expect(firsts.length).toBe(2);
+		expect(firsts[1] - firsts[0]).toBeGreaterThanOrEqual(TALK_REPLAY_MS);
+	});
+
+	it('keeps chattering once the fresh lines are used up, nobody twice within their rest', () => {
+		const chatter = createChatter({ npcs, talks: [] }, always);
+		const at = { x: 20, y: 3 };
+		expect(chatter.tick(0, at, home)?.text).toBe('Max loves trains.');
+		const later: { t: number; text: string }[] = [];
+		for (let t = 250; t < PERSON_REST_MS * 3; t += 250) {
+			const said = chatter.tick(t, at, home);
+			if (said) later.push({ t, text: said.text });
+		}
+		// c alternates between their own line and their remark, resting in between.
+		expect(later.map((l) => l.text).slice(0, 2)).toEqual(['I am c.', 'Max loves trains.']);
+		expect(later[0].t).toBeGreaterThanOrEqual(PERSON_REST_MS);
+		for (let i = 1; i < later.length; i++) expect(later[i].t - later[i - 1].t).toBeGreaterThanOrEqual(PERSON_REST_MS);
+		// Nobody in reach: nothing.
+		expect(chatter.tick(PERSON_REST_MS * 10, { x: 40, y: 40 }, home)).toBeNull();
+	});
+
 	it('follows people who walk around', () => {
-		const chatter = createChatter({ npcs, talks: [] });
+		const chatter = createChatter({ npcs, talks: [] }, never);
 		expect(chatter.tick(0, { x: 10, y: 10 }, (a) => (a.id === 'c' ? { x: 10, y: 11 } : a))?.actor.id).toBe('c');
 	});
 
 	it('answers a visitor who talks to someone with their own line, then their remark', () => {
-		const chatter = createChatter({ npcs, talks: [] });
+		const chatter = createChatter({ npcs, talks: [] }, never);
 		expect(chatter.remarkNext('a')).toBe(false);
 		expect(chatter.greet(0, 'a', 'I am a.')).toBe('I am a.');
 		expect(chatter.remarkNext('a')).toBe(true);
@@ -88,7 +118,7 @@ describe('createChatter', () => {
 	});
 
 	it('never talks over the answer to a greeting, and saves the remark for the second time', () => {
-		const chatter = createChatter({ npcs, talks: [] });
+		const chatter = createChatter({ npcs, talks: [] }, never);
 		expect(chatter.greet(0, 'c', 'I am c.')).toBe('I am c.');
 		expect(chatter.tick(250, { x: 20, y: 3 }, home)).toBeNull();
 		expect(chatter.tick(PAUSE_MS * 2, { x: 20, y: 3 }, home)).toBeNull();
@@ -97,8 +127,8 @@ describe('createChatter', () => {
 
 	it('drops a talk when the visitor greets one of its people, and skips the walk target', () => {
 		// Walking up to b: no talk, a's own remark instead.
-		expect(createChatter({ npcs, talks }).tick(0, { x: 2, y: 4 }, home, 'b')?.text).toBe('Max owns an ErgoDox.');
-		const chatter = createChatter({ npcs, talks });
+		expect(createChatter({ npcs, talks }, never).tick(0, { x: 2, y: 4 }, home, 'b')?.text).toBe('Max owns an ErgoDox.');
+		const chatter = createChatter({ npcs, talks }, never);
 		expect(chatter.tick(0, { x: 2, y: 4 }, home)?.text).toBe('One.');
 		chatter.greet(100, 'b', 'I am b.');
 		let said = null;

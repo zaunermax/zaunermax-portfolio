@@ -5,8 +5,10 @@ import type { Actor, CompiledWorld } from '../world/types';
  * and pairs of colleagues chat about him when the visitor comes close. Pure and clock-driven,
  * so the app polls it a few times a second and the tests can drive it.
  *
- * It stays sparse on purpose: one line at a time, a pause after every remark or talk, each
- * remark once per visit and each talk once (a talk the visitor walks away from can start over).
+ * Fresh things come first: talks nobody has heard yet, then remarks about Max. After that the
+ * office keeps chattering: talks play again a while after they ended, and people the visitor
+ * passes now and then say their own line or their remark again. One line at a time, with a
+ * pause after each, and nobody speaks twice within PERSON_REST_MS.
  */
 
 /** The visitor is within this many cells of someone for a passing remark. */
@@ -17,6 +19,12 @@ export const TALK_RANGE = 3.5;
 const TALK_LEAVE = 6;
 /** Quiet after a remark or talk before the next one, so it never turns into a wall of text. */
 export const PAUSE_MS = 7000;
+/** A talk can play again this long after it last ended. */
+export const TALK_REPLAY_MS = 90_000;
+/** Someone who just said something waits this long before chattering at the visitor again. */
+export const PERSON_REST_MS = 30_000;
+/** Once the fresh lines are used up, the chance per poll (about 4 a second) that someone speaks. */
+const IDLE_CHANCE = 0.1;
 
 /** A remark or greeting stays up while the visitor stands this close to whoever said it. */
 export const HOLD_RANGE = 3;
@@ -28,22 +36,24 @@ export const readMs = (text: string) => Math.min(7000, Math.max(3500, 1600 + tex
 
 type Pos = { x: number; y: number };
 
-export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>) {
+export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>, random: () => number = Math.random) {
 	const byId = new Map(world.npcs.map((a) => [a.id, a]));
 	const talks = world.talks.filter((t) => byId.has(t.a) && byId.has(t.b));
 	const heard = new Set<string>();
-	const told = new Set<number>();
+	/** When each talk last ended. */
+	const told = new Map<number, number>();
+	/** When each person last said something, and what. */
+	const spoke = new Map<string, { at: number; text: string }>();
 	/** Who got their own line last time the visitor talked to them (F), so the next is the remark. */
 	const greeted = new Set<string>();
 	let talk: { index: number; step: number; next: number } | null = null;
 	let quietUntil = 0;
 
-	const line = (actor: Actor, text: string, kind: ChatterLine['kind']): ChatterLine => ({
-		actor,
-		text,
-		ms: readMs(text),
-		kind,
-	});
+	const line = (actor: Actor, text: string, kind: ChatterLine['kind'], now: number): ChatterLine => {
+		spoke.set(actor.id, { at: now, text });
+		return { actor, text, ms: readMs(text), kind };
+	};
+	const rested = (id: string, now: number) => now - (spoke.get(id)?.at ?? -Infinity) >= PERSON_REST_MS;
 
 	return {
 		/**
@@ -60,9 +70,13 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>) {
 				return Math.min(dist(byId.get(t.a)!), dist(byId.get(t.b)!));
 			};
 			if (!talk && now >= quietUntil) {
-				const index = talks.findIndex(
-					(t, i) => !told.has(i) && t.a !== goal && t.b !== goal && near(i) <= TALK_RANGE,
-				);
+				const ready = (i: number) => {
+					const t = talks[i];
+					return t.a !== goal && t.b !== goal && near(i) <= TALK_RANGE;
+				};
+				// A talk nobody has heard yet first, else one that ended long enough ago.
+				let index = talks.findIndex((_, i) => !told.has(i) && ready(i));
+				if (index < 0) index = talks.findIndex((_, i) => now - (told.get(i) ?? now) >= TALK_REPLAY_MS && ready(i));
 				if (index >= 0) talk = { index, step: 0, next: now };
 			}
 			if (talk) {
@@ -74,12 +88,12 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>) {
 				}
 				if (now < talk.next) return null;
 				if (talk.step >= t.lines.length) {
-					told.add(talk.index);
+					told.set(talk.index, now);
 					talk = null;
 					quietUntil = now + PAUSE_MS;
 					return null;
 				}
-				const said = line(byId.get(talk.step % 2 === 0 ? t.a : t.b)!, t.lines[talk.step], 'talk');
+				const said = line(byId.get(talk.step % 2 === 0 ? t.a : t.b)!, t.lines[talk.step], 'talk', now);
 				talk.step++;
 				// The reply starts as the line before is ending, like people talking.
 				talk.next = now + said.ms * 0.8;
@@ -96,10 +110,24 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>) {
 					bestDist = d;
 				}
 			}
-			if (!best?.remark) return null;
-			heard.add(best.id);
+			if (best?.remark) {
+				heard.add(best.id);
+				quietUntil = now + PAUSE_MS;
+				return line(best, best.remark, 'remark', now);
+			}
+			// Nothing fresh nearby: now and then someone in reach chatters anyway.
+			if (random() >= IDLE_CHANCE) return null;
+			const idle = world.npcs.filter(
+				(a) => (a.interactive || a.remark) && a.id !== goal && rested(a.id, now) && dist(a) <= REMARK_RANGE,
+			);
+			if (!idle.length) return null;
+			const who = idle[Math.floor(random() * idle.length)];
+			const said = [who.line, who.remark ?? ''].filter(Boolean);
+			// Whatever they did not say last time, if they have a choice.
+			const options = said.length > 1 ? said.filter((t) => t !== spoke.get(who.id)?.text) : said;
+			if (!options.length) return null;
 			quietUntil = now + PAUSE_MS;
-			return line(best, best.remark, 'remark');
+			return line(who, options[Math.floor(random() * options.length)], 'remark', now);
 		},
 
 		/**
@@ -113,6 +141,7 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>) {
 			if (text === own) greeted.add(id);
 			else greeted.delete(id);
 			heard.add(id);
+			spoke.set(id, { at: now, text });
 			if (talk && (talks[talk.index].a === id || talks[talk.index].b === id)) talk = null;
 			quietUntil = Math.max(quietUntil, now + readMs(text));
 			return text;
