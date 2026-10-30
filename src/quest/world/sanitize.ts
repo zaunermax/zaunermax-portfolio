@@ -246,8 +246,11 @@ function eventOf(value: unknown): Brief['event'] {
 	};
 }
 
-/** Chatter never links anywhere: a line with a URL or an email address is dropped. */
-const LINKISH = /https?:|www\.|\.(?:at|com|wtf|io|dev)\b|@/i;
+/**
+ * Chatter never links anywhere: a line with a URL, a domain or an email address is dropped.
+ * Library names like Next.js and Effect.ts are not domains.
+ */
+const LINKISH = /https?:|www\.|@|\b[a-z0-9-]+\.(?!js\b|ts\b)[a-z]{2,}\b/i;
 /** Colleagues just know Max: a line that cites where it came from breaks the spell. */
 const SOURCED = /\b(?:the|his|my|our) notes\b|\bCV\b|r[ée]sum[ée]|\bthis game\b|\bthe website\b/i;
 

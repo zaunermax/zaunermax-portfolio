@@ -240,11 +240,20 @@ export function usableBrief(brief: Brief) {
  * returns the final brief once it has been compiled, checked and moderated.
  * Throws WorldGenerationError (with a visitor-safe message) when the result is unusable.
  */
-export async function* generateWorld({
-	signal,
-	previous,
-	seed = newSeed(),
-}: GenerateWorldOptions = {}): AsyncGenerator<Brief, GeneratedWorld> {
+export async function* generateWorld(options: GenerateWorldOptions = {}): AsyncGenerator<Brief, GeneratedWorld> {
+	// However the run ends, a chatter call still going is no longer worth paying for.
+	const done = new AbortController();
+	try {
+		return yield* buildWorld(options, done.signal);
+	} finally {
+		done.abort();
+	}
+}
+
+async function* buildWorld(
+	{ signal, previous, seed = newSeed() }: GenerateWorldOptions,
+	finished: AbortSignal,
+): AsyncGenerator<Brief, GeneratedWorld> {
 	const model = worldModelId();
 	const premise = pickPremise(seed, previous);
 	const startedAt = Date.now();
@@ -256,7 +265,7 @@ export async function* generateWorld({
 		premise: premise.premise,
 		// Offices without chatter of their own show the default lines.
 		previous: previous ? (previous.chatter ?? DEFAULT_CHATTER) : null,
-		signal: abortSignal,
+		signal: AbortSignal.any([abortSignal, finished]),
 	});
 
 	const result = streamText({
@@ -315,8 +324,6 @@ export async function* generateWorld({
 				: 'The redeploy produced too little to build an office.',
 			{ cause: streamError ?? undefined },
 		);
-	const extra = await chatter;
-	if (extra) brief = { ...brief, chatter: extra };
 	// The last cast member and the closing only settle once the model is done: show them now,
 	// not after the checks below, so the build log never stalls on its final step.
 	if (JSON.stringify(brief) !== last) yield brief;
@@ -333,10 +340,11 @@ export async function* generateWorld({
 				Promise.resolve(result.finishReason).catch(() => null),
 			]);
 
-	await moderate(brief, signal);
+	// The chatter finishes alongside the checks; only the persisted brief carries it.
+	const [extra] = await Promise.all([chatter, moderate(brief, signal)]);
 
 	return {
-		brief,
+		brief: extra ? { ...brief, chatter: extra } : brief,
 		seed,
 		model,
 		premise,

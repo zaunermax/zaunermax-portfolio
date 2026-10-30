@@ -79,6 +79,18 @@ ${heard.join('\n') || '(nothing yet)'}
 This office: ${premise}.`;
 }
 
+/** The CMS fetch takes no signal: stop waiting for it once the redeploy gives up. */
+function abortable<T>(work: Promise<T>, signal?: AbortSignal): Promise<T> {
+	if (!signal) return work;
+	return Promise.race([
+		work,
+		new Promise<never>((_, reject) => {
+			if (signal.aborted) reject(signal.reason);
+			signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+		}),
+	]);
+}
+
 /** Fresh chatter for an office with this premise, or null (never throws). */
 export async function generateChatter({
 	premise,
@@ -91,7 +103,7 @@ export async function generateChatter({
 	signal?: AbortSignal;
 }): Promise<Chatter | null> {
 	try {
-		const notes = (await getLlmContext()).map((n) => n.text);
+		const notes = (await abortable(getLlmContext(), signal)).map((n) => n.text);
 		if (!notes.length) return null;
 		const { output } = await generateText({
 			model: getAIProvider().responses(CHATTER_MODEL),

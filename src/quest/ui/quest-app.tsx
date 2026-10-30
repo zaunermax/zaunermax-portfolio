@@ -349,7 +349,7 @@ export function QuestApp({
 	// --- what happens when the visitor arrives somewhere or presses F
 	const onInteract = useEffectEvent((t: Interactable) => {
 		if (t.kind === 'npc') {
-			const text = chatter.greet(t.id, t.line);
+			const text = chatter.greet(performance.now(), t.id, t.line);
 			setAskAbout(chatter.remarkNext(t.id) ? { chatter, id: t.id } : null);
 			bus.say(t.id, text);
 			log.push({

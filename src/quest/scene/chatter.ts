@@ -52,7 +52,9 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>) {
 				return Math.min(dist(byId.get(t.a)!), dist(byId.get(t.b)!));
 			};
 			if (!talk && now >= quietUntil) {
-				const index = talks.findIndex((_, i) => !told.has(i) && near(i) <= TALK_RANGE);
+				const index = talks.findIndex(
+					(t, i) => !told.has(i) && t.a !== goal && t.b !== goal && near(i) <= TALK_RANGE,
+				);
 				if (index >= 0) talk = { index, step: 0, next: now };
 			}
 			if (talk) {
@@ -94,17 +96,18 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>) {
 
 		/**
 		 * What someone says when the visitor talks to them (F or a tap): their own line, and every
-		 * other time what they know about Max, if they know something.
+		 * other time what they know about Max, if they know something. Their remark is saved for
+		 * that second time, and nothing ambient talks over the answer.
 		 */
-		greet(id: string, own: string): string {
+		greet(now: number, id: string, own: string): string {
 			const remark = byId.get(id)?.remark;
-			if (!remark || !greeted.has(id)) {
-				greeted.add(id);
-				return own;
-			}
-			greeted.delete(id);
+			const text = !remark || !greeted.has(id) ? own : remark;
+			if (text === own) greeted.add(id);
+			else greeted.delete(id);
 			heard.add(id);
-			return remark;
+			if (talk && (talks[talk.index].a === id || talks[talk.index].b === id)) talk = null;
+			quietUntil = Math.max(quietUntil, now + readMs(text));
+			return text;
 		},
 
 		/** Talking to them again gets their remark about Max. */

@@ -135,9 +135,15 @@ describe('generateWorld', () => {
 		// Nothing on display yet, so nothing to avoid repeating.
 		expect(mocks.chatter.mock.calls[0][0].previous).toBeNull();
 		expect(result.brief).toEqual({ ...defaultBrief, chatter });
-		expect(streamed.at(-1)).toEqual(result.brief);
-		// Only the brief that is done carries it.
-		expect(streamed.slice(0, -1).every((b) => !b.chatter)).toBe(true);
+		// The build log never waits for it: only the persisted brief carries it.
+		expect(streamed.at(-1)).toEqual(defaultBrief);
+		expect(streamed.every((b) => !b.chatter)).toBe(true);
+	});
+
+	it('stops the chatter call once the run is over, whatever the outcome', async () => {
+		fakeStream(defaultBrief, { error: new Error('boom'), cut: 20 });
+		await expect(drain(generateWorld())).rejects.toThrow(/did not answer/);
+		expect((mocks.chatter.mock.calls[0][0].signal as AbortSignal).aborted).toBe(true);
 	});
 
 	it('defaults to gpt-6-luna with low reasoning, one attempt, no storage and a timeout', async () => {

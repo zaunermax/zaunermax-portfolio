@@ -60,6 +60,15 @@ describe('generateChatter', () => {
 		expect(await generateChatter({ premise: 'x' })).toBeNull();
 		expect(mocks.generateText).toHaveBeenCalledTimes(2);
 	});
+
+	it('stops waiting for a stalled CMS when the redeploy gives up', async () => {
+		mocks.context.mockReturnValueOnce(new Promise(() => {}));
+		const controller = new AbortController();
+		const pending = generateChatter({ premise: 'x', signal: controller.signal });
+		controller.abort();
+		expect(await pending).toBeNull();
+		expect(mocks.generateText).not.toHaveBeenCalled();
+	});
 });
 
 describe('buildChatterPrompt', () => {

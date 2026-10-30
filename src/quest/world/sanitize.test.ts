@@ -142,7 +142,7 @@ describe('cleanText', () => {
 describe('chatterOf', () => {
 	it('keeps clean lines and drops labels, links, duplicates and broken talks', () => {
 		const chatter = chatterOf({
-			remarks: ['"Max owns an ErgoDox EZ."', 'Max owns an ErgoDox EZ.', 'See zaunermax.at', 'Mail hello@x.io', 'His CV says so.', 42, ''],
+			remarks: ['"Max owns an ErgoDox EZ."', 'Max owns an ErgoDox EZ.', 'See zaunermax.at', 'Mail hello@x.io', 'Try maxzauner.org', 'He uses Effect.ts and Next.js.', 'His CV says so.', 42, ''],
 			talks: [
 				['A: Trains?', 'B: Trains.'],
 				['Only one line'],
@@ -151,7 +151,10 @@ describe('chatterOf', () => {
 				'nope',
 			],
 		});
-		expect(chatter).toEqual({ remarks: ['Max owns an ErgoDox EZ.'], talks: [['Trains?', 'Trains.']] });
+		expect(chatter).toEqual({
+			remarks: ['Max owns an ErgoDox EZ.', 'He uses Effect.ts and Next.js.'],
+			talks: [['Trains?', 'Trains.']],
+		});
 	});
 
 	it('caps the counts and lengths', () => {

@@ -79,8 +79,12 @@ export function ChatLogView({
 	const stick = useRef(true);
 	const [open, setOpen] = useState(false);
 	const [expanded, setExpanded] = useState(false);
-	const [seen, setSeen] = useState(0);
-	const unread = compact && !open ? entries.slice(seen).filter((e) => !e.ambient).length : 0;
+	/** The newest entry when the chat was last opened or closed; older ones may be dropped. */
+	const [seen, setSeen] = useState<string | null>(null);
+	const unread =
+		compact && !open
+			? entries.slice(entries.findIndex((e) => e.id === seen) + 1).filter((e) => !e.ambient).length
+			: 0;
 
 	useEffect(() => {
 		const el = body.current;
@@ -106,7 +110,7 @@ export function ChatLogView({
 					aria-expanded={open}
 					onClick={() => {
 						setOpen(!open);
-						setSeen(entries.length);
+						setSeen(entries.at(-1)?.id ?? null);
 					}}
 				>
 					{open ? 'Hide chat' : unread ? `Chat (${unread} new)` : 'Chat'}
