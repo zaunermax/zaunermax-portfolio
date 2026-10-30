@@ -344,9 +344,13 @@
 }
 
 @media (max-width: 640px) {
+	.touchHint {
+		bottom: 162px;
+	}
+
 	.build {
 		top: auto;
-		bottom: 214px;
+		bottom: 162px;
 		padding: 5px 10px 8px;
 	}
 
@@ -2671,7 +2675,7 @@ textarea.fieldInput {
 	}
 
 	.dock {
-		bottom: 64px;
+		bottom: 12px;
 		gap: 16px;
 	}
 
@@ -2757,7 +2761,7 @@ textarea.fieldInput {
 
 	.chat[data-open='true'] {
 		top: auto;
-		bottom: 214px;
+		bottom: 162px;
 		width: calc(100vw - 20px);
 		gap: 10px;
 	}
