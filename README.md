@@ -55,6 +55,33 @@ Email stays unconfigured on beta. Chat/contact limits use SQLite fixed-window co
 separate QuestLimits object. Suggestions cache per mode in the Workers Cache API for 300 seconds;
 a POST refresh bypasses the cached read and replaces the entry.
 
+## Agent worktree setup
+
+After creating a worktree, run this inside it (works in Windows, macOS and Linux shells):
+
+```sh
+node scripts/setup-worktree.mjs
+```
+
+Requires Git and Node >=22.12 (24 recommended), plus the pinned pnpm or Corepack on PATH.
+The script installs development dependencies with the frozen lockfile, generates Worker
+types locally and installs Playwright Chromium. It can also be run as `pnpm setup:worktree`.
+On Linux, Chromium may additionally require system libraries; if Playwright reports missing
+libraries, install them once using `pnpm exec playwright install-deps chromium` with the
+machine owner's usual administrator access.
+
+Setup copies `.dev.vars` from the primary checkout, without printing its values. If there is
+no primary config, it copies `.dev.vars.example`; fill in credentials for live integrations.
+Existing `.dev.vars` files are preserved, so rerunning setup is safe. Configured AI calls keep
+their existing paid behavior; use the fake-generator option above or mocked tests as needed.
+Each worktree gets its own dependencies and `.wrangler/state`; runtime state is never copied.
+Setup does not start a server. Use `pnpm dev --port 3001` (or another free port) when running
+several worktrees at once.
+
+In T3 Code, configure a project script with command `node scripts/setup-worktree.mjs` and
+enable **Run on worktree create**. The script must be present in the revision used to create
+the worktree; the T3 project setting is local to each machine.
+
 ## Checks and tooling
 
 ```sh
