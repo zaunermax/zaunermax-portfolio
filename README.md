@@ -87,9 +87,10 @@ authorization.
 GitHub Actions (`.github/workflows/beta.yml`) runs lint, typecheck, unit tests and the build on
 every pull request, and on every push to `main` deploys beta with `wrangler deploy` once those
 pass, so merging a pull request deploys it, Durable Object migrations included. Deploys run one
-at a time and authenticate with the `CLOUDFLARE_API_TOKEN` repository secret. There are no
-preview deployments. Roll back with `pnpm exec wrangler rollback`, or re-run the workflow for an
-older commit.
+at a time and authenticate with the `CLOUDFLARE_API_TOKEN` repository secret; a run whose commit
+is no longer the head of `main` skips its deploy, so an older run cannot overwrite a newer one.
+There are no preview deployments. Roll back with `pnpm exec wrangler rollback`, or re-run an
+older run, which deploys its commit regardless.
 
 The `deploy` script builds then invokes Wrangler; the generated configuration is under
 `dist/server` and `.wrangler/deploy`. `pnpm preview` runs that build locally.
