@@ -199,10 +199,8 @@ export function QuestApp({
 			? Math.min(intro.step, steps.length - 1)
 			: steps.length - 1;
 
-	const compiled = useMemo(
-		() => compileWorld(introActive || frozen ? steps[step] : brief, seed, { partial }),
-		[steps, step, introActive, frozen, brief, seed, partial],
-	);
+	const shown = introActive || frozen ? steps[step] : brief;
+	const compiled = useMemo(() => compileWorld(shown, seed, { partial }), [shown, seed, partial]);
 	const worldName = brief.company || (generating ? 'A new office' : 'the office');
 	const tagline = brief.tagline;
 
@@ -493,7 +491,7 @@ export function QuestApp({
 				<LoadingVeil ready={sceneReady} name={worldName} />
 				<ZoneText state={zoneState} worldName={worldName} tagline={tagline} />
 				{(generating || frozen || introRunning) && sceneReady ? (
-					<BuildProgress world={compiled} label="Furnishing office" />
+					<BuildProgress brief={shown} world={compiled} live={generating} />
 				) : null}
 				{touch && seenTouchHint === false && sceneReady && !introActive && !generating && open === null ? (
 					<div className={styles.touchHint} role="note">

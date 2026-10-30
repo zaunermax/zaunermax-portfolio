@@ -234,7 +234,8 @@ export function usableBrief(brief: Brief) {
 
 /**
  * Streams a freshly generated brief. Yields the sanitized, settled part of the brief each time
- * it grows, and returns the final brief once it has been compiled, checked and moderated.
+ * it grows, then the whole brief as the model finished it (its closing marks the end), and
+ * returns the final brief once it has been compiled, checked and moderated.
  * Throws WorldGenerationError (with a visitor-safe message) when the result is unusable.
  */
 export async function* generateWorld({
@@ -305,6 +306,9 @@ export async function* generateWorld({
 				: 'The redeploy produced too little to build an office.',
 			{ cause: streamError ?? undefined },
 		);
+	// The last cast member and the closing only settle once the model is done: show them now,
+	// not after the checks below, so the build log never stalls on its final step.
+	if (JSON.stringify(brief) !== last) yield brief;
 	const problems = checkWorld(compileWorld(brief, seed));
 	if (problems.length)
 		throw new WorldGenerationError('The new office failed its fire inspection.', {

@@ -103,6 +103,25 @@ describe('generateWorld', () => {
 		expect(input).toContain('Priya: Oat, soy');
 	});
 
+	it('streams the finished brief, closing and all, before the checks run', async () => {
+		fakeStream(defaultBrief);
+		const generator = generateWorld({ seed: 850 });
+		let last: Brief | null = null;
+		let lastBeforeModeration: Brief | null = null;
+		mocks.moderate.mockImplementation(async () => {
+			lastBeforeModeration = last;
+			return { results: [{ flagged: false }] };
+		});
+		let step = await generator.next();
+		while (!step.done) {
+			last = step.value;
+			step = await generator.next();
+		}
+		expect(lastBeforeModeration).toEqual(defaultBrief);
+		expect(lastBeforeModeration!.closing).not.toBe('');
+		expect(step.value.brief).toEqual(defaultBrief);
+	});
+
 	it('defaults to gpt-6-luna with low reasoning, one attempt, no storage and a timeout', async () => {
 		fakeStream(defaultBrief);
 		await drain(generateWorld({ previous: { company: 'Old Co', vibe: 'cozy' } }));

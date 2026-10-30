@@ -242,35 +242,105 @@
 	background: var(--paper);
 	box-shadow: var(--ring3), var(--lift3);
 	pointer-events: none;
+	max-width: calc(100vw - 24px);
 }
 
 .buildText {
 	font-family: var(--pixel);
 	font-size-adjust: var(--pixel-adjust);
 	font-size: 18px;
-	white-space: nowrap;
+	text-align: center;
+	text-wrap: balance;
 }
 
-.buildText b {
+.buildDots::after {
+	content: '...';
+	display: inline-block;
+	width: 3ch;
+	text-align: left;
+	clip-path: inset(0 100% 0 0);
+	animation: buildDots 1.2s steps(4, jump-none) infinite;
+}
+
+@keyframes buildDots {
+	to {
+		clip-path: inset(0 0 0 0);
+	}
+}
+
+.buildSteps {
+	display: flex;
+	gap: 6px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.buildStep {
+	display: grid;
+	gap: 3px;
+	min-width: 64px;
+}
+
+.buildLabel {
+	font-family: var(--pixel);
+	font-size-adjust: var(--pixel-adjust);
+	font-size: 13px;
+	line-height: 1;
+	white-space: nowrap;
+	color: var(--ink);
+	opacity: 0.55;
+}
+
+.buildLabel b {
 	color: var(--teal-dark);
 	font-weight: inherit;
 }
 
-.buildTrack {
-	display: flex;
-	gap: 3px;
+.buildStep[data-state='now'] .buildLabel,
+.buildStep[data-state='done'] .buildLabel {
+	opacity: 1;
 }
 
-.buildCell {
-	width: 14px;
+.buildBar {
+	position: relative;
 	height: 10px;
+	overflow: hidden;
 	background: var(--cream-shade);
 	box-shadow: inset 0 0 0 2px var(--ink);
-	transition: background 0.2s steps(2);
 }
 
-.buildCell[data-on='true'] {
+.buildBar::before {
+	content: '';
+	position: absolute;
+	inset: 2px;
 	background: var(--teal);
+	clip-path: inset(0 calc((1 - var(--fill)) * 100%) 0 0);
+	transition: clip-path 0.3s steps(3);
+}
+
+.buildStep[data-state='done'] .buildBar::before {
+	clip-path: none;
+}
+
+/* A stage with no known end: pixel stripes march along, so the wait never looks stuck. */
+.buildBar[data-busy='true']::before {
+	clip-path: none;
+	background: repeating-linear-gradient(90deg, var(--teal) 0 6px, transparent 6px 12px);
+	background-size: 12px 100%;
+	animation: buildMarch 0.6s steps(3) infinite;
+}
+
+@keyframes buildMarch {
+	to {
+		background-position: 12px 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.buildDots::after {
+		clip-path: none;
+	}
 }
 
 @media (max-width: 640px) {
@@ -284,8 +354,12 @@
 		font-size: 15px;
 	}
 
-	.buildCell {
-		width: 10px;
+	.buildStep {
+		min-width: 52px;
+	}
+
+	.buildLabel {
+		font-size: 11px;
 	}
 }
 
@@ -2834,6 +2908,8 @@ textarea.fieldInput {
 	.statusDot,
 	.onlineDot,
 	.forgeArt svg,
+	.buildDots::after,
+	.buildBar::before,
 	.touchHint,
 	.touchHintIcon {
 		animation: none;
