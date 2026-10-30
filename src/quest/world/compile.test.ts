@@ -476,6 +476,20 @@ describe('seating, pods and small stories', () => {
 		}
 	});
 
+	it('keeps the barista bot clear of everything on the counter', () => {
+		let perched = 0;
+		for (const seed of SEEDS)
+			for (const [, brief] of BRIEFS) {
+				const world = compileWorld(brief(seed), seed);
+				for (const n of world.npcs.filter((m) => m.character === 'robo_barista')) {
+					perched++;
+					const clash = world.decor.find((d) => d.y === n.elev && Math.floor(d.x) === Math.floor(n.x) && Math.floor(d.z) === Math.floor(n.y));
+					expect(clash?.asset, `seed ${seed}`).toBeUndefined();
+				}
+			}
+		expect(perched).toBeGreaterThan(0);
+	});
+
 	it('tells two or three captioned stories and always staffs the coffee bar', () => {
 		for (const seed of SEEDS.slice(0, 20)) {
 			const world = compileWorld(defaultBrief, seed);

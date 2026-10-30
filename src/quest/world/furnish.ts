@@ -1227,6 +1227,8 @@ const coffee: Placer = (ctx) => {
 		const cells = ctx.runCells({ x, y }, n, 0);
 		const behind = cells.map((c) => ({ x: c.x, y: ctx.y0 }));
 		const stools = cells.filter((_, i) => i !== 1);
+		// The espresso machine sits on the second cell; on a two-cell bar the bot takes the first.
+		const bot = n > 2 ? n - 1 : 0;
 		return ctx.place({
 			pieces: [
 				...ctx.run('counter', { x, y }, n, 0),
@@ -1237,12 +1239,12 @@ const coffee: Placer = (ctx) => {
 				{ kind: 'barista', x: x + 1, y: ctx.y0, rot: 0 },
 				...stools.map((c) => ({ kind: 'bar' as SpotKind, x: c.x, y: y + 1, rot: 2 as Rot, sit: true, elev: 11 / 16 })),
 				// The barista bot works the far end of the bar.
-				{ kind: 'perch', x: cells[n - 1].x, y, rot: 0, elev: COUNTER_TOP },
+				{ kind: 'perch', x: cells[bot].x, y, rot: 0, elev: COUNTER_TOP },
 			],
 			decor: [
 				...ctx.topItems(cells[1], 0, [{ asset: 'espresso_machine', lx: 0, lz: -0.15, turn: Math.PI }], COUNTER_TOP),
 				...cells.flatMap((c, i) =>
-					i === 1 || i === n - 1
+					i === 1 || i === bot
 						? []
 						: ctx.topItems(c, 0, [{ asset: i % 2 ? 'coffee_cup_togo' : 'mug', lx: (i % 3) * 0.2 - 0.2, lz: 0.15 }], COUNTER_TOP),
 				),
