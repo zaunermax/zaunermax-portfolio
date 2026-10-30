@@ -324,8 +324,8 @@ export function QuestApp({
 
 	// --- the staff mention Max as the visitor walks by; quiet while a window or the overview is up
 	const chatter = useMemo(() => createChatter(compiled), [compiled]);
-	/** The person whose next greeting is their remark about Max, for the prompt. */
-	const [askAbout, setAskAbout] = useState<{ chatter: ChatterDirector; id: string } | null>(null);
+	/** Who answers the next greeting with their remark about Max, for the prompt. */
+	const [askAbout, setAskAbout] = useState<{ chatter: ChatterDirector; ids: ReadonlySet<string> } | null>(null);
 	// It waits for the welcome card to shrink, so the first talk is not said behind it.
 	const chatting =
 		sceneReady && !introActive && !generating && !overview && open === null && !hidden && zoneState === 'small';
@@ -359,7 +359,12 @@ export function QuestApp({
 	const onInteract = useEffectEvent((t: Interactable) => {
 		if (t.kind === 'npc') {
 			const text = chatter.greet(performance.now(), t.id, t.line);
-			setAskAbout(chatter.remarkNext(t.id) ? { chatter, id: t.id } : null);
+			setAskAbout((prev) => {
+				const ids = new Set(prev?.chatter === chatter ? prev.ids : []);
+				if (chatter.remarkNext(t.id)) ids.add(t.id);
+				else ids.delete(t.id);
+				return { chatter, ids };
+			});
 			bus.say(t.id, text, readMs(text));
 			listening.current = t.id;
 			log.push({
@@ -594,7 +599,7 @@ export function QuestApp({
 					xp={xp}
 					nearby={open ? null : nearby}
 					touch={touch}
-					aboutMax={nearby?.kind === 'npc' && askAbout?.chatter === chatter && askAbout.id === nearby.id}
+					aboutMax={nearby?.kind === 'npc' && askAbout?.chatter === chatter && askAbout.ids.has(nearby.id)}
 					onInteract={() => bus.interact()}
 				/>
 

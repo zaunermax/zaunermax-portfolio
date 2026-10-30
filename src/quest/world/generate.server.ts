@@ -42,6 +42,24 @@ export const GENERATION_TIMEOUT_MS = 90_000;
 export const MAX_OUTPUT_TOKENS = 5_000;
 export const DEFAULT_WORLD_MODEL = 'gpt-6.1-sol';
 
+/** Models that offer OpenAI's Ultrafast tier; any other QUEST_WORLD_MODEL runs at standard speed. */
+export const ULTRAFAST_MODELS: ReadonlySet<string> = new Set(['gpt-6.1-sol', 'gpt-6-astra']);
+/** How long a finished office waits for its chatter before it deploys without it. */
+export const CHATTER_GRACE_MS = 8_000;
+
+/** `work`, or null if it takes longer than `ms`. */
+async function withGrace<T>(work: Promise<T>, ms: number): Promise<T | null> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const late = new Promise<null>((resolve) => {
+		timer = setTimeout(() => resolve(null), ms);
+	});
+	try {
+		return await Promise.race([work, late]);
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
 export function worldModelId() {
 	return process.env.QUEST_WORLD_MODEL?.trim() || DEFAULT_WORLD_MODEL;
 }
@@ -286,8 +304,10 @@ async function* buildWorld(
 		maxRetries: 0,
 		abortSignal,
 		// Ultrafast: the office builds live in front of the visitor, so speed beats the token premium
-		// (about 9s instead of 25s in Fast mode for roughly 3x the price).
-		providerOptions: { openai: { store: false, serviceTier: 'ultrafast' } },
+		// (about 9s instead of 25s in Fast mode for roughly 3x the price). Only some models offer it.
+		providerOptions: {
+			openai: { store: false, ...(ULTRAFAST_MODELS.has(model) ? { serviceTier: 'ultrafast' } : {}) },
+		},
 		onError: ({ error }) => {
 			streamError ??= error;
 		},
@@ -345,8 +365,9 @@ async function* buildWorld(
 				Promise.resolve(result.finishReason).catch(() => null),
 			]);
 
-	// The chatter finishes alongside the checks; only the persisted brief carries it.
-	const [extra] = await Promise.all([chatter, moderate(brief, signal)]);
+	// The chatter finishes alongside the checks, given a little grace at most: the office never
+	// waits long for it (the default lines stand in). Only the persisted brief carries it.
+	const [extra] = await Promise.all([withGrace(chatter, CHATTER_GRACE_MS), moderate(brief, signal)]);
 
 	return {
 		brief: extra ? { ...brief, chatter: extra } : brief,

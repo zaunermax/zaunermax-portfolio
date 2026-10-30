@@ -69,14 +69,30 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>, rand
 				const t = talks[index];
 				return Math.min(dist(byId.get(t.a)!), dist(byId.get(t.b)!));
 			};
+			/** The closest person in reach with a remark the visitor has not heard yet. */
+			const unheard = () => {
+				let best: Actor | null = null;
+				let bestDist = REMARK_RANGE;
+				for (const a of world.npcs) {
+					if (!a.remark || heard.has(a.id) || a.id === goal) continue;
+					const d = dist(a);
+					if (d <= bestDist) {
+						best = a;
+						bestDist = d;
+					}
+				}
+				return best;
+			};
 			if (!talk && now >= quietUntil) {
 				const ready = (i: number) => {
 					const t = talks[i];
 					return t.a !== goal && t.b !== goal && near(i) <= TALK_RANGE;
 				};
-				// A talk nobody has heard yet first, else one that ended long enough ago.
+				// A talk nobody has heard yet first, else (after any unheard remark) one that ended
+				// long enough ago.
 				let index = talks.findIndex((_, i) => !told.has(i) && ready(i));
-				if (index < 0) index = talks.findIndex((_, i) => now - (told.get(i) ?? now) >= TALK_REPLAY_MS && ready(i));
+				if (index < 0 && !unheard())
+					index = talks.findIndex((_, i) => now - (told.get(i) ?? now) >= TALK_REPLAY_MS && ready(i));
 				if (index >= 0) talk = { index, step: 0, next: now };
 			}
 			if (talk) {
@@ -100,16 +116,7 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>, rand
 				return said;
 			}
 			if (now < quietUntil) return null;
-			let best: Actor | null = null;
-			let bestDist = REMARK_RANGE;
-			for (const a of world.npcs) {
-				if (!a.remark || heard.has(a.id) || a.id === goal) continue;
-				const d = dist(a);
-				if (d <= bestDist) {
-					best = a;
-					bestDist = d;
-				}
-			}
+			const best = unheard();
 			if (best?.remark) {
 				heard.add(best.id);
 				quietUntil = now + PAUSE_MS;

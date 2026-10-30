@@ -20,6 +20,7 @@ import { DEFAULT_CHATTER, defaultBrief } from './default-world';
 import { optionalRoomCount, planFloor } from './floorplan';
 import {
 	buildRunPrompt,
+	CHATTER_GRACE_MS,
 	DEFAULT_WORLD_MODEL,
 	generateWorld,
 	pickPremise,
@@ -138,6 +139,28 @@ describe('generateWorld', () => {
 		// The build log never waits for it: only the persisted brief carries it.
 		expect(streamed.at(-1)).toEqual(defaultBrief);
 		expect(streamed.every((b) => !b.chatter)).toBe(true);
+	});
+
+	it('deploys without chatter that is still not done a few seconds after the office', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+		try {
+			mocks.chatter.mockReturnValue(new Promise(() => {}));
+			fakeStream(defaultBrief);
+			const pending = drain(generateWorld({ seed: 850 }));
+			await vi.advanceTimersByTimeAsync(CHATTER_GRACE_MS);
+			const { result } = await pending;
+			expect(result.brief).toEqual(defaultBrief);
+			expect((mocks.chatter.mock.calls[0][0].signal as AbortSignal).aborted).toBe(true);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('asks for Ultrafast only from models that offer it', async () => {
+		vi.stubEnv('QUEST_WORLD_MODEL', 'gpt-6-luna');
+		fakeStream(defaultBrief);
+		await drain(generateWorld());
+		expect((mocks.streamText.mock.calls[0][0] as StreamOptions).providerOptions).toEqual({ openai: { store: false } });
 	});
 
 	it('stops the chatter call once the run is over, whatever the outcome', async () => {

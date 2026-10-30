@@ -80,6 +80,18 @@ describe('createChatter', () => {
 		expect(firsts[1] - firsts[0]).toBeGreaterThanOrEqual(TALK_REPLAY_MS);
 	});
 
+	it('tells an unheard remark before replaying a talk', () => {
+		const at = { x: 2, y: 4 };
+		// The talk ends and a's remark is heard while d is away; d comes back as the talk could replay.
+		const d = person('d', 3, 4, 'Max owns a keyboard with two halves.');
+		const replay = createChatter({ npcs: [...npcs, d], talks }, never);
+		let t = 0;
+		for (; t < 40_000; t += 250) replay.tick(t, at, (a) => (a.id === 'd' ? { x: 50, y: 50 } : a));
+		let said = null;
+		for (t = TALK_REPLAY_MS + 40_000; !said; t += 250) said = replay.tick(t, at, home);
+		expect(said.text).toBe('Max owns a keyboard with two halves.');
+	});
+
 	it('keeps chattering once the fresh lines are used up, nobody twice within their rest', () => {
 		const chatter = createChatter({ npcs, talks: [] }, always);
 		const at = { x: 20, y: 3 };
