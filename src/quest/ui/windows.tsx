@@ -882,7 +882,7 @@ const KEYS: [string[], string][] = [
 	[['Click'], 'Walk to a spot, a person or a place'],
 	[['Q', 'E'], 'Turn the view by a quarter'],
 	[['Wheel'], 'Zoom in and out (pinch on touch screens)'],
-	[['1', '–', '6'], 'Open an app from the dock'],
+	[['1', '–', '6'], 'Open a dock app (you walk there first, press again to skip)'],
 	[['Esc'], 'Close a window'],
 ];
 

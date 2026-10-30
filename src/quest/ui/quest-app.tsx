@@ -192,6 +192,7 @@ export function QuestApp({
 		seenIntro === false && !reducedMotion && world.status === 'ready' && !intro.done;
 	const introRunning = introActive && sceneReady;
 	const frozen = preview.build !== null && !generating;
+	const overview = introActive || generating || frozen || preview.overview;
 	const partial = introActive || generating || frozen;
 	const step = frozen
 		? Math.min(preview.build!, steps.length - 1)
@@ -337,6 +338,26 @@ export function QuestApp({
 
 	const toggle = (id: WindowId) => setOpen((o) => (o === id ? null : id));
 
+	// Any window opening ends the walk in progress, so its arrival cannot swap the window.
+	useEffect(() => {
+		if (open) bus.stop();
+	}, [open, bus]);
+
+	// Dock apps that live at a landmark walk the visitor over first; the window opens on arrival,
+	// like a minimap pin. Pressing again on the way skips the walk.
+	const visit = (landmark: LandmarkId) => {
+		const id = LANDMARK_WINDOW[landmark];
+		if (open === id) return setOpen(null);
+		if (bus.goal?.kind === 'landmark' && bus.goal.id === landmark) {
+			bus.warpTo({ kind: 'landmark', id: landmark });
+			return setOpen(id);
+		}
+		const there = nearby?.kind === 'landmark' && nearby.id === landmark;
+		if (there || overview || !compiled.landmark[landmark]) return setOpen(id);
+		setOpen(null);
+		if (!bus.walkTo({ kind: 'landmark', id: landmark })) setOpen(id);
+	};
+
 	const tellMax = () => {
 		setOpen('gossip');
 		if (!chat.isBusy) chat.send('I have a project for you');
@@ -368,9 +389,9 @@ export function QuestApp({
 			title: 'Talk to Max',
 			description:
 				'Ask Max’s echo anything about his work, or tell it about a project you have in mind.',
-			use: 'Opens a chat with Max.',
+			use: 'Walks over to Max and opens a chat. Press again to skip the walk.',
 			key: '1',
-			onUse: () => toggle('gossip'),
+			onUse: () => visit('max'),
 		},
 		{
 			id: 'library',
@@ -378,18 +399,18 @@ export function QuestApp({
 			title: landmarkName('library') || 'The Wiki Shelf',
 			description:
 				'Max’s wiki: who he is, what he uses, what he thinks. Kept like a git repo, joke commits included.',
-			use: 'Opens the wiki.',
+			use: 'Walks over and opens the wiki. Press again to skip the walk.',
 			key: '2',
-			onUse: () => toggle('library'),
+			onUse: () => visit('library'),
 		},
 		{
 			id: 'stage',
 			label: 'Stage',
 			title: landmarkName('stage') || 'The Stage',
 			description: 'Talks Max has given at meetups and conferences.',
-			use: 'Lists every talk.',
+			use: 'Walks over and lists every talk. Press again to skip the walk.',
 			key: '3',
-			onUse: () => toggle('stage'),
+			onUse: () => visit('stage'),
 		},
 		{
 			id: 'quest',
@@ -397,9 +418,9 @@ export function QuestApp({
 			title: landmarkName('questboard') || 'The Ticket Board',
 			description:
 				'Got a project? Max builds web products end to end, AI features included.',
-			use: 'Shows how to hire Max.',
+			use: 'Walks over and shows how to hire Max. Press again to skip the walk.',
 			key: '4',
-			onUse: () => toggle('questboard'),
+			onUse: () => visit('questboard'),
 		},
 		{
 			id: 'forge',
@@ -410,7 +431,7 @@ export function QuestApp({
 				: cooldownMs > 0
 					? `The main rack is cooling down. Ready ${untilLabel(cooldownMs)}.`
 					: 'Ask the main rack for a brand-new office. An AI writes it, the office builds itself live.',
-			use: 'Opens the server rack.',
+			use: 'Walks over and opens the server rack. Press again to skip the walk.',
 			key: '5',
 			disabled: !world.canGenerate,
 			busy: generating,
@@ -421,7 +442,7 @@ export function QuestApp({
 							text: `${Math.ceil(cooldownMs / 60000)}m`,
 						}
 					: null,
-			onUse: () => toggle('forge'),
+			onUse: () => visit('worldforge'),
 		},
 		{
 			id: 'controls',
@@ -435,7 +456,7 @@ export function QuestApp({
 	];
 
 	const onHotkey = useEffectEvent((e: KeyboardEvent) => {
-		if (e.metaKey || e.ctrlKey || e.altKey || isTypingTarget(e.target) || introRunning)
+		if (e.metaKey || e.ctrlKey || e.altKey || e.repeat || isTypingTarget(e.target) || introRunning)
 			return;
 		const n = Number(e.key);
 		if (Number.isInteger(n) && n >= 1 && n <= actions.length) {
@@ -466,7 +487,7 @@ export function QuestApp({
 							<WorldCanvas
 								world={compiled}
 								bus={bus}
-								mode={introActive || generating || frozen || preview.overview ? 'overview' : 'play'}
+								mode={overview ? 'overview' : 'play'}
 								animate={
 									sceneReady &&
 									(introActive || generating || world.worldId !== initial.world.id)

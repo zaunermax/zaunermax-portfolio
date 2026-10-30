@@ -25,6 +25,8 @@ export const MAX_ANCHOR = 'max-npc';
 export class GameBus {
 	/** Player position in cell space and heading in radians (0 faces south). */
 	player = { x: 20, y: 16, heading: Math.PI, moving: false };
+	/** The landmark or person the visitor is walking to, if any. Written by the scene. */
+	goal: WalkTarget | null = null;
 	/** NPC positions by entity id. */
 	npcs = new Map<string, { x: number; y: number }>();
 	/** Other visitors' smoothed positions by public id (multiplayer), written by the scene. */
@@ -40,9 +42,10 @@ export class GameBus {
 	private nearbyListeners = new Set<Listener>();
 	private speech: ReadonlyMap<string, { text: string; until: number }> = new Map();
 	private speechListeners = new Set<Listener>();
-	private walkListeners = new Set<(target: WalkTarget) => void>();
+	private walkListeners = new Set<(target: WalkTarget) => boolean>();
 	private interactListeners = new Set<(target: Interactable) => void>();
 	private skipListeners = new Set<Listener>();
+	private stopListeners = new Set<Listener>();
 	private waveListeners = new Set<Listener>();
 	private waveAt = -Infinity;
 
@@ -51,6 +54,10 @@ export class GameBus {
 		this.player.y = y;
 		this.player.heading = heading;
 		this.player.moving = moving;
+	}
+
+	setGoal(goal: WalkTarget | null) {
+		this.goal = goal;
 	}
 
 	setNpc(id: string, x: number, y: number) {
@@ -115,18 +122,32 @@ export class GameBus {
 	};
 
 	// --- commands (HUD → scene)
-	/** Puts the visitor straight at a target (review tooling and tests). */
+	/** Puts the visitor straight at a target (skipping a dock walk, review tooling and tests). */
 	warpTo(target: WalkTarget) {
 		for (const l of this.walkListeners) l({ ...target, warp: true } as WalkTarget);
 	}
 
+	/** False when nothing could set off: no scene yet, an unknown target or no way there. */
 	walkTo(target: WalkTarget) {
-		for (const l of this.walkListeners) l(target);
+		let started = false;
+		for (const l of this.walkListeners) if (l(target)) started = true;
+		return started;
 	}
-	onWalk(l: (target: WalkTarget) => void) {
+	onWalk(l: (target: WalkTarget) => boolean) {
 		this.walkListeners.add(l);
 		return () => {
 			this.walkListeners.delete(l);
+		};
+	}
+
+	/** Ends any walk in progress where the visitor stands. */
+	stop() {
+		for (const l of this.stopListeners) l();
+	}
+	onStop(l: Listener) {
+		this.stopListeners.add(l);
+		return () => {
+			this.stopListeners.delete(l);
 		};
 	}
 

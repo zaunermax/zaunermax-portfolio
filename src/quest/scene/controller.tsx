@@ -318,6 +318,16 @@ export function Controller({
 	}, [bus]);
 
 	useEffect(() => bus.onWave(() => (motion.current.waveAt = now())), [bus]);
+	useEffect(
+		() =>
+			bus.onStop(() => {
+				const p = player.current;
+				p.path = [];
+				p.goal = null;
+				bus.setGoal(null);
+			}),
+		[bus],
+	);
 
 	// Wheel and pinch zoom, within a narrow range; a single held finger steers (see useFrame).
 	useEffect(() => {
@@ -421,16 +431,17 @@ export function Controller({
 					const pos = bus.npcs.get(target.id);
 					if (pos) goal = cellAt(pos.x, pos.y);
 				}
-				if (!goal) return;
+				if (!goal) return false;
 				if (target.warp) {
 					p.x = goal.x + 0.5;
 					p.y = goal.y + 0.5;
 					p.path = [];
 					p.goal = null;
-					return;
+					bus.setGoal(null);
+					return true;
 				}
 				const cells = findPath(w, cellAt(p.x, p.y), goal);
-				if (!cells) return;
+				if (!cells) return false;
 				p.path = waypoints(w, cells.slice(1), p);
 				// Stop next to a person rather than inside them.
 				if (target.kind === 'npc' && p.path.length) {
@@ -439,13 +450,16 @@ export function Controller({
 					if (Math.hypot(last.x - pos.x, last.y - pos.y) < 0.6) p.path.pop();
 				}
 				p.goal = target.kind === 'cell' ? null : target;
+				bus.setGoal(p.goal);
 				const end = p.path.at(-1) ?? { x: p.x, y: p.y };
 				ringAt.current = { x: end.x, y: end.y, t: performance.now() };
 				if (!p.path.length && p.goal) {
 					const g = p.goal;
 					p.goal = null;
+					bus.setGoal(null);
 					arrive(g);
 				}
+				return true;
 			}),
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 		[bus],
@@ -551,6 +565,7 @@ export function Controller({
 		if (group.current) group.current.position.set(p.x, 0, p.y);
 		if (inner.current) inner.current.rotation.y = p.heading;
 		bus.setPlayer(p.x, p.y, p.heading, moving);
+		bus.setGoal(p.goal);
 
 		// --- what is in reach
 		if (state.clock.elapsedTime - p.nearbyAt > 0.1) {
