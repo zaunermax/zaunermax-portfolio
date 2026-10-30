@@ -39,6 +39,17 @@ describe('buildProgress', () => {
 		expect(progress(named).steps).toEqual([1, null, 0, 0]);
 	});
 
+	it('keeps the signs going until the event or the first arrival settles', () => {
+		const signs = { ...defaultBrief, event: { kind: 'none' as const, title: '', story: '' }, cast: [], closing: '' };
+		expect(progress(signs).stage).toBe('signs');
+		expect(progress({ ...signs, zones: signs.zones.slice(0, 3) }).stage).toBe('signs');
+		expect(progress({ ...signs, event: defaultBrief.event }).stage).toBe('staff');
+	});
+
+	it('shows the rooms as busy before the first one appears', () => {
+		expect(progress(sanitizeBrief({ company: 'X' })).steps).toEqual([null, 0, 0, 0]);
+	});
+
 	it('marks the running stage and everything before it', () => {
 		const { steps } = progress({ ...defaultBrief, closing: '' });
 		expect(steps).toEqual([1, 1, null, 0]);

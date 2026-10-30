@@ -567,9 +567,9 @@ export function buildProgress(brief: Brief, world: Pick<CompiledWorld, 'rooms'>,
 	const revealed = rooms.filter((r) => r.revealed && r.kind).length;
 	const zone = brief.zones.at(-1);
 	const member = brief.cast.at(-1);
-	// Landmarks and the event settle together, once the model starts on the cast.
-	const staffing =
-		brief.cast.length > 0 || Object.keys(brief.landmarks).length > 0 || brief.event.kind !== 'none';
+	// Landmarks settle once the model starts on the event, the event once it starts on the cast.
+	const staffing = brief.cast.length > 0 || brief.event.kind !== 'none';
+	const signing = Object.keys(brief.landmarks).length > 0;
 	let stage: BuildStage;
 	let detail: string;
 	if (brief.closing) {
@@ -583,7 +583,7 @@ export function buildProgress(brief: Brief, world: Pick<CompiledWorld, 'rooms'>,
 			: brief.event.kind !== 'none' && brief.event.title
 				? `Setting up: ${brief.event.title}`
 				: 'Calling in the staff';
-	} else if (zone && brief.zones.length >= rooms.length) {
+	} else if (signing || (zone && brief.zones.length >= rooms.length)) {
 		stage = 'signs';
 		detail = 'Painting the name plates';
 	} else {
@@ -599,7 +599,7 @@ export function buildProgress(brief: Brief, world: Pick<CompiledWorld, 'rooms'>,
 		staff: brief.cast.length,
 		/** Per stage: 0 pending, 1 done, in between (or null: no known end) while it runs. */
 		steps: BUILD_STAGES.map((s, i): number | null =>
-			i < index ? 1 : i > index ? 0 : s === 'rooms' ? revealed / Math.max(1, rooms.length) : null,
+			i < index ? 1 : i > index ? 0 : s === 'rooms' && revealed ? revealed / rooms.length : null,
 		),
 	};
 }

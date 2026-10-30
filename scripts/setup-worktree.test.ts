@@ -25,6 +25,8 @@ function fixture() {
 		'user.name=Setup Test',
 		'-c',
 		'user.email=setup@example.invalid',
+		'-c',
+		'commit.gpgsign=false',
 		'commit',
 		'--allow-empty',
 		'-m',
