@@ -1,6 +1,6 @@
 import { balanceLooks, isPerson, randomLook, skinTones } from './appearance';
 import type { Face } from './character-parts';
-import { ASSETS, COFFEE_TABLE_TOP, COUNTER_TOP, DESK_TOP, TABLE_TOP, type AssetId, type CharacterId } from './catalog';
+import { ASSETS, body, COFFEE_TABLE_TOP, COUNTER_TOP, DESK_TOP, TABLE_TOP, type AssetId, type CharacterId } from './catalog';
 import {
 	assignZones,
 	CLOSED_ZONES,
@@ -21,6 +21,7 @@ import {
 	PLACERS,
 	planterDivider,
 	RoomCtx,
+	rotate,
 	seatAudience,
 	snapSeats,
 	stepOpen,
@@ -1166,6 +1167,7 @@ export function compileWorld(brief: Brief, seed: number, options: CompileOptions
 		roomAt,
 		footprint: plan.footprint,
 		blocked: grid.blocked,
+		solid: solidBodies(out.furniture, grid.blocked),
 		hEdge,
 		vEdge,
 		furniture: out.furniture,
@@ -1179,6 +1181,36 @@ export function compileWorld(brief: Brief, seed: number, options: CompileOptions
 		spawn,
 		entrance: plan.entrance,
 	};
+}
+
+/**
+ * What fills each blocked cell, as x0, y0, x1, y1 in cell space: the slice of the furniture's
+ * body (tucked seats where they were pushed) inside the cell, or the whole cell outdoors.
+ */
+function solidBodies(furniture: Furniture[], blocked: Uint8Array) {
+	const solid = new Float32Array(W * H * 4);
+	for (let i = 0; i < W * H; i++) {
+		const x = i % W;
+		solid.set([x, (i - x) / W, x + 1, (i - x) / W + 1], i * 4);
+	}
+	for (const f of furniture) {
+		if (!f.blocks) continue;
+		const [bx0, bz0, bx1, bz1] = body(f.asset);
+		const [lx0, lx1] = f.mirror ? [-bx1, -bx0] : [bx0, bx1];
+		const [ax, az] = rotate(lx0, bz0, f.rot);
+		const [cx, cz] = rotate(lx1, bz1, f.rot);
+		const face = FACE[f.rot];
+		const mx = f.x + f.w / 2 + face.x * (f.tuck ?? 0);
+		const mz = f.y + f.d / 2 + face.y * (f.tuck ?? 0);
+		const [x0, x1, y0, y1] = [mx + Math.min(ax, cx), mx + Math.max(ax, cx), mz + Math.min(az, cz), mz + Math.max(az, cz)];
+		for (let y = f.y; y < f.y + f.d; y++)
+			for (let x = f.x; x < f.x + f.w; x++) {
+				const i = cellIndex(x, y);
+				if (inBounds(x, y) && blocked[i])
+					solid.set([Math.max(x, x0), Math.max(y, y0), Math.min(x + 1, x1), Math.min(y + 1, y1)], i * 4);
+			}
+	}
+	return solid;
 }
 
 /** Seats that slide in under a desk or table when nobody sits on them, and how far. */
@@ -1375,7 +1407,7 @@ function circleRect(cx: number, cz: number, r: number, x0: number, z0: number, x
 }
 
 /** Whether a body of radius `r` at (x, y) overlaps furniture, a wall or the outside. */
-export function collides(world: Pick<CompiledWorld, 'blocked' | 'hEdge' | 'vEdge'>, x: number, y: number, r: number) {
+export function collides(world: Pick<CompiledWorld, 'blocked' | 'solid' | 'hEdge' | 'vEdge'>, x: number, y: number, r: number) {
 	if (x - r < 0 || y - r < 0 || x + r > W || y + r > H) return true;
 	const x0 = Math.floor(x - r - WALL_HALF);
 	const x1 = Math.floor(x + r + WALL_HALF);
@@ -1383,8 +1415,11 @@ export function collides(world: Pick<CompiledWorld, 'blocked' | 'hEdge' | 'vEdge
 	const y1 = Math.floor(y + r + WALL_HALF);
 	for (let cy = y0; cy <= y1 + 1; cy++)
 		for (let cx = x0; cx <= x1 + 1; cx++) {
-			if (cy <= y1 && cx <= x1 && inBounds(cx, cy) && world.blocked[cellIndex(cx, cy)])
-				if (circleRect(x, y, r, cx, cy, cx + 1, cy + 1)) return true;
+			if (cy <= y1 && cx <= x1 && inBounds(cx, cy) && world.blocked[cellIndex(cx, cy)]) {
+				const s = cellIndex(cx, cy) * 4;
+				const [sx0, sy0, sx1, sy1] = [world.solid[s], world.solid[s + 1], world.solid[s + 2], world.solid[s + 3]];
+				if (sx0 < sx1 && sy0 < sy1 && circleRect(x, y, r, sx0, sy0, sx1, sy1)) return true;
+			}
 			if (cx >= 0 && cx < W && cy >= 0 && cy <= H && !PASSABLE_EDGES.has(world.hEdge[hIndex(cx, cy)]))
 				if (circleRect(x, y, r, cx, cy - WALL_HALF, cx + 1, cy + WALL_HALF)) return true;
 			if (cy >= 0 && cy < H && cx >= 0 && cx <= W && !PASSABLE_EDGES.has(world.vEdge[vIndex(cx, cy)]))
