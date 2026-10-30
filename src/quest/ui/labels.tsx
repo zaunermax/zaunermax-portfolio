@@ -71,7 +71,7 @@ export function Labels({
 		/** HUD panels in layer coordinates, refreshed a few times a second. */
 		let hud: { l: number; t: number; r: number; b: number }[] = [];
 		let hudAt = -1e9;
-		const sizes = new WeakMap<HTMLElement, { w: number; h: number; lift: number }>();
+		const sizes = new WeakMap<HTMLElement, { w: number; h: number; lift: number; text: string | null }>();
 		const tick = () => {
 			frame = requestAnimationFrame(tick);
 			const v = bus.view;
@@ -96,7 +96,8 @@ export function Labels({
 				const id = bubble ? key.slice(7) : caption ? key.slice(8) : key;
 				const a = bus.anchors.get(id);
 				const fade = Number(node.dataset.fade || 20);
-				const until = Number(node.dataset.until || 0);
+				// Read every frame: a bubble may be held open while the visitor stays near.
+				const until = bubble ? (bus.getSpeech().get(id)?.until ?? 0) : 0;
 				let opacity = 0;
 				let x = 0;
 				let y = 0;
@@ -123,9 +124,10 @@ export function Labels({
 					// off by an edge (people's names and bubbles slide in from the sides, pointing back
 					// at their owner), and place signs fade out towards the edges of the screen.
 					let size = plate ? sizes.get(plate) : undefined;
-					if (plate && (!size || size.w === 0)) {
+					// A bubble's text can change in place, so it is measured again when it does.
+					if (plate && (!size || size.w === 0 || (bubble && size.text !== plate.textContent))) {
 						const lift = bubble ? 38 : caption ? 30 : node.dataset.tone === 'max' ? 24 : 0;
-						size = { w: plate.offsetWidth, h: plate.offsetHeight, lift };
+						size = { w: plate.offsetWidth, h: plate.offsetHeight, lift, text: plate.textContent };
 						sizes.set(plate, size);
 					}
 					if (size) {
@@ -201,11 +203,10 @@ export function Labels({
 				if (!s) return null;
 				return (
 					<div
-						key={`bubble:${n.id}:${s.until}`}
+						key={`bubble:${n.id}:${s.run}`}
 						ref={bind(`bubble:${n.id}`)}
 						className={styles.anchor}
 						data-fade={30}
-						data-until={s.until}
 						data-overview="hide"
 					>
 						<div className={styles.bubble}>{s.text}</div>

@@ -37,7 +37,7 @@ import { checkWorld } from './validate';
 export const GENERATION_TIMEOUT_MS = 90_000;
 /** A brief is ~2.5k tokens; reasoning tokens count against this too. */
 export const MAX_OUTPUT_TOKENS = 8_000;
-export const DEFAULT_WORLD_MODEL = 'gpt-6-luna';
+export const DEFAULT_WORLD_MODEL = 'gpt-6.1-sol';
 
 export function worldModelId() {
 	return process.env.QUEST_WORLD_MODEL?.trim() || DEFAULT_WORLD_MODEL;

@@ -19,6 +19,9 @@ export type WalkTarget = (
 
 type Listener = () => void;
 
+/** A line someone is saying. `run` stays the same while they keep talking, one bubble per run. */
+export type Speech = { text: string; until: number; run: number };
+
 /** Anchor id of Max himself; his desk needs no plate of its own. */
 export const MAX_ANCHOR = 'max-npc';
 
@@ -40,7 +43,8 @@ export class GameBus {
 
 	private nearby: Interactable | null = null;
 	private nearbyListeners = new Set<Listener>();
-	private speech: ReadonlyMap<string, { text: string; until: number }> = new Map();
+	private speech: ReadonlyMap<string, Speech> = new Map();
+	private speechRuns = 0;
 	private speechListeners = new Set<Listener>();
 	private walkListeners = new Set<(target: WalkTarget) => boolean>();
 	private interactListeners = new Set<(target: Interactable) => void>();
@@ -108,12 +112,21 @@ export class GameBus {
 		return () => this.nearbyListeners.delete(l);
 	};
 
-	// --- speech bubbles: an immutable snapshot, replaced on every change
+	// --- speech bubbles: a snapshot replaced on every new line
 	say(id: string, text: string, ms = 6000) {
+		const now = performance.now();
+		const prev = this.speech.get(id);
 		const next = new Map(this.speech);
-		next.set(id, { text, until: performance.now() + ms });
+		// Someone still talking keeps their bubble: the next line replaces the text in place.
+		const run = prev && prev.until > now ? prev.run : ++this.speechRuns;
+		next.set(id, { text, until: now + ms, run });
 		this.speech = next;
 		for (const l of this.speechListeners) l();
+	}
+	/** Keeps someone's current line up until at least `until`; whoever shows it reads it per frame. */
+	holdSpeech(id: string, until: number) {
+		const s = this.speech.get(id);
+		if (s && s.until > performance.now()) s.until = Math.max(s.until, until);
 	}
 	getSpeech = () => this.speech;
 	subscribeSpeech = (l: Listener) => {

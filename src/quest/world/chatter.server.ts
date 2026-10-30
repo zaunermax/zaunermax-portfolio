@@ -15,7 +15,7 @@ import { LIMITS, type Chatter } from './schema';
  * game falls back to DEFAULT_CHATTER.
  */
 
-export const CHATTER_MODEL = 'gpt-6-sol';
+export const CHATTER_MODEL = 'gpt-6.1-sol';
 const MAX_OUTPUT_TOKENS = 3_000;
 
 export const CHATTER_INSTRUCTIONS = `You write ambient office chatter for a cute voxel office game on Max Zauner's personal website. Max is a software engineer; his desk is in this office and visitors walk around it. While they explore, the fictional staff of the office mention Max in passing: a remark when a visitor walks by, or two colleagues chatting about him. The chatter is how visitors learn real things about Max, so it must be true.

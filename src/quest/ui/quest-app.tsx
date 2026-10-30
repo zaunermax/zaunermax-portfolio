@@ -7,6 +7,7 @@ import {
 	useEffect,
 	useEffectEvent,
 	useMemo,
+	useRef,
 	useState,
 	useSyncExternalStore,
 } from 'react';
@@ -15,7 +16,7 @@ import { useMaxChat } from '../chat/use-max-chat';
 import { lookFor } from '../room/presence';
 import { useRoom } from '../room/use-room';
 import { GameBus, type Interactable } from '../scene/bus';
-import { createChatter, type ChatterDirector } from '../scene/chatter';
+import { createChatter, HOLD_RANGE, readMs, type ChatterDirector } from '../scene/chatter';
 import { compileWorld } from '../world/compile';
 import { defaultBrief, DEFAULT_SEED } from '../world/default-world';
 import { briefForSeed } from '../world/offline-briefs';
@@ -328,13 +329,21 @@ export function QuestApp({
 	// It waits for the welcome card to shrink, so the first talk is not said behind it.
 	const chatting =
 		sceneReady && !introActive && !generating && !overview && open === null && !hidden && zoneState === 'small';
+	/** Who the visitor is listening to: their bubble stays open while the visitor stays near. */
+	const listening = useRef<string | null>(null);
 	useEffect(() => {
 		if (!chatting) return;
 		const timer = setInterval(() => {
+			const now = performance.now();
+			const held = listening.current && bus.npcs.get(listening.current);
+			if (held && Math.hypot(held.x - bus.player.x, held.y - bus.player.y) <= HOLD_RANGE)
+				bus.holdSpeech(listening.current!, now + 800);
+			else listening.current = null;
 			const goal = bus.goal?.kind === 'npc' ? bus.goal.id : undefined;
-			const said = chatter.tick(performance.now(), bus.player, (a) => bus.npcs.get(a.id) ?? a, goal);
+			const said = chatter.tick(now, bus.player, (a) => bus.npcs.get(a.id) ?? a, goal);
 			if (!said) return;
 			bus.say(said.actor.id, said.text, said.ms);
+			if (said.kind === 'remark') listening.current = said.actor.id;
 			log.push({
 				id: `chatter-${said.actor.id}-${Date.now()}`,
 				kind: 'npc',
@@ -351,7 +360,8 @@ export function QuestApp({
 		if (t.kind === 'npc') {
 			const text = chatter.greet(performance.now(), t.id, t.line);
 			setAskAbout(chatter.remarkNext(t.id) ? { chatter, id: t.id } : null);
-			bus.say(t.id, text);
+			bus.say(t.id, text, readMs(text));
+			listening.current = t.id;
 			log.push({
 				id: `npc-${t.id}-${Date.now()}`,
 				kind: 'npc',

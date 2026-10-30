@@ -34,12 +34,14 @@ describe('createChatter', () => {
 		for (; t < 60_000 && said.length < 3; t += 250) {
 			const line = chatter.tick(t, at, home);
 			if (line) said.push(`${line.actor.id}:${line.text}`);
+			if (line) expect(line.kind).toBe('talk');
 		}
 		expect(said).toEqual(['a:One.', 'b:Two.', 'a:Three.']);
 		// The talk is done: a's remark waits for the pause, then comes once.
 		let next = null;
 		for (t += 250; !next && t < 60_000; t += 250) next = chatter.tick(t, at, home);
 		expect(next?.text).toBe('Max owns an ErgoDox.');
+		expect(next?.kind).toBe('remark');
 		for (let k = 0; k < 200; k++, t += 250) expect(chatter.tick(t, at, home)).toBeNull();
 	});
 

@@ -146,10 +146,10 @@ describe('generateWorld', () => {
 		expect((mocks.chatter.mock.calls[0][0].signal as AbortSignal).aborted).toBe(true);
 	});
 
-	it('defaults to gpt-6-luna with low reasoning, one attempt, no storage and a timeout', async () => {
+	it('defaults to gpt-6.1-sol with low reasoning, one attempt, no storage and a timeout', async () => {
 		fakeStream(defaultBrief);
 		await drain(generateWorld({ previous: { company: 'Old Co', vibe: 'cozy' } }));
-		expect(mocks.responses).toHaveBeenCalledWith('gpt-6-luna');
+		expect(mocks.responses).toHaveBeenCalledWith('gpt-6.1-sol');
 		// An office without chatter of its own shows the default lines.
 		expect(mocks.chatter.mock.calls[0][0].previous).toEqual(DEFAULT_CHATTER);
 		const options = mocks.streamText.mock.calls[0][0] as StreamOptions;

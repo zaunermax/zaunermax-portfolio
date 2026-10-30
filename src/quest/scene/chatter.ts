@@ -18,7 +18,10 @@ const TALK_LEAVE = 6;
 /** Quiet after a remark or talk before the next one, so it never turns into a wall of text. */
 export const PAUSE_MS = 7000;
 
-export type ChatterLine = { actor: Actor; text: string; ms: number };
+/** A remark or greeting stays up while the visitor stands this close to whoever said it. */
+export const HOLD_RANGE = 3;
+
+export type ChatterLine = { actor: Actor; text: string; ms: number; kind: 'remark' | 'talk' };
 
 /** Long enough to read: about a second per 17 characters, within 3.5 to 7 seconds. */
 export const readMs = (text: string) => Math.min(7000, Math.max(3500, 1600 + text.length * 60));
@@ -35,7 +38,12 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>) {
 	let talk: { index: number; step: number; next: number } | null = null;
 	let quietUntil = 0;
 
-	const line = (actor: Actor, text: string): ChatterLine => ({ actor, text, ms: readMs(text) });
+	const line = (actor: Actor, text: string, kind: ChatterLine['kind']): ChatterLine => ({
+		actor,
+		text,
+		ms: readMs(text),
+		kind,
+	});
 
 	return {
 		/**
@@ -71,7 +79,7 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>) {
 					quietUntil = now + PAUSE_MS;
 					return null;
 				}
-				const said = line(byId.get(talk.step % 2 === 0 ? t.a : t.b)!, t.lines[talk.step]);
+				const said = line(byId.get(talk.step % 2 === 0 ? t.a : t.b)!, t.lines[talk.step], 'talk');
 				talk.step++;
 				// The reply starts as the line before is ending, like people talking.
 				talk.next = now + said.ms * 0.8;
@@ -91,7 +99,7 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>) {
 			if (!best?.remark) return null;
 			heard.add(best.id);
 			quietUntil = now + PAUSE_MS;
-			return line(best, best.remark);
+			return line(best, best.remark, 'remark');
 		},
 
 		/**
