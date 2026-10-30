@@ -3,13 +3,14 @@
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 import type { CompiledWorld } from '../world/compile';
 import { MAX_ANCHOR, type GameBus } from '../scene/bus';
+import { visitorAnchor } from '../room/presence';
 import styles from './labels.module.css';
 
 type Label = {
 	id: string;
 	name: string;
 	title?: string;
-	tone: 'friendly' | 'max' | 'place';
+	tone: 'friendly' | 'max' | 'place' | 'visitor';
 	/** A small call to action under the name (touch screens: Max says "tap to talk"). */
 	hint?: string;
 	/** Fully visible up to this camera distance, gone 4 units later. */
@@ -22,7 +23,18 @@ type Label = {
  * Nameplates and speech bubbles as plain HTML over the canvas. One rAF loop projects every
  * anchor the scene reports; no React work per frame and no per-label React roots.
  */
-export function Labels({ world, bus, touch = false }: { world: CompiledWorld; bus: GameBus; touch?: boolean }) {
+export function Labels({
+	world,
+	bus,
+	touch = false,
+	visitors = [],
+}: {
+	world: CompiledWorld;
+	bus: GameBus;
+	touch?: boolean;
+	/** Public ids of the other visitors in the live room. */
+	visitors?: readonly string[];
+}) {
 	const layer = useRef<HTMLDivElement>(null);
 	const nodes = useRef(new Map<string, HTMLElement>());
 	const speech = useSyncExternalStore(bus.subscribeSpeech, bus.getSpeech, bus.getSpeech);
@@ -50,6 +62,8 @@ export function Labels({ world, bus, touch = false }: { world: CompiledWorld; bu
 				fade: 34,
 				hideInOverview: true,
 			});
+	for (const id of visitors)
+		labels.push({ id: visitorAnchor(id), name: 'Visitor', tone: 'visitor', fade: 34, hideInOverview: true });
 
 	useEffect(() => {
 		let frame = 0;

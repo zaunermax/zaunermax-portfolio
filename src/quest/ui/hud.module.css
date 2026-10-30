@@ -743,6 +743,58 @@
 	cursor: crosshair;
 }
 
+/* Who else is here: a slim strip under the floor plan. */
+.presence {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0;
+	padding: 5px 8px 6px 10px;
+	font-family: var(--pixel);
+	font-size-adjust: var(--pixel-adjust);
+	font-weight: 600;
+	font-size: 15px;
+	color: var(--ink);
+	box-shadow: inset 0 3px 0 0 var(--ink);
+}
+
+.presenceDot {
+	flex: none;
+	width: 8px;
+	height: 8px;
+	background: var(--teal);
+	box-shadow: var(--ring2);
+}
+
+.presence[data-presence='full'] .presenceDot {
+	background: var(--mustard);
+}
+
+.presenceText {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.presenceWave {
+	flex: none;
+	padding: 2px 8px 3px;
+	border: 0;
+	font: inherit;
+	font-size: 14px;
+	color: var(--ink);
+	background: var(--mustard-light);
+	box-shadow: var(--ring2);
+	cursor: pointer;
+}
+
+.presenceWave:hover,
+.presenceWave:focus-visible {
+	background: var(--mustard);
+}
+
 .mapIcon {
 	position: absolute;
 	display: grid;

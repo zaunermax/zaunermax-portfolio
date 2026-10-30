@@ -1,4 +1,5 @@
 import type { StoredWorld, WorldStreamEvent } from './contract';
+import type { ForgePhase } from '../room/protocol';
 import {
 	generateWorld,
 	newSeed,
@@ -40,12 +41,16 @@ export function relativeTime(at: number, now = Date.now()) {
 
 export const FORGE_DEADLINE_MS = 150_000;
 
-export function createForge(world: WorldService) {
+export function createForge(world: WorldService, options: { notify?(phase: ForgePhase): void } = {}) {
 	const { beginGeneration, completeGeneration, failGeneration, getCurrentWorld } = world;
 	let activeJob: ForgeJob | null = null;
 	function currentJob(): ForgeJob | null { return activeJob; }
 
 	function emit(job: ForgeJob, event: WorldStreamEvent) {
+		if (event.type === 'start' || event.type === 'done' || event.type === 'error') {
+			try { options.notify?.(event.type); }
+			catch (error) { console.error('[quest] forge notifier failed', error); }
+		}
 		// A brief event carries the whole brief so far, so older ones are redundant.
 		if (event.type === 'brief') {
 			const stale = job.events.findIndex((e) => e.type === 'brief');

@@ -27,6 +27,8 @@ export class GameBus {
 	player = { x: 20, y: 16, heading: Math.PI, moving: false };
 	/** NPC positions by entity id. */
 	npcs = new Map<string, { x: number; y: number }>();
+	/** Other visitors' smoothed positions by public id (multiplayer), written by the scene. */
+	visitors = new Map<string, { x: number; y: number }>();
 	/** Camera yaw, for rotating the minimap arrow when the map is not north-up. */
 	cameraYaw = 0;
 	/** Where labels hang in world space (x, height, z), by entity id. Written by the scene. */
@@ -41,6 +43,8 @@ export class GameBus {
 	private walkListeners = new Set<(target: WalkTarget) => void>();
 	private interactListeners = new Set<(target: Interactable) => void>();
 	private skipListeners = new Set<Listener>();
+	private waveListeners = new Set<Listener>();
+	private waveAt = -Infinity;
 
 	setPlayer(x: number, y: number, heading: number, moving: boolean) {
 		this.player.x = x;
@@ -138,6 +142,20 @@ export class GameBus {
 		this.interactListeners.add(l);
 		return () => {
 			this.interactListeners.delete(l);
+		};
+	}
+
+	/** The visitor waves (G key or the HUD button), at most every 1.5 seconds. */
+	wave() {
+		const t = performance.now();
+		if (t - this.waveAt < 1500) return;
+		this.waveAt = t;
+		for (const l of this.waveListeners) l();
+	}
+	onWave(l: Listener) {
+		this.waveListeners.add(l);
+		return () => {
+			this.waveListeners.delete(l);
 		};
 	}
 

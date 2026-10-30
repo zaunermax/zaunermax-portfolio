@@ -81,6 +81,15 @@
 		0 2px 0 var(--ink);
 }
 
+/* Other visitors in the live room: a name like a coworker's, in the click-ring yellow. */
+.plate[data-tone='visitor'] {
+	font-size: 14px;
+	color: #ffe37a;
+	text-shadow:
+		var(--outline1),
+		0 2px 0 var(--ink);
+}
+
 /* Places: a small paper sign with a sparkle. */
 .plate[data-tone='place'] {
 	flex-direction: row;
@@ -182,7 +191,8 @@
 	}
 
 	.plate[data-tone='place'],
-	.plate[data-tone='friendly'] {
+	.plate[data-tone='friendly'],
+	.plate[data-tone='visitor'] {
 		font-size: 13px;
 	}
 

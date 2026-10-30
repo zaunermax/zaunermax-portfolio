@@ -152,6 +152,7 @@ export function Minimap({
 	name,
 	collapsedByDefault,
 	onPin,
+	footer = null,
 }: {
 	world: CompiledWorld;
 	bus: GameBus;
@@ -162,6 +163,8 @@ export function Minimap({
 	/** Phones start with the plan folded away, to leave the office in view. */
 	collapsedByDefault: boolean;
 	onPin: (id: LandmarkId) => void;
+	/** A strip under the plan that stays when it is folded (who else is here). */
+	footer?: ReactNode;
 }) {
 	const base = useRef<HTMLCanvasElement>(null);
 	const live = useRef<HTMLCanvasElement>(null);
@@ -229,6 +232,22 @@ export function Minimap({
 				ctx.fillRect(x - 3, y - 3, 6, 6);
 				ctx.fillStyle = '#f2b84b';
 				ctx.fillRect(x - 2, y - 2, 4, 4);
+			}
+			// Other visitors: little yellow diamonds, like their nameplates.
+			for (const v of bus.visitors.values()) {
+				const x = Math.round(PAD + v.x * CELL);
+				const y = Math.round(PAD + v.y * CELL);
+				ctx.beginPath();
+				ctx.moveTo(x, y - 5);
+				ctx.lineTo(x + 5, y);
+				ctx.lineTo(x, y + 5);
+				ctx.lineTo(x - 5, y);
+				ctx.closePath();
+				ctx.fillStyle = '#ffe37a';
+				ctx.strokeStyle = '#2b2433';
+				ctx.lineWidth = 2;
+				ctx.fill();
+				ctx.stroke();
 			}
 			const p = bus.player;
 			ctx.save();
@@ -324,7 +343,46 @@ export function Minimap({
 					</button>
 				))}
 			</div>
+			{footer}
 		</nav>
+	);
+}
+
+/**
+ * Who is here, under the floor plan: the head count and a wave while in the live room, a quiet
+ * note while the room is full. Nothing at all when solo for any other reason.
+ */
+export function PresenceStrip({
+	status,
+	count,
+	onWave,
+}: {
+	status: 'off' | 'connecting' | 'live' | 'full' | 'offline';
+	count: number;
+	onWave: () => void;
+}) {
+	if (status === 'full')
+		return (
+			<p
+				className={styles.presence}
+				data-presence="full"
+				title="Up to 50 visitors can be here together. You'll join automatically when someone leaves."
+			>
+				<span className={styles.presenceDot} aria-hidden="true" />
+				<span className={styles.presenceText}>Office full: exploring solo</span>
+			</p>
+		);
+	if (status !== 'live') return null;
+	return (
+		<div className={styles.presence} data-presence="live" data-count={count}>
+			<span className={styles.presenceDot} aria-hidden="true" />
+			<span className={styles.presenceText}>
+				{count === 1 ? 'Just you here' : `${count} visitors here`}
+			</span>
+			<button type="button" className={styles.presenceWave} onClick={onWave} title="Wave (G)">
+				Wave
+			</button>
+		</div>
 	);
 }
 

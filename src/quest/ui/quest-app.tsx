@@ -12,6 +12,8 @@ import {
 } from 'react';
 import type { LabContent } from '@/lab-shared/content';
 import { useMaxChat } from '../chat/use-max-chat';
+import { lookFor } from '../room/presence';
+import { useRoom } from '../room/use-room';
 import { GameBus, type Interactable } from '../scene/bus';
 import { compileWorld } from '../world/compile';
 import { defaultBrief, DEFAULT_SEED } from '../world/default-world';
@@ -23,7 +25,16 @@ import { useWorld } from '../world/use-world';
 import { ChatLog, ChatLogView } from './chat-log';
 import { Labels } from './labels';
 import styles from './hud.module.css';
-import { BuildProgress, Dock, LoadingVeil, Minimap, UnitFrame, ZoneText, type Action } from './hud';
+import {
+	BuildProgress,
+	Dock,
+	LoadingVeil,
+	Minimap,
+	PresenceStrip,
+	UnitFrame,
+	ZoneText,
+	type Action,
+} from './hud';
 import {
 	isTypingTarget,
 	setSessionFlag,
@@ -117,16 +128,29 @@ export function QuestApp({
 	initial,
 	content,
 	business,
+	multiplayer = false,
 	fontVars,
 }: {
 	initial: WorldState;
 	content: LabContent;
 	business: Business;
+	/** The live room is switched on (QUEST_MULTIPLAYER). */
+	multiplayer?: boolean;
 	fontVars: string;
 }) {
-	const world = useWorld(initial);
-	const chat = useMaxChat();
 	const [bus] = useState(() => new GameBus());
+	const search = useSearch();
+	const preview = useMemo(() => parsePreview(search), [search]);
+	// Preview offices (?world=default, ?seed=N) are not the shared office: play those solo.
+	const room = useRoom({ enabled: multiplayer && !preview.starter, bus });
+	const world = useWorld(initial, { live: room.status === 'live', subscribe: room.subscribe });
+	const chat = useMaxChat();
+	const visitors = useSyncExternalStore(
+		room.presence.subscribe,
+		room.presence.getIds,
+		room.presence.getIds,
+	);
+	const ownLook = useMemo(() => (room.you ? lookFor(room.you) : null), [room.you]);
 	const [log] = useState(() => new ChatLog());
 	const reducedMotion = useMedia('(prefers-reduced-motion: reduce)');
 	const touch = useMedia('(pointer: coarse)');
@@ -134,7 +158,6 @@ export function QuestApp({
 	const hidden = useDocumentHidden();
 	const seenIntro = useSessionFlag(INTRO_KEY);
 	const seenTouchHint = useStoredFlag(TOUCH_HINT_KEY);
-	const search = useSearch();
 	const now = useNow(1000);
 	const nearby = useSyncExternalStore(bus.subscribeNearby, bus.getNearby, () => null);
 
@@ -155,7 +178,6 @@ export function QuestApp({
 	}, [bus]);
 
 	// --- which brief is on screen: the intro replays the current office quickly, once per session
-	const preview = useMemo(() => parsePreview(search), [search]);
 	const generating = world.status === 'generating';
 	const starter = preview.starter && !generating;
 	const seed = starter ? (preview.seed ?? DEFAULT_SEED) : world.seed;
@@ -452,11 +474,13 @@ export function QuestApp({
 								paused={hidden || (compact && open !== null)}
 								inputEnabled={open === null}
 								respawnKey={`${world.worldId}|${generating ? 'gen' : 'live'}|${introActive ? 'intro' : 'play'}`}
+								presence={room.status === 'live' ? room.presence : null}
+								appearance={ownLook}
 								onReady={() => setSceneReady(true)}
 							/>
 						</Suspense>
 					</ClientOnly>
-					<Labels world={compiled} bus={bus} touch={touch} />
+					<Labels world={compiled} bus={bus} touch={touch} visitors={visitors} />
 				</div>
 				<p id="quest-world-summary" className={styles.srOnly}>
 					{worldName}. {tagline} Places: {places || 'still being built'}. Everything here
@@ -499,6 +523,9 @@ export function QuestApp({
 						setOpen(null);
 						bus.walkTo({ kind: 'landmark', id });
 					}}
+					footer={
+						<PresenceStrip status={room.status} count={room.count} onWave={() => bus.wave()} />
+					}
 				/>
 				<ChatLogView log={log} compact={compact} hidden={open === 'gossip'} />
 				<Dock

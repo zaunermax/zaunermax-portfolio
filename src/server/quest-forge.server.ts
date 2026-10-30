@@ -6,6 +6,7 @@ import { createMemoryLimiter } from '@/quest/server/rate-limit.server';
 import seedWorld from '@/quest/world/seed-world.json';
 import { createDurableWorldStore } from './world-store.server';
 import { GET, POST, type WorldDependencies } from './handlers/quest-world.server';
+import { multiplayerEnabled } from './multiplayer.server';
 
 export class QuestForge extends DurableObject<Env> {
 	private readonly deps: WorldDependencies;
@@ -27,7 +28,11 @@ export class QuestForge extends DurableObject<Env> {
 		const world = createWorldService(store);
 		this.deps = {
 			world,
-			forge: createForge(world),
+			forge: createForge(world, {
+				notify: multiplayerEnabled(this.env)
+					? phase => this.ctx.waitUntil(this.env.QUEST_ROOM.getByName('global').forgeEvent(phase).catch(err => console.error('[quest] could not notify the room', err)))
+					: undefined,
+			}),
 			rateLimit: createMemoryLimiter(),
 			waitUntil: (work) => this.ctx.waitUntil(work),
 			generate: generateWorld,
