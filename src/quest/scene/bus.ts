@@ -45,6 +45,7 @@ export class GameBus {
 	private walkListeners = new Set<(target: WalkTarget) => boolean>();
 	private interactListeners = new Set<(target: Interactable) => void>();
 	private skipListeners = new Set<Listener>();
+	private stopListeners = new Set<Listener>();
 	private waveListeners = new Set<Listener>();
 	private waveAt = -Infinity;
 
@@ -136,6 +137,17 @@ export class GameBus {
 		this.walkListeners.add(l);
 		return () => {
 			this.walkListeners.delete(l);
+		};
+	}
+
+	/** Ends any walk in progress where the visitor stands. */
+	stop() {
+		for (const l of this.stopListeners) l();
+	}
+	onStop(l: Listener) {
+		this.stopListeners.add(l);
+		return () => {
+			this.stopListeners.delete(l);
 		};
 	}
 

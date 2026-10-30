@@ -299,6 +299,16 @@ export function Controller({
 	}, [bus]);
 
 	useEffect(() => bus.onWave(() => (motion.current.waveAt = now())), [bus]);
+	useEffect(
+		() =>
+			bus.onStop(() => {
+				const p = player.current;
+				p.path = [];
+				p.goal = null;
+				bus.setGoal(null);
+			}),
+		[bus],
+	);
 
 	// Wheel and pinch zoom, within a narrow range.
 	useEffect(() => {

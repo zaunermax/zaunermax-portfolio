@@ -342,15 +342,20 @@ export function QuestApp({
 	// like a minimap pin. Pressing again on the way skips the walk.
 	const visit = (landmark: LandmarkId) => {
 		const id = LANDMARK_WINDOW[landmark];
+		// Opening straight away ends any earlier walk, so its arrival cannot swap the window.
+		const openNow = () => {
+			bus.stop();
+			setOpen(id);
+		};
 		if (open === id) return setOpen(null);
 		if (bus.goal?.kind === 'landmark' && bus.goal.id === landmark) {
 			bus.warpTo({ kind: 'landmark', id: landmark });
 			return setOpen(id);
 		}
 		const there = nearby?.kind === 'landmark' && nearby.id === landmark;
-		if (there || overview || !compiled.landmark[landmark]) return setOpen(id);
+		if (there || overview || !compiled.landmark[landmark]) return openNow();
 		setOpen(null);
-		if (!bus.walkTo({ kind: 'landmark', id: landmark })) setOpen(id);
+		if (!bus.walkTo({ kind: 'landmark', id: landmark })) openNow();
 	};
 
 	const tellMax = () => {
