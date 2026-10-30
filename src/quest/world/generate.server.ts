@@ -285,8 +285,9 @@ async function* buildWorld(
 		// One attempt only: a retry could double the cost of a run.
 		maxRetries: 0,
 		abortSignal,
-		// Fast mode: the office builds live in front of the visitor, so speed beats the token premium.
-		providerOptions: { openai: { store: false, serviceTier: 'fast' } },
+		// Ultrafast: the office builds live in front of the visitor, so speed beats the token premium
+		// (about 9s instead of 25s in Fast mode for roughly 3x the price).
+		providerOptions: { openai: { store: false, serviceTier: 'ultrafast' } },
 		onError: ({ error }) => {
 			streamError ??= error;
 		},
