@@ -84,13 +84,13 @@ format new files only.
 `beta.zaunermax.at`. Deployment, authentication and remote resource changes require owner
 authorization.
 
-GitHub Actions (`.github/workflows/beta.yml`) runs lint, typecheck, unit tests and the build on
-every pull request, and on every push to `main` deploys beta with `wrangler deploy` once those
-pass, so merging a pull request deploys it, Durable Object migrations included. Deploys run one
-at a time and authenticate with the `CLOUDFLARE_API_TOKEN` repository secret; a run whose commit
-is no longer the head of `main` skips its deploy, so an older run cannot overwrite a newer one.
-There are no preview deployments. Roll back with `pnpm exec wrangler rollback`, or re-run an
-older run, which deploys its commit regardless.
+Cloudflare Workers Builds is connected to this repository and deploys beta on every push to
+`main`: it runs `pnpm lint && pnpm typecheck && pnpm test && pnpm build`, then
+`pnpm exec wrangler deploy`, so merging a pull request deploys it, Durable Object migrations
+included. Only `main` builds; there are no preview deployments. The build settings live in the
+Cloudflare dashboard (Worker → Settings → Builds), not in the repository. GitHub Actions
+(`.github/workflows/checks.yml`) runs the same checks on every pull request and deploys nothing.
+Roll back with `pnpm exec wrangler rollback`.
 
 The `deploy` script builds then invokes Wrangler; the generated configuration is under
 `dist/server` and `.wrangler/deploy`. `pnpm preview` runs that build locally.
