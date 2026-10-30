@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SKIN } from './character-parts';
-import { compileWorld, findPath, meetupAttendance, reachable } from './compile';
+import { collides, compileWorld, findPath, meetupAttendance, reachable } from './compile';
 import { DEFAULT_CHATTER, defaultBrief, DEFAULT_SEED } from './default-world';
 import { assignZones, DOUBLE_ZONES, planFloor } from './floorplan';
 import { cellIndex, deskLayout, EVENT_AUDIENCE, RIGHT, runAssets, topHalf } from './furnish';
@@ -440,6 +440,59 @@ describe('seating, pods and small stories', () => {
 				const front = at.get(cellIndex(f.x + Math.round(Math.sin(f.rot * (Math.PI / 2))), f.y + Math.round(Math.cos(f.rot * (Math.PI / 2)))));
 				expect(front?.asset, `seed ${seed} ${f.id}`).toMatch(/^(desk_|meeting_|dining_|coffee_table)/);
 			}
+		}
+	});
+
+	it('bumps characters into the chair they see, not the whole tile', () => {
+		const world = compileWorld(defaultBrief, DEFAULT_SEED);
+		const chairs = world.furniture.filter((f) => f.asset === 'office_chair');
+		expect(chairs.length).toBeGreaterThan(0);
+		for (const f of chairs) {
+			const [x0, y0, x1, y1] = world.solid.subarray(cellIndex(f.x, f.y) * 4, cellIndex(f.x, f.y) * 4 + 4);
+			expect(x1 - x0, f.id).toBeLessThanOrEqual(0.625);
+			expect(y1 - y0, f.id).toBeLessThanOrEqual(0.625);
+			if (!f.tuck) expect([x0, y0, x1, y1]).toEqual([f.x + 3 / 16, f.y + 3 / 16, f.x + 13 / 16, f.y + 13 / 16]);
+		}
+		// Desks still fill their tile.
+		const desk = world.furniture.find((f) => f.asset === 'desk_mid')!;
+		expect([...world.solid.subarray(cellIndex(desk.x, desk.y) * 4, cellIndex(desk.x, desk.y) * 4 + 4)]).toEqual([
+			desk.x,
+			desk.y,
+			desk.x + 1,
+			desk.y + 1,
+		]);
+	});
+
+	it('lets the visitor slip between two chairs standing corner to corner', () => {
+		const world = compileWorld(defaultBrief, DEFAULT_SEED);
+		const open = {
+			blocked: new Uint8Array(world.blocked.length),
+			solid: new Float32Array(world.solid.length),
+			hEdge: new Uint8Array(world.hEdge.length),
+			vEdge: new Uint8Array(world.vEdge.length),
+		};
+		for (const [x, y] of [
+			[10, 10],
+			[11, 11],
+		]) {
+			open.blocked[cellIndex(x, y)] = 1;
+			open.solid.set([x + 3 / 16, y + 3 / 16, x + 13 / 16, y + 13 / 16], cellIndex(x, y) * 4);
+		}
+		// The visitor's radius, right on the corner the two tiles share.
+		expect(collides(open, 11, 11, 0.22)).toBe(false);
+		expect(collides(open, 10.5, 11.5, 0.22)).toBe(false);
+		expect(collides(open, 11, 11, 0.3)).toBe(true);
+	});
+
+	it('walks the visitor out from behind a tucked chair', () => {
+		const world = compileWorld(defaultBrief, DEFAULT_SEED);
+		const chairs = world.furniture.filter((f) => f.asset === 'office_chair' && f.tuck);
+		expect(chairs.length).toBeGreaterThan(0);
+		for (const f of chairs) {
+			// Behind the chair, on the aisle side of its own cell, clear of its body.
+			const back = { x: f.x + 0.5 - Math.round(Math.sin(f.rot * (Math.PI / 2))) * 0.3, y: f.y + 0.5 - Math.round(Math.cos(f.rot * (Math.PI / 2))) * 0.3 };
+			if (collides(world, back.x, back.y, 0.22)) continue;
+			expect(findPath(world, { x: f.x, y: f.y }, world.spawn), f.id).not.toBeNull();
 		}
 	});
 

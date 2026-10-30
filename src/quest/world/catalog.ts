@@ -4,13 +4,16 @@
  * The compiler places furniture by these footprints (it never needs the GLB); the renderer uses
  * the heights for pastel placeholder boxes while an id is missing from the kit. Footprints are
  * in tiles along X × Z before rotation; desk-top and wall items give their size in world units.
+ * A floor piece that is slimmer than its footprint (a chair, a lamp) also gives its body: the
+ * model's bounds in 16ths of a tile, local x0, z0, x1, z1 around the footprint's centre, +z at
+ * its front. Bodies are what characters bump into, so they can slip between two chairs.
  */
 
-type Floor = { fp: readonly [number, number]; h: number; kind?: 'floor' };
+type Floor = { fp: readonly [number, number]; h: number; body?: readonly [number, number, number, number]; kind?: 'floor' };
 type Small = { size: readonly [number, number]; h: number; kind: 'top' | 'wall' };
 export type AssetInfo = Floor | Small;
 
-const floor = (w: number, d: number, h: number): Floor => ({ fp: [w, d], h });
+const floor = (w: number, d: number, h: number, body?: Floor['body']): Floor => ({ fp: [w, d], h, body });
 const top = (w: number, d: number, h: number): Small => ({ size: [w, d], h, kind: 'top' });
 const wall = (w: number, h: number): Small => ({ size: [w, 0.12], h, kind: 'wall' });
 
@@ -20,8 +23,8 @@ export const ASSETS = {
 	desk_end_l: floor(1, 1, 1.0625),
 	desk_mid: floor(1, 1, 1.0625),
 	desk_end_r: floor(1, 1, 1.0625),
-	meeting_end: floor(1, 1, 0.75),
-	meeting_mid: floor(1, 1, 0.75),
+	meeting_end: floor(1, 1, 0.75, [-8, -6, 8, 6]),
+	meeting_mid: floor(1, 1, 0.75, [-8, -6, 8, 6]),
 	sofa_end_l: floor(1, 1, 0.9375),
 	sofa_mid: floor(1, 1, 0.9375),
 	sofa_end_r: floor(1, 1, 0.9375),
@@ -33,60 +36,60 @@ export const ASSETS = {
 	counter_mid: floor(1, 1, 0.9375),
 	counter_corner: floor(1, 1, 0.9375),
 	counter_sink: floor(1, 1, 1.1875),
-	bookshelf: floor(1, 1, 2),
-	bookshelf_b: floor(1, 1, 2),
-	planter_end: floor(1, 1, 0.8125),
-	planter_mid: floor(1, 1, 0.8125),
-	planter_mid_b: floor(1, 1, 0.8125),
-	dining_end: floor(1, 1, 0.75),
-	dining_mid: floor(1, 1, 0.75),
+	bookshelf: floor(1, 1, 2, [-8, -6, 8, 5]),
+	bookshelf_b: floor(1, 1, 2, [-8, -6, 8, 5]),
+	planter_end: floor(1, 1, 0.8125, [-8, -5, 8, 5]),
+	planter_mid: floor(1, 1, 0.8125, [-8, -5, 8, 5]),
+	planter_mid_b: floor(1, 1, 0.8125, [-8, -5, 8, 5]),
+	dining_end: floor(1, 1, 0.75, [-8, -6, 8, 6]),
+	dining_mid: floor(1, 1, 0.75, [-8, -6, 8, 6]),
 	// Furniture & landmarks
-	office_chair: floor(1, 1, 0.9375),
-	gaming_chair: floor(1, 1, 1.125),
+	office_chair: floor(1, 1, 0.9375, [-5, -5, 5, 5]),
+	gaming_chair: floor(1, 1, 1.125, [-5, -5, 5, 5]),
 	armchair: floor(1, 1, 0.8125),
-	beanbag_teal: floor(1, 1, 0.6875),
-	beanbag_coral: floor(1, 1, 0.6875),
-	coffee_table: floor(2, 1, 0.625),
-	stool: floor(1, 1, 0.4375),
-	bar_stool: floor(1, 1, 0.8125),
-	folding_chair: floor(1, 1, 0.875),
-	fridge: floor(1, 1, 2),
-	vending_machine: floor(1, 1, 2.0625),
-	water_cooler: floor(1, 1, 1.5),
-	filing_cabinet: floor(1, 1, 1.375),
-	whiteboard: floor(1, 1, 1.875),
-	kanban_board: floor(2, 1, 2.0625),
-	server_rack: floor(1, 1, 2.125),
-	printer: floor(1, 1, 1.4375),
-	phone_booth: floor(1, 1, 2.25),
-	ping_pong_table: floor(2, 3, 1),
-	foosball_table: floor(2, 1, 1.0625),
+	beanbag_teal: floor(1, 1, 0.6875, [-7, -6, 7, 6]),
+	beanbag_coral: floor(1, 1, 0.6875, [-7, -6, 7, 6]),
+	coffee_table: floor(2, 1, 0.625, [-13, -6, 13, 6]),
+	stool: floor(1, 1, 0.4375, [-5, -5, 5, 5]),
+	bar_stool: floor(1, 1, 0.8125, [-5, -5, 5, 5]),
+	folding_chair: floor(1, 1, 0.875, [-5, -4, 5, 5]),
+	fridge: floor(1, 1, 2, [-7, -6, 7, 8]),
+	vending_machine: floor(1, 1, 2.0625, [-7, -6, 7, 8]),
+	water_cooler: floor(1, 1, 1.5, [-5, -4, 7, 6]),
+	filing_cabinet: floor(1, 1, 1.375, [-6, -5, 6, 7]),
+	whiteboard: floor(1, 1, 1.875, [-7, -4, 7, 5]),
+	kanban_board: floor(2, 1, 2.0625, [-15, -4, 15, 5]),
+	server_rack: floor(1, 1, 2.125, [-7, -6, 7, 7]),
+	printer: floor(1, 1, 1.4375, [-8, -5, 6, 7]),
+	phone_booth: floor(1, 1, 2.25, [-6, -4, 6, 7]),
+	ping_pong_table: floor(2, 3, 1, [-14, -19, 14, 19]),
+	foosball_table: floor(2, 1, 1.0625, [-13, -8, 13, 8]),
 	chess_table: floor(1, 1, 0.9375),
-	arcade_cabinet: floor(1, 1, 2),
-	tv_console: floor(2, 1, 1.6875),
-	podium: floor(1, 1, 1.25),
-	projector_screen: floor(3, 1, 2.3125),
+	arcade_cabinet: floor(1, 1, 2, [-7, -6, 7, 7]),
+	tv_console: floor(2, 1, 1.6875, [-14, -5, 14, 6]),
+	podium: floor(1, 1, 1.25, [-7, -5, 7, 6]),
+	projector_screen: floor(3, 1, 2.3125, [-22, -4, 22, 5]),
 	stage_block: floor(1, 1, 0.25),
-	snack_table: floor(2, 1, 1.0625),
+	snack_table: floor(2, 1, 1.0625, [-14, -6, 14, 6]),
 	big_desk_max: floor(2, 1, 1.375),
-	reception_desk: floor(3, 1, 1.4375),
-	bike: floor(1, 1, 1.0625),
-	coat_rack: floor(1, 1, 1.5),
-	floor_lamp: floor(1, 1, 1.875),
-	trash_bin: floor(1, 1, 0.4375),
-	recycle_bins: floor(1, 1, 0.4375),
-	umbrella_stand: floor(1, 1, 1),
-	fish_tank: floor(2, 1, 1.25),
-	dog_bed: floor(1, 1, 0.3125),
+	reception_desk: floor(3, 1, 1.4375, [-22, -6, 22, 7]),
+	bike: floor(1, 1, 1.0625, [-8, -3, 8, 4]),
+	coat_rack: floor(1, 1, 1.5, [-5, -5, 5, 5]),
+	floor_lamp: floor(1, 1, 1.875, [-5, -5, 5, 5]),
+	trash_bin: floor(1, 1, 0.4375, [-4, -4, 4, 4]),
+	recycle_bins: floor(1, 1, 0.4375, [-7, -3, 7, 3]),
+	umbrella_stand: floor(1, 1, 1, [-3, -3, 3, 3]),
+	fish_tank: floor(2, 1, 1.25, [-11, -5, 11, 5]),
+	dog_bed: floor(1, 1, 0.3125, [-7, -6, 7, 6]),
 	rug_round: floor(2, 2, 0.0625),
 	rug_rect: floor(3, 2, 0.0625),
 	// Plants
 	plant_monstera: floor(1, 1, 1.3125),
-	plant_fiddle: floor(1, 1, 1.3125),
-	plant_snake: floor(1, 1, 1.125),
-	plant_cactus: floor(1, 1, 1.1875),
-	plant_ficus: floor(1, 1, 2.1875),
-	plant_hanging: floor(1, 1, 1.875),
+	plant_fiddle: floor(1, 1, 1.3125, [-6, -3, 6, 4]),
+	plant_snake: floor(1, 1, 1.125, [-4, -4, 4, 4]),
+	plant_cactus: floor(1, 1, 1.1875, [-5, -4, 5, 4]),
+	plant_ficus: floor(1, 1, 2.1875, [-6, -4, 7, 4]),
+	plant_hanging: floor(1, 1, 1.875, [-4, -4, 5, 7]),
 	plant_desk: top(0.375, 0.375, 0.4375),
 	plant_pothos_shelf: top(0.75, 0.75, 0.5625),
 	// Desk-top & small props
@@ -121,6 +124,14 @@ export type AssetId = keyof typeof ASSETS;
 export function footprint(id: AssetId): readonly [number, number] {
 	const info: AssetInfo = ASSETS[id];
 	return 'fp' in info ? info.fp : [1, 1];
+}
+
+/** A floor piece's body in tiles before rotation: local x0, z0, x1, z1 around its centre. */
+export function body(id: AssetId): readonly [number, number, number, number] {
+	const info: AssetInfo = ASSETS[id];
+	if (!('fp' in info)) return [-0.5, -0.5, 0.5, 0.5];
+	if (info.body) return [info.body[0] / 16, info.body[1] / 16, info.body[2] / 16, info.body[3] / 16];
+	return [-info.fp[0] / 2, -info.fp[1] / 2, info.fp[0] / 2, info.fp[1] / 2];
 }
 
 /** Characters in characters.glb, with the part rig they use. */

@@ -28,6 +28,8 @@ import { now } from './spawn';
 
 const RUN = 4;
 const RADIUS = 0.22;
+/** How far the visitor sidesteps, in tiles, to slip into a gap they walk at slightly off. */
+const SLIP = 0.4;
 const PITCH = (50 * Math.PI) / 180;
 const OVERVIEW_PITCH = (62 * Math.PI) / 180;
 const MIN_DIST = 13;
@@ -170,6 +172,26 @@ const MOVE_KEYS: Record<string, [number, number]> = {
 	KeyD: [1, 0],
 	ArrowRight: [1, 0],
 };
+
+/**
+ * A step sideways, at most `step` long, towards the nearest spot within SLIP from which the
+ * blocked move (dx, dy) goes through: walking at a gap between two chairs glances into it.
+ */
+function sidestep(world: CompiledWorld, p: { x: number; y: number }, dx: number, dy: number, step: number) {
+	const len = Math.hypot(dx, dy);
+	for (let o = 0.02; o <= SLIP; o += 0.02)
+		for (const side of [1, -1]) {
+			const sx = (-dy / len) * side;
+			const sy = (dx / len) * side;
+			const x = p.x + sx * o;
+			const y = p.y + sy * o;
+			if (collides(world, x, y, RADIUS) || collides(world, x + dx, y + dy, RADIUS)) continue;
+			const by = Math.min(step, o);
+			const to = { x: p.x + sx * by, y: p.y + sy * by };
+			return collides(world, to.x, to.y, RADIUS) ? null : to;
+		}
+	return null;
+}
 
 /** Smooths a cell path into waypoints, dropping corners a straight walk can skip. */
 function waypoints(world: CompiledWorld, cells: Cell[], from: { x: number; y: number }) {
@@ -552,9 +574,13 @@ export function Controller({
 			if (!collides(w, nx, ny, RADIUS)) {
 				px = nx;
 				py = ny;
-			} else if (!collides(w, nx, p.y, RADIUS)) px = nx;
-			else if (!collides(w, p.x, ny, RADIUS)) py = ny;
-			else if (p.path.length) p.path = [];
+			} else if (vx && !collides(w, nx, p.y, RADIUS)) px = nx;
+			else if (vy && !collides(w, p.x, ny, RADIUS)) py = ny;
+			else {
+				const to = sidestep(w, p, vx * dt, vy * dt, Math.hypot(vx, vy) * dt);
+				if (to) [px, py] = [to.x, to.y];
+				else if (p.path.length) p.path = [];
+			}
 			moving = Math.hypot(px - p.x, py - p.y) > 1e-4;
 			p.x = px;
 			p.y = py;

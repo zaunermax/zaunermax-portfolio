@@ -221,6 +221,8 @@ export type CompiledWorld = {
 	footprint: { x: number; y: number; w: number; h: number }[];
 	/** Furniture blocks the cell. */
 	blocked: Uint8Array;
+	/** What a blocked cell's furniture fills: x0, y0, x1, y1 in cell space at index cell * 4. */
+	solid: Float32Array;
 	/** Horizontal edges: index y * width + x is the north edge of cell (x, y), y in 0..height. */
 	hEdge: Uint8Array;
 	/** Vertical edges: index y * (width + 1) + x is the west edge of cell (x, y), x in 0..width. */
