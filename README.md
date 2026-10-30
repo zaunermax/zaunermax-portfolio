@@ -82,7 +82,15 @@ format new files only.
 
 `wrangler.jsonc` prepares Worker `zaunermax-beta` with only the exact custom domain
 `beta.zaunermax.at`. Deployment, authentication and remote resource changes require owner
-authorization. No deployment or Cloudflare resource change is part of this migration.
+authorization.
+
+GitHub Actions (`.github/workflows/beta.yml`) runs lint, typecheck, unit tests and the build on
+every pull request, and on every push to `main` deploys beta with `wrangler deploy` once those
+pass, so merging a pull request deploys it, Durable Object migrations included. Deploys run one
+at a time and authenticate with the `CLOUDFLARE_API_TOKEN` repository secret. There are no
+preview deployments. Roll back with `pnpm exec wrangler rollback`, or re-run the workflow for an
+older commit.
+
 The `deploy` script builds then invokes Wrangler; the generated configuration is under
 `dist/server` and `.wrangler/deploy`. `pnpm preview` runs that build locally.
 
