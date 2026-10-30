@@ -3,6 +3,7 @@ import { Output, streamText, type LanguageModelUsage } from 'ai';
 import { getAIProvider, getOpenAI } from '@/server/openai-client.server';
 import { generateChatter } from './chatter.server';
 import { compileWorld } from './compile';
+import { DEFAULT_CHATTER } from './default-world';
 import { optionalRoomCount, planFloor } from './floorplan';
 import { pick } from './random';
 import { sanitizeBrief, settledPart } from './sanitize';
@@ -185,7 +186,7 @@ export type GenerateWorldOptions = {
 	/** Cancels the model call (in addition to the built-in timeout). */
 	signal?: AbortSignal;
 	/** The office on display, so the next one differs. */
-	previous?: Pick<Brief, 'company' | 'vibe'> | null;
+	previous?: Pick<Brief, 'company' | 'vibe' | 'chatter'> | null;
 	/** The floorplan seed; random by default. */
 	seed?: number;
 };
@@ -251,7 +252,12 @@ export async function* generateWorld({
 	const abortSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
 	let streamError: unknown = null;
 	// The staff's chatter about Max is a separate, grounded call: it runs alongside the brief.
-	const chatter = generateChatter({ premise: premise.premise, signal: abortSignal });
+	const chatter = generateChatter({
+		premise: premise.premise,
+		// Offices without chatter of their own show the default lines.
+		previous: previous ? (previous.chatter ?? DEFAULT_CHATTER) : null,
+		signal: abortSignal,
+	});
 
 	const result = streamText({
 		model: getAIProvider().responses(model),

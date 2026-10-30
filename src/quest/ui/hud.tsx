@@ -432,12 +432,15 @@ export function Dock({
 	xp,
 	nearby,
 	touch,
+	aboutMax = false,
 	onInteract,
 }: {
 	actions: Action[];
 	xp: { level: number; fraction: number };
 	nearby: Interactable | null;
 	touch: boolean;
+	/** Talking to the person nearby again gets what they know about Max. */
+	aboutMax?: boolean;
 	onInteract: () => void;
 }) {
 	const percent = Math.round(xp.fraction * 100);
@@ -447,7 +450,7 @@ export function Dock({
 				{nearby ? (
 					<button type="button" className={styles.prompt} onClick={onInteract}>
 						{touch ? null : <kbd className={styles.key}>F</kbd>}
-						{promptText(nearby, touch)}
+						{promptText(nearby, touch, aboutMax)}
 					</button>
 				) : null}
 				<div className={styles.tray}>
@@ -528,11 +531,13 @@ export function Dock({
 	);
 }
 
-export function promptText(target: Interactable, touch: boolean) {
+export function promptText(target: Interactable, touch: boolean, aboutMax = false) {
 	const verb = touch ? 'Tap to' : '';
 	const text =
 		target.kind === 'npc'
-			? `say hi to ${target.name}`
+			? aboutMax
+				? `ask ${target.name} about Max`
+				: `say hi to ${target.name}`
 			: {
 					max: 'talk to Max',
 					library: `browse ${target.name}`,

@@ -59,6 +59,12 @@ describe('createChatter', () => {
 		expect(chatter.tick(PAUSE_MS * 3, { x: 20, y: 3 }, home)).toBeNull();
 	});
 
+	it('leaves the remark to whoever the visitor is walking up to', () => {
+		const chatter = createChatter({ npcs, talks: [] });
+		expect(chatter.tick(0, { x: 20, y: 3 }, home, 'c')).toBeNull();
+		expect(chatter.tick(0, { x: 20, y: 3 }, home)?.text).toBe('Max loves trains.');
+	});
+
 	it('follows people who walk around', () => {
 		const chatter = createChatter({ npcs, talks: [] });
 		expect(chatter.tick(0, { x: 10, y: 10 }, (a) => (a.id === 'c' ? { x: 10, y: 11 } : a))?.actor.id).toBe('c');
@@ -66,10 +72,14 @@ describe('createChatter', () => {
 
 	it('answers a visitor who talks to someone with their own line, then their remark', () => {
 		const chatter = createChatter({ npcs, talks: [] });
+		expect(chatter.remarkNext('a')).toBe(false);
 		expect(chatter.greet('a', 'I am a.')).toBe('I am a.');
+		expect(chatter.remarkNext('a')).toBe(true);
 		expect(chatter.greet('a', 'I am a.')).toBe('Max owns an ErgoDox.');
+		expect(chatter.remarkNext('a')).toBe(false);
 		expect(chatter.greet('a', 'I am a.')).toBe('I am a.');
 		expect(chatter.greet('b', 'I am b.')).toBe('I am b.');
+		expect(chatter.remarkNext('b')).toBe(false);
 		expect(chatter.greet('b', 'I am b.')).toBe('I am b.');
 		// a's remark was heard, so walking by stays quiet.
 		expect(chatter.tick(0, { x: 2, y: 3 }, home)).toBeNull();

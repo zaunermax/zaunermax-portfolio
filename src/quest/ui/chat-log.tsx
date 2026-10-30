@@ -10,6 +10,8 @@ export type LogEntry = {
 	speaker?: string;
 	/** Whispers: from Max (in) or to Max (out). */
 	direction?: 'in' | 'out';
+	/** Overheard in passing: logged, but not counted as new. */
+	ambient?: boolean;
 };
 
 /** The chat log as a tiny external store: anything may push, the view subscribes. */
@@ -78,7 +80,7 @@ export function ChatLogView({
 	const [open, setOpen] = useState(false);
 	const [expanded, setExpanded] = useState(false);
 	const [seen, setSeen] = useState(0);
-	const unread = compact && !open ? Math.max(0, entries.length - seen) : 0;
+	const unread = compact && !open ? entries.slice(seen).filter((e) => !e.ambient).length : 0;
 
 	useEffect(() => {
 		const el = body.current;

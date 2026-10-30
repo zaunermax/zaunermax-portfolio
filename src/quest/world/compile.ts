@@ -787,14 +787,17 @@ function vignettes(
 const TALK_REACH = 2.5;
 
 /**
- * Who says what about Max: each remark goes to one of the named people, each talk to the
- * closest two people in one room (at least one of them named), nobody in two talks.
+ * Who says what about Max: each remark goes to one of the named people (then to anyone else),
+ * each talk to the closest two people in one room (at least one of them named), nobody in two
+ * talks. The first talk is the one nearest Max's desk, so every visitor overhears one early.
  */
-function assignChatter(actors: Actor[], castCount: number, chatter: Chatter, seed: number): Talk[] {
+function assignChatter(actors: Actor[], castCount: number, chatter: Chatter, seed: number, near: Cell | null): Talk[] {
 	const rng = rngFor(seed, 'chatter');
 	const named = shuffle(rng, actors.slice(0, castCount).filter((a) => a.appearance));
+	const others = shuffle(rng, actors.slice(castCount).filter((a) => a.appearance && !a.caption));
+	const speakers = [...named, ...others];
 	chatter.remarks.forEach((remark, i) => {
-		if (named[i]) named[i].remark = remark;
+		if (speakers[i]) speakers[i].remark = remark;
 	});
 	const people = actors.filter((a) => a.appearance);
 	const busy = new Set<string>();
@@ -805,8 +808,12 @@ function assignChatter(actors: Actor[], castCount: number, chatter: Chatter, see
 			if (busy.has(a.id)) continue;
 			for (const b of people) {
 				if (b === a || busy.has(b.id) || b.room !== a.room) continue;
-				const d = Math.hypot(a.x - b.x, a.y - b.y);
-				if (d <= TALK_REACH && (!best || d < best.d)) best = { a, b, d };
+				if (Math.hypot(a.x - b.x, a.y - b.y) > TALK_REACH) continue;
+				const d =
+					near && !talks.length
+						? Math.hypot((a.x + b.x) / 2 - near.x - 0.5, (a.y + b.y) / 2 - near.y - 0.5)
+						: Math.hypot(a.x - b.x, a.y - b.y);
+				if (!best || d < best.d) best = { a, b, d };
 			}
 		}
 		if (!best) break;
@@ -1121,7 +1128,7 @@ export function compileWorld(brief: Brief, seed: number, options: CompileOptions
 		companions(crowd, seed, out.furniture, event);
 		staffCoffeeBar(crowd, seed);
 		vignettes(crowd, seed, { furniture: out.furniture, decor: out.decor, landmark });
-		talks = assignChatter(crowd.actors, castCount, brief.chatter ?? DEFAULT_CHATTER, seed);
+		talks = assignChatter(crowd.actors, castCount, brief.chatter ?? DEFAULT_CHATTER, seed, landmark.max?.interact ?? null);
 	}
 	tuckEmptySeats(out.furniture, crowd.actors, grid.blocked);
 	// Keep playful hair and glasses in proportion: the named cast first, then the extras.

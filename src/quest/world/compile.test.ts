@@ -496,7 +496,10 @@ describe('office chatter', () => {
 			const byId = new Map(world.npcs.map((a) => [a.id, a]));
 			const remarks = world.npcs.filter((a) => a.remark);
 			expect(remarks.length).toBeGreaterThan(0);
-			for (const a of remarks) expect(a.interactive && a.appearance).toBeTruthy();
+			for (const a of remarks) expect(a.appearance).toBeTruthy();
+			// Named people first; anyone else only once they all have one.
+			const named = world.npcs.filter((a) => a.interactive && a.appearance);
+			if (named.some((a) => !a.remark)) expect(remarks.every((a) => a.interactive)).toBe(true);
 			expect(new Set(remarks.map((a) => a.remark)).size).toBe(remarks.length);
 			expect(world.talks.length).toBeGreaterThan(0);
 			const people = world.talks.flatMap((t) => [t.a, t.b]);
@@ -509,6 +512,21 @@ describe('office chatter', () => {
 				expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeLessThanOrEqual(2.5);
 				expect(a.chats && b.chats).toBe(true);
 			}
+		}
+	});
+
+	it('puts the first talk by Max\'s desk and hands out every remark', () => {
+		for (const seed of [DEFAULT_SEED, 7, 42, 1234]) {
+			const world = compileWorld(defaultBrief, seed);
+			const desk = world.landmark.max!.interact;
+			const byId = new Map(world.npcs.map((a) => [a.id, a]));
+			const away = (t: { a: string; b: string }) => {
+				const a = byId.get(t.a)!;
+				const b = byId.get(t.b)!;
+				return Math.hypot((a.x + b.x) / 2 - desk.x - 0.5, (a.y + b.y) / 2 - desk.y - 0.5);
+			};
+			for (const t of world.talks.slice(1)) expect(away(world.talks[0])).toBeLessThanOrEqual(away(t));
+			expect(world.npcs.filter((a) => a.remark)).toHaveLength(DEFAULT_CHATTER.remarks.length);
 		}
 	});
 

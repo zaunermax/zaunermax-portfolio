@@ -545,7 +545,7 @@ export function Npc({
 					<boxGeometry args={[0.8, 1.3, 0.8]} />
 				</mesh>
 			) : null}
-			{clickable || actor.caption || actor.chats ? (
+			{clickable || actor.caption || actor.chats || actor.remark ? (
 				<Anchor
 					bus={bus}
 					id={anchor ?? actor.id}

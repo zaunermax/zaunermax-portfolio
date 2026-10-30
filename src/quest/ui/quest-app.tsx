@@ -15,7 +15,7 @@ import { useMaxChat } from '../chat/use-max-chat';
 import { lookFor } from '../room/presence';
 import { useRoom } from '../room/use-room';
 import { GameBus, type Interactable } from '../scene/bus';
-import { createChatter } from '../scene/chatter';
+import { createChatter, type ChatterDirector } from '../scene/chatter';
 import { compileWorld } from '../world/compile';
 import { defaultBrief, DEFAULT_SEED } from '../world/default-world';
 import { briefForSeed } from '../world/offline-briefs';
@@ -323,11 +323,16 @@ export function QuestApp({
 
 	// --- the staff mention Max as the visitor walks by; quiet while a window or the overview is up
 	const chatter = useMemo(() => createChatter(compiled), [compiled]);
-	const chatting = sceneReady && !introActive && !generating && !overview && open === null && !hidden;
+	/** The person whose next greeting is their remark about Max, for the prompt. */
+	const [askAbout, setAskAbout] = useState<{ chatter: ChatterDirector; id: string } | null>(null);
+	// It waits for the welcome card to shrink, so the first talk is not said behind it.
+	const chatting =
+		sceneReady && !introActive && !generating && !overview && open === null && !hidden && zoneState === 'small';
 	useEffect(() => {
 		if (!chatting) return;
 		const timer = setInterval(() => {
-			const said = chatter.tick(performance.now(), bus.player, (a) => bus.npcs.get(a.id) ?? a);
+			const goal = bus.goal?.kind === 'npc' ? bus.goal.id : undefined;
+			const said = chatter.tick(performance.now(), bus.player, (a) => bus.npcs.get(a.id) ?? a, goal);
 			if (!said) return;
 			bus.say(said.actor.id, said.text, said.ms);
 			log.push({
@@ -335,6 +340,7 @@ export function QuestApp({
 				kind: 'npc',
 				speaker: said.actor.name || 'Colleague',
 				text: said.text,
+				ambient: true,
 			});
 		}, 250);
 		return () => clearInterval(timer);
@@ -344,6 +350,7 @@ export function QuestApp({
 	const onInteract = useEffectEvent((t: Interactable) => {
 		if (t.kind === 'npc') {
 			const text = chatter.greet(t.id, t.line);
+			setAskAbout(chatter.remarkNext(t.id) ? { chatter, id: t.id } : null);
 			bus.say(t.id, text);
 			log.push({
 				id: `npc-${t.id}-${Date.now()}`,
@@ -577,6 +584,7 @@ export function QuestApp({
 					xp={xp}
 					nearby={open ? null : nearby}
 					touch={touch}
+					aboutMax={nearby?.kind === 'npc' && askAbout?.chatter === chatter && askAbout.id === nearby.id}
 					onInteract={() => bus.interact()}
 				/>
 

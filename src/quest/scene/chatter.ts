@@ -38,8 +38,11 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>) {
 	const line = (actor: Actor, text: string): ChatterLine => ({ actor, text, ms: readMs(text) });
 
 	return {
-		/** What to say now, if anything; call it often while the visitor can see the office. */
-		tick(now: number, player: Pos, at: (actor: Actor) => Pos): ChatterLine | null {
+		/**
+		 * What to say now, if anything; call it often while the visitor can see the office.
+		 * `goal` is whoever the visitor is walking up to: they greet the visitor on arrival instead.
+		 */
+		tick(now: number, player: Pos, at: (actor: Actor) => Pos, goal?: string): ChatterLine | null {
 			const dist = (a: Actor) => {
 				const p = at(a);
 				return Math.hypot(p.x - player.x, p.y - player.y);
@@ -76,7 +79,7 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>) {
 			let best: Actor | null = null;
 			let bestDist = REMARK_RANGE;
 			for (const a of world.npcs) {
-				if (!a.remark || heard.has(a.id)) continue;
+				if (!a.remark || heard.has(a.id) || a.id === goal) continue;
 				const d = dist(a);
 				if (d <= bestDist) {
 					best = a;
@@ -102,6 +105,11 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>) {
 			greeted.delete(id);
 			heard.add(id);
 			return remark;
+		},
+
+		/** Talking to them again gets their remark about Max. */
+		remarkNext(id: string) {
+			return greeted.has(id) && !!byId.get(id)?.remark;
 		},
 	};
 }

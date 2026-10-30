@@ -16,7 +16,7 @@ vi.mock('ai', async (original) => ({
 	streamText: mocks.streamText,
 }));
 
-import { defaultBrief } from './default-world';
+import { DEFAULT_CHATTER, defaultBrief } from './default-world';
 import { optionalRoomCount, planFloor } from './floorplan';
 import {
 	buildRunPrompt,
@@ -132,6 +132,8 @@ describe('generateWorld', () => {
 		const { streamed, result } = await drain(generateWorld({ seed: 850 }));
 		expect(mocks.chatter).toHaveBeenCalledTimes(1);
 		expect(mocks.chatter.mock.calls[0][0].premise).toEqual(expect.any(String));
+		// Nothing on display yet, so nothing to avoid repeating.
+		expect(mocks.chatter.mock.calls[0][0].previous).toBeNull();
 		expect(result.brief).toEqual({ ...defaultBrief, chatter });
 		expect(streamed.at(-1)).toEqual(result.brief);
 		// Only the brief that is done carries it.
@@ -142,6 +144,8 @@ describe('generateWorld', () => {
 		fakeStream(defaultBrief);
 		await drain(generateWorld({ previous: { company: 'Old Co', vibe: 'cozy' } }));
 		expect(mocks.responses).toHaveBeenCalledWith('gpt-6-luna');
+		// An office without chatter of its own shows the default lines.
+		expect(mocks.chatter.mock.calls[0][0].previous).toEqual(DEFAULT_CHATTER);
 		const options = mocks.streamText.mock.calls[0][0] as StreamOptions;
 		expect(options.reasoning).toBe('low');
 		expect(options.maxRetries).toBe(0);
