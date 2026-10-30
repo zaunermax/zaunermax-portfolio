@@ -1347,7 +1347,9 @@ export function findPath(world: CompiledWorld, from: Cell, to: Cell): Cell[] | n
 		if (!near) return null;
 		to = near;
 	}
-	if (!isOpenCell(world, from.x, from.y)) return null;
+	// The start may be a furniture cell: bodies are slimmer than tiles, so the visitor can stand
+	// in a chair's cell, behind it.
+	if (!inBounds(from.x, from.y)) return null;
 	const start = cellIndex(from.x, from.y);
 	const goal = cellIndex(to.x, to.y);
 	const g = new Float32Array(W * H).fill(Infinity);

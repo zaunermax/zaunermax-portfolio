@@ -484,6 +484,18 @@ describe('seating, pods and small stories', () => {
 		expect(collides(open, 11, 11, 0.3)).toBe(true);
 	});
 
+	it('walks the visitor out from behind a tucked chair', () => {
+		const world = compileWorld(defaultBrief, DEFAULT_SEED);
+		const chairs = world.furniture.filter((f) => f.asset === 'office_chair' && f.tuck);
+		expect(chairs.length).toBeGreaterThan(0);
+		for (const f of chairs) {
+			// Behind the chair, on the aisle side of its own cell, clear of its body.
+			const back = { x: f.x + 0.5 - Math.round(Math.sin(f.rot * (Math.PI / 2))) * 0.3, y: f.y + 0.5 - Math.round(Math.cos(f.rot * (Math.PI / 2))) * 0.3 };
+			if (collides(world, back.x, back.y, 0.22)) continue;
+			expect(findPath(world, { x: f.x, y: f.y }, world.spawn), f.id).not.toBeNull();
+		}
+	});
+
 	it('lays the open space out on a grid that varies by seed: pods, benches, rows, huddles, standing desks', () => {
 		const kinds = new Set<string>();
 		const layouts = new Set<string>();
