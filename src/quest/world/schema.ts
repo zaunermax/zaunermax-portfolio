@@ -187,7 +187,9 @@ const castMember = z.object({
 				.array(z.enum(LOOK.accessory))
 				.describe('0-2 items; glasses on at most a quarter of the cast'),
 		})
-		.describe('Their style (people only; pets ignore it). Skin tone is chosen by the game.'),
+		// Nullable for pets: a required look a pet cannot use made the model stall in whitespace.
+		.nullable()
+		.describe('Their style; null for pets. Skin tone is chosen by the game.'),
 });
 
 export const briefSchema = z.object({
@@ -219,7 +221,7 @@ export const briefSchema = z.object({
 });
 
 export type BriefOutput = z.infer<typeof briefSchema>;
-export type Look = z.infer<typeof castMember>['look'];
+export type Look = NonNullable<z.infer<typeof castMember>['look']>;
 
 /** A sanitized brief: always complete in shape, possibly with empty or short parts. */
 export type Brief = {

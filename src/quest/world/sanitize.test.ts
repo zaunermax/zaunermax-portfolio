@@ -10,6 +10,10 @@ describe('sanitizeBrief', () => {
 		// Pets carry no look in the default brief; the model always sends one.
 		const asModel = { ...defaultBrief, cast: defaultBrief.cast.map((c) => ({ ...c, look: c.look ?? randomLook(1, c.name) })) };
 		expect(briefSchema.safeParse(asModel).success).toBe(true);
+		// Pets may send no look at all (a required one made the model stall).
+		const petsWithoutLook = { ...asModel, cast: asModel.cast.map((c) => (c.character.startsWith('office_') ? { ...c, look: null } : c)) };
+		expect(briefSchema.safeParse(petsWithoutLook).success).toBe(true);
+		expect(sanitizeBrief(petsWithoutLook).cast.filter((c) => c.character.startsWith('office_')).every((c) => c.look === null)).toBe(true);
 	});
 
 	it('is idempotent', () => {
