@@ -114,7 +114,8 @@ export async function generateChatter({
 			maxOutputTokens: MAX_OUTPUT_TOKENS,
 			maxRetries: 0,
 			abortSignal: signal,
-			providerOptions: { openai: { store: false } },
+			// Fast mode, like the brief: the deploy waits for whichever finishes last.
+			providerOptions: { openai: { store: false, serviceTier: 'fast' } },
 		});
 		const chatter = chatterOf({
 			remarks: output.remarks.map((r) => r.line),

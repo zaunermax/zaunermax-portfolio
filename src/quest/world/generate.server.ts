@@ -35,8 +35,11 @@ import { checkWorld } from './validate';
  */
 
 export const GENERATION_TIMEOUT_MS = 90_000;
-/** A brief is ~2.5k tokens; reasoning tokens count against this too. */
-export const MAX_OUTPUT_TOKENS = 8_000;
+/**
+ * A brief is ~2–2.5k tokens; reasoning tokens count against this too. Twice that leaves room for
+ * a full cast while an answer that runs away (one in a few) is cut off before it stalls the build.
+ */
+export const MAX_OUTPUT_TOKENS = 5_000;
 export const DEFAULT_WORLD_MODEL = 'gpt-6.1-sol';
 
 export function worldModelId() {
@@ -282,7 +285,8 @@ async function* buildWorld(
 		// One attempt only: a retry could double the cost of a run.
 		maxRetries: 0,
 		abortSignal,
-		providerOptions: { openai: { store: false } },
+		// Fast mode: the office builds live in front of the visitor, so speed beats the token premium.
+		providerOptions: { openai: { store: false, serviceTier: 'fast' } },
 		onError: ({ error }) => {
 			streamError ??= error;
 		},

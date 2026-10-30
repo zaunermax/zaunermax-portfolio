@@ -45,7 +45,7 @@ describe('generateChatter', () => {
 		expect(mocks.responses).toHaveBeenCalledWith(CHATTER_MODEL);
 		const options = mocks.generateText.mock.calls[0][0];
 		expect(options.maxRetries).toBe(0);
-		expect(options.providerOptions).toEqual({ openai: { store: false } });
+		expect(options.providerOptions).toEqual({ openai: { store: false, serviceTier: 'fast' } });
 		expect(options.prompt).toContain('Max owns an ergodox ez keyboard.');
 		expect(options.prompt).toContain('a toaster startup');
 		expect(mocks.moderate.mock.calls[0][0].input).toContain('Choo choo.');

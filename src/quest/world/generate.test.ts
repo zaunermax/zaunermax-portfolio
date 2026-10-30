@@ -146,7 +146,7 @@ describe('generateWorld', () => {
 		expect((mocks.chatter.mock.calls[0][0].signal as AbortSignal).aborted).toBe(true);
 	});
 
-	it('defaults to gpt-6.1-sol with low reasoning, one attempt, no storage and a timeout', async () => {
+	it('defaults to gpt-6.1-sol in Fast mode with low reasoning, one attempt, no storage and a timeout', async () => {
 		fakeStream(defaultBrief);
 		await drain(generateWorld({ previous: { company: 'Old Co', vibe: 'cozy' } }));
 		expect(mocks.responses).toHaveBeenCalledWith('gpt-6.1-sol');
@@ -157,7 +157,7 @@ describe('generateWorld', () => {
 		expect(options.maxRetries).toBe(0);
 		expect(options.maxOutputTokens).toBeLessThanOrEqual(12_000);
 		expect(options.abortSignal).toBeInstanceOf(AbortSignal);
-		expect(options.providerOptions).toEqual({ openai: { store: false } });
+		expect(options.providerOptions).toEqual({ openai: { store: false, serviceTier: 'fast' } });
 		expect(options.instructions).toBe(WORLD_INSTRUCTIONS);
 		expect(options.prompt).toContain('"Old Co"');
 	});
