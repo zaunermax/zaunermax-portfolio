@@ -5,6 +5,19 @@ import { QuestApp } from '@/quest/ui/quest-app';
 import { LoadingVeil, ZoneText } from '@/quest/ui/hud';
 import styles from '@/quest/ui/hud.module.css';
 import { loadQuest } from '@/server/portfolio.functions';
+import pixelFont from '@fontsource/jersey-15/files/jersey-15-latin-400-normal.woff2?url';
+import readFont from '@fontsource-variable/atkinson-hyperlegible-next/files/atkinson-hyperlegible-next-latin-wght-normal.woff2?url';
+import readItalicFont from '@fontsource-variable/atkinson-hyperlegible-next/files/atkinson-hyperlegible-next-latin-wght-italic.woff2?url';
+
+// The loading screen and the big hello use these straight away: fetch them alongside the CSS
+// instead of after it, so the first paint already has them.
+const fontPreloads = [pixelFont, readFont, readItalicFont].map((href) => ({
+	rel: 'preload',
+	href,
+	as: 'font',
+	type: 'font/woff2',
+	crossOrigin: 'anonymous' as const,
+}));
 
 export const Route = createFileRoute('/')({
 	loader: () => ({ quest: loadQuest() }),
@@ -20,6 +33,7 @@ export const Route = createFileRoute('/')({
 					'Hello, I’m Max. Wander a tiny voxel office that an AI redeploys every hour, chat with me, or file a ticket for your project.',
 			},
 		],
+		links: fontPreloads,
 	}),
 	pendingComponent: Arriving,
 	component: QuestPage,

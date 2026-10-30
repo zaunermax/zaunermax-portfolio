@@ -148,23 +148,19 @@
 	width: 100%;
 	height: 26px;
 	padding: 4px;
+	display: flex;
+	gap: 4px;
 	background: var(--paper);
 	box-shadow: var(--ring3), var(--lift3);
 	overflow: hidden;
 }
 
-.loadFill {
-	height: 100%;
-	width: 100%;
-	background: repeating-linear-gradient(90deg, var(--teal) 0 14px, transparent 14px 18px);
-	clip-path: inset(0 100% 0 0);
-	animation: fillUp 2.4s steps(12, end) infinite;
+.loadCell {
+	flex: 1;
 }
 
-@keyframes fillUp {
-	to {
-		clip-path: inset(0 0 0 0);
-	}
+.loadCell[data-on='true'] {
+	background: var(--teal);
 }
 
 /* ------------------------------------------------------------------ first-visit touch hint */
@@ -330,7 +326,13 @@
 }
 
 .zoneTitle {
-	--o: 0.05em;
+	/*
+	 * The ink outline and the voxel-ish underside are stacked text-shadows. They step down one
+	 * whole pixel (--s) at a time, outline included: copies a whole outline apart read as a
+	 * second glyph on curves and on the comma, and fractional offsets leave seams.
+	 */
+	--s: max(1px, round(0.025em, 1px));
+	--o: calc(var(--s) * 2);
 	margin: 0;
 	font-family: var(--pixel);
 	font-size-adjust: var(--pixel-adjust);
@@ -346,14 +348,32 @@
 		0 var(--o) 0 var(--ink),
 		calc(var(--o) * -1) calc(var(--o) * -1) 0 var(--ink),
 		var(--o) calc(var(--o) * -1) 0 var(--ink),
-		0 calc(var(--o) * 2) 0 var(--coral),
-		calc(var(--o) * -1) calc(var(--o) * 2) 0 var(--ink),
-		var(--o) calc(var(--o) * 2) 0 var(--ink),
-		0 calc(var(--o) * 3) 0 var(--coral-dark),
-		calc(var(--o) * -1) calc(var(--o) * 3) 0 var(--ink),
-		var(--o) calc(var(--o) * 3) 0 var(--ink),
-		0 calc(var(--o) * 4) 0 var(--ink),
+		0 calc(var(--s) * 3) 0 var(--coral),
+		0 calc(var(--s) * 4) 0 var(--coral),
+		0 calc(var(--s) * 5) 0 var(--coral-dark),
+		0 calc(var(--s) * 6) 0 var(--coral-dark),
+		0 calc(var(--s) * 7) 0 var(--ink),
+		0 calc(var(--s) * 8) 0 var(--ink),
+		calc(var(--o) * -1) calc(var(--s) * 3) 0 var(--ink),
+		var(--o) calc(var(--s) * 3) 0 var(--ink),
+		calc(var(--o) * -1) calc(var(--s) * 4) 0 var(--ink),
+		var(--o) calc(var(--s) * 4) 0 var(--ink),
+		calc(var(--o) * -1) calc(var(--s) * 5) 0 var(--ink),
+		var(--o) calc(var(--s) * 5) 0 var(--ink),
+		calc(var(--o) * -1) calc(var(--s) * 6) 0 var(--ink),
+		var(--o) calc(var(--s) * 6) 0 var(--ink),
+		calc(var(--o) * -1) calc(var(--s) * 7) 0 var(--ink),
+		var(--o) calc(var(--s) * 7) 0 var(--ink),
+		calc(var(--o) * -1) calc(var(--s) * 8) 0 var(--ink),
+		var(--o) calc(var(--s) * 8) 0 var(--ink),
 		0 calc(var(--o) * 6) 0 rgb(43 36 51 / 0.22);
+}
+
+/* Without CSS round() the whole shadow list would be dropped, leaving paper text on paper. */
+@supports not (width: round(1px, 1px)) {
+	.zoneTitle {
+		--s: 2px;
+	}
 }
 
 .zoneSub {

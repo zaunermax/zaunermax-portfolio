@@ -11,6 +11,7 @@ import type { GameBus, Interactable } from '../scene/bus';
 import { floorColors, LIGHTING } from '../scene/palette';
 import styles from './hud.module.css';
 import { Ability, MapPin, SkyBadge, Sparkle, type AbilityIcon } from './icons';
+import { useLoadProgress } from './load-progress';
 import { cx, useLayer } from './window';
 
 // ---------------------------------------------------------------------------
@@ -575,13 +576,26 @@ export function BuildProgress({ world, label }: { world: Pick<CompiledWorld, 'ro
 // ---------------------------------------------------------------------------
 // Loading screen: the office floor tiles, a pixel progress bar, a friendly line.
 
+const LOAD_CELLS = 24;
+
 export function LoadingVeil({ ready, name }: { ready: boolean; name: string }) {
+	const progress = useLoadProgress(ready);
+	const lit = Math.round(progress * LOAD_CELLS);
 	return (
 		<div className={styles.veil} data-ready={ready} aria-hidden={ready}>
 			<div className={styles.loadBar}>
 				<span className={styles.loadText}>Clocking in at {name}…</span>
-				<div className={styles.loadTrack}>
-					<div className={styles.loadFill} />
+				<div
+					className={styles.loadTrack}
+					role="progressbar"
+					aria-label={`Loading ${name}`}
+					aria-valuemin={0}
+					aria-valuemax={100}
+					aria-valuenow={Math.round(progress * 100)}
+				>
+					{Array.from({ length: LOAD_CELLS }, (_, i) => (
+						<span key={i} className={styles.loadCell} data-on={i < lit} />
+					))}
 				</div>
 				<span className={styles.loadHint}>Unpacking desks, plants and the coffee machine</span>
 			</div>
