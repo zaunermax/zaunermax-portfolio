@@ -36,6 +36,8 @@ const OVERVIEW_DIST = 50;
 /** A touch held this long (or dragged this far) steers the visitor instead of tapping. */
 const HOLD_MS = 180;
 const HOLD_DRAG_PX = 10;
+/** A still finger lifted sooner than this still taps (a slow tap on a person must still reach them). */
+const HOLD_SWALLOW_MS = 400;
 /** Within this many cells of the finger the visitor stands still rather than jitter. */
 const HOLD_DEAD_ZONE = 0.45;
 
@@ -61,7 +63,8 @@ type Rig = {
 };
 
 const viewProj = new THREE.Matrix4();
-const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+// At the camera's focus height, so a finger on the visitor's body lands on the visitor.
+const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.6);
 const holdRay = new THREE.Raycaster();
 const holdNdc = new THREE.Vector2();
 const holdPoint = new THREE.Vector3();
@@ -354,7 +357,8 @@ export function Controller({
 			pointers.delete(e.pointerId);
 			if (pointers.size < 2) pinch = null;
 			if (hold.current?.id === e.pointerId) {
-				swallowClick = hold.current.active;
+				// Drags are ignored by every click handler already (e.delta); long still holds are not.
+				swallowClick = hold.current.active && performance.now() - hold.current.at > HOLD_SWALLOW_MS;
 				hold.current = null;
 			}
 		};
@@ -471,7 +475,7 @@ export function Controller({
 		let hx = 0;
 		let hy = 0;
 		const h = hold.current;
-		if (h && !h.active && (performance.now() - h.at > HOLD_MS || Math.hypot(h.x - h.startX, h.y - h.startY) > HOLD_DRAG_PX))
+		if (h && !h.active && !overviewWanted && (performance.now() - h.at > HOLD_MS || Math.hypot(h.x - h.startX, h.y - h.startY) > HOLD_DRAG_PX))
 			h.active = true;
 		if (h?.active && !overviewWanted && input.current) {
 			const box = gl.domElement.getBoundingClientRect();
