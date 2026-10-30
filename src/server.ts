@@ -1,6 +1,7 @@
 import handler from './start-server';
 export { QuestForge } from './server/quest-forge.server';
 export { QuestLimits } from './server/quest-limits.server';
+export { QuestRoom } from './server/quest-room.server';
 
 export default {
 	fetch(request, env, ctx) {

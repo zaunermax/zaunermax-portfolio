@@ -34,6 +34,17 @@ and a three-minute persisted lease. Interrupted runs expire rather than retry pa
 Replay/follow is available while the DO’s current job lives; a restart keeps the final world
 and lease but loses the running stream.
 
+Visitors share the office live through a third object, QuestRoom: one global room of WebSockets
+(hibernation API) at `GET /api/lab/quest/room`. They see each other walk and wave (G); there is
+no chat between visitors. Identity is an anonymous server-issued session id kept in
+`sessionStorage`; others only see a public id hashed from it, which picks the visitor's look.
+The room holds at most 50 players; the next one is closed with code 4001 and plays solo,
+retrying with backoff. When a redeploy starts, finishes or fails, QuestForge tells the room over
+RPC and every connected visitor follows the world stream, so everyone watches it being built;
+connected visitors stop idle polling. Set `QUEST_MULTIPLAYER=0` (Wrangler var, or `.dev.vars`
+locally) to switch the room off: pages then never connect and play solo, and the endpoint
+closes sockets with code 4003. Wire format and limits are in `src/quest/room/protocol.ts`.
+
 Opening either page in a browser can request AI suggestions. World POST, chat and completion
 use the configured OpenAI account unless intercepted by tests (the fake flag only covers
 world generation). Tests mock inference and suggestions; no test needs an OpenAI key.

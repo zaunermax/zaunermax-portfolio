@@ -28,6 +28,10 @@
 				"name": "QUEST_LIMITS",
 				"class_name": "QuestLimits",
 			},
+			{
+				"name": "QUEST_ROOM",
+				"class_name": "QuestRoom",
+			},
 		],
 	},
 	"migrations": [
@@ -35,8 +39,13 @@
 			"tag": "v1",
 			"new_sqlite_classes": ["QuestForge", "QuestLimits"],
 		},
+		{
+			"tag": "v2",
+			"new_sqlite_classes": ["QuestRoom"],
+		},
 	],
 	"vars": {
+		"QUEST_MULTIPLAYER": "1",
 		"SITE_URL": "https://beta.zaunermax.at",
 		"QUEST_WORLD_COOLDOWN_MINUTES": "60",
 		"QUEST_WORLD_MODEL": "gpt-6-luna",

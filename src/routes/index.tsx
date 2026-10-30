@@ -30,8 +30,14 @@ function QuestPage() {
 	return (
 		<Suspense fallback={<Arriving />}>
 			<Await promise={quest}>
-				{({ content, initial }) => (
-					<QuestApp initial={initial} content={content} business={business} fontVars="" />
+				{({ content, initial, multiplayer }) => (
+					<QuestApp
+						initial={initial}
+						content={content}
+						business={business}
+						multiplayer={multiplayer}
+						fontVars=""
+					/>
 				)}
 			</Await>
 		</Suspense>

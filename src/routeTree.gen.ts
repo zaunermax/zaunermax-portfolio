@@ -17,6 +17,7 @@ import { Route as Lab1QuestRouteImport } from './routes/lab/1-quest'
 import { Route as Lab2OsRouteImport } from './routes/lab/2-os'
 import { Route as ApiLabQuestChatRouteImport } from './routes/api/lab/quest/chat'
 import { Route as ApiLabQuestContactRouteImport } from './routes/api/lab/quest/contact'
+import { Route as ApiLabQuestRoomRouteImport } from './routes/api/lab/quest/room'
 import { Route as ApiLabQuestWorldRouteImport } from './routes/api/lab/quest/world'
 
 const IndexRoute = IndexRouteImport.update({
@@ -59,6 +60,11 @@ const ApiLabQuestContactRoute = ApiLabQuestContactRouteImport.update({
   path: '/api/lab/quest/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiLabQuestRoomRoute = ApiLabQuestRoomRouteImport.update({
+  id: '/api/lab/quest/room',
+  path: '/api/lab/quest/room',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiLabQuestWorldRoute = ApiLabQuestWorldRouteImport.update({
   id: '/api/lab/quest/world',
   path: '/api/lab/quest/world',
@@ -74,6 +80,7 @@ export interface FileRoutesByFullPath {
   '/lab/2-os': typeof Lab2OsRoute
   '/api/lab/quest/chat': typeof ApiLabQuestChatRoute
   '/api/lab/quest/contact': typeof ApiLabQuestContactRoute
+  '/api/lab/quest/room': typeof ApiLabQuestRoomRoute
   '/api/lab/quest/world': typeof ApiLabQuestWorldRoute
 }
 export interface FileRoutesByTo {
@@ -85,6 +92,7 @@ export interface FileRoutesByTo {
   '/lab/2-os': typeof Lab2OsRoute
   '/api/lab/quest/chat': typeof ApiLabQuestChatRoute
   '/api/lab/quest/contact': typeof ApiLabQuestContactRoute
+  '/api/lab/quest/room': typeof ApiLabQuestRoomRoute
   '/api/lab/quest/world': typeof ApiLabQuestWorldRoute
 }
 export interface FileRoutesById {
@@ -97,6 +105,7 @@ export interface FileRoutesById {
   '/lab/2-os': typeof Lab2OsRoute
   '/api/lab/quest/chat': typeof ApiLabQuestChatRoute
   '/api/lab/quest/contact': typeof ApiLabQuestContactRoute
+  '/api/lab/quest/room': typeof ApiLabQuestRoomRoute
   '/api/lab/quest/world': typeof ApiLabQuestWorldRoute
 }
 export interface FileRouteTypes {
@@ -110,6 +119,7 @@ export interface FileRouteTypes {
     | '/lab/2-os'
     | '/api/lab/quest/chat'
     | '/api/lab/quest/contact'
+    | '/api/lab/quest/room'
     | '/api/lab/quest/world'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -121,6 +131,7 @@ export interface FileRouteTypes {
     | '/lab/2-os'
     | '/api/lab/quest/chat'
     | '/api/lab/quest/contact'
+    | '/api/lab/quest/room'
     | '/api/lab/quest/world'
   id:
     | '__root__'
@@ -132,6 +143,7 @@ export interface FileRouteTypes {
     | '/lab/2-os'
     | '/api/lab/quest/chat'
     | '/api/lab/quest/contact'
+    | '/api/lab/quest/room'
     | '/api/lab/quest/world'
   fileRoutesById: FileRoutesById
 }
@@ -144,6 +156,7 @@ export interface RootRouteChildren {
   Lab2OsRoute: typeof Lab2OsRoute
   ApiLabQuestChatRoute: typeof ApiLabQuestChatRoute
   ApiLabQuestContactRoute: typeof ApiLabQuestContactRoute
+  ApiLabQuestRoomRoute: typeof ApiLabQuestRoomRoute
   ApiLabQuestWorldRoute: typeof ApiLabQuestWorldRoute
 }
 
@@ -205,6 +218,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiLabQuestContactRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/lab/quest/room': {
+      id: '/api/lab/quest/room'
+      path: '/api/lab/quest/room'
+      fullPath: '/api/lab/quest/room'
+      preLoaderRoute: typeof ApiLabQuestRoomRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/lab/quest/world': {
       id: '/api/lab/quest/world'
       path: '/api/lab/quest/world'
@@ -224,6 +244,7 @@ const rootRouteChildren: RootRouteChildren = {
   Lab2OsRoute: Lab2OsRoute,
   ApiLabQuestChatRoute: ApiLabQuestChatRoute,
   ApiLabQuestContactRoute: ApiLabQuestContactRoute,
+  ApiLabQuestRoomRoute: ApiLabQuestRoomRoute,
   ApiLabQuestWorldRoute: ApiLabQuestWorldRoute,
 }
 export const routeTree = rootRouteImport

@@ -4,6 +4,8 @@ import { PerformanceMonitor } from '@react-three/drei';
 import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
+import type { Presence } from '../room/presence';
+import type { Appearance } from '../world/appearance';
 import type { CompiledWorld } from '../world/compile';
 import { Anchor, Npc, setCursor } from './actors';
 import { MAX_ANCHOR, type GameBus } from './bus';
@@ -18,6 +20,7 @@ import { Floors, Seams, WallCut, Walls, WindowLight } from './office';
 import { LIGHTING, type Lighting } from './palette';
 import { ContactShade, PostFX } from './shading';
 import { Spawns } from './spawn';
+import { Visitors } from './visitors';
 import { Weather, weatherLighting } from './weather';
 
 export type WorldCanvasProps = {
@@ -33,6 +36,10 @@ export type WorldCanvasProps = {
 	inputEnabled: boolean;
 	/** Changes when the visitor should be placed next to Max again. */
 	respawnKey: string;
+	/** Everyone else in the live room; null when playing solo. */
+	presence: Presence | null;
+	/** The visitor's own look while in the room (as others see them); null for the default. */
+	appearance: Appearance | null;
 	onReady: () => void;
 };
 
@@ -205,6 +212,8 @@ function Scene({
 	quality,
 	inputEnabled,
 	respawnKey,
+	presence,
+	appearance,
 }: WorldCanvasProps & { post: boolean }) {
 	const lighting = useMemo(
 		() => weatherLighting(LIGHTING[world.meta.timeOfDay], world.meta.outside),
@@ -249,6 +258,7 @@ function Scene({
 				<Npc key={n.id} actor={n} world={world} bus={bus} spawns={spawns} reducedMotion={reducedMotion} />
 			))}
 			<Life world={world} bus={bus} spawns={spawns} reducedMotion={reducedMotion} quality={quality} />
+			{presence ? <Visitors presence={presence} bus={bus} reducedMotion={reducedMotion} /> : null}
 			{reducedMotion ? null : <Weather world={world} outside={world.meta.outside} quality={quality} />}
 			<Controller
 				world={world}
@@ -257,6 +267,7 @@ function Scene({
 				inputEnabled={inputEnabled}
 				reducedMotion={reducedMotion}
 				respawnKey={respawnKey}
+				appearance={appearance}
 			/>
 		</>
 	);

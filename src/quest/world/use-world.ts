@@ -365,33 +365,74 @@ export function follow(runtime: Runtime) {
 // ---------------------------------------------------------------------------------------------
 // Hook
 
-export function useWorld(initial: WorldState): UseWorld {
+/**
+ * The live room, when connected: it announces redeploys, so idle polling stops while `live`, and
+ * every event (joining, a redeploy starting, finishing or failing) follows the world right away.
+ */
+export type WorldRoom = {
+	live: boolean;
+	subscribe: (listener: () => void) => () => void;
+};
+
+export function useWorld(initial: WorldState, room?: WorldRoom): UseWorld {
 	const [state, dispatch] = useReducer(reduceWorldState, initial, initWorldState);
 	const busy = useRef(false);
 	const active = useRef<AbortController | null>(null);
 	const othersGenerating = useRef(state.othersGenerating);
-	const wake = useRef<(() => void) | null>(null);
+	const wake = useRef<((force?: boolean) => void) | null>(null);
+	const live = useRef(room?.live ?? false);
+	const roomLive = room?.live ?? false;
+	const subscribeRoom = room?.subscribe;
 
 	useEffect(() => {
 		othersGenerating.current = state.othersGenerating;
 		if (state.othersGenerating) wake.current?.();
 	}, [state.othersGenerating]);
 
+	// Back to polling as soon as the room is gone.
+	useEffect(() => {
+		live.current = roomLive;
+		if (!roomLive) wake.current?.();
+	}, [roomLive]);
+
+	useEffect(() => subscribeRoom?.(() => wake.current?.(true)), [subscribeRoom]);
+
 	// Poll for other visitors' generations and new worlds; follow live when one runs.
 	useEffect(() => {
 		const runtime: Runtime = { dispatch, busy, active };
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		let stopped = false;
-		const schedule = (ms: number) => {
+		let forced = false;
+		const schedule = (ms: number | null) => {
 			clearTimeout(timer);
-			if (!stopped) timer = setTimeout(tick, ms);
+			if (!stopped && ms !== null) timer = setTimeout(tick, ms);
 		};
+		/** Polls quickly while someone else's run is on, slowly while idle, never idle in the room. */
+		const next = () =>
+			othersGenerating.current ? FOLLOW_POLL_MS : live.current ? null : IDLE_POLL_MS;
 		async function tick() {
-			if (!busy.current && document.visibilityState === 'visible') await follow(runtime);
-			schedule(othersGenerating.current ? FOLLOW_POLL_MS : IDLE_POLL_MS);
+			const force = forced;
+			forced = false;
+			const wanted =
+				force ||
+				(document.visibilityState === 'visible' &&
+					(othersGenerating.current || !live.current));
+			if (force && busy.current) {
+				// A room event during another request: try again once it is done, rather than
+				// miss the start of a redeploy.
+				forced = true;
+				schedule(500);
+				return;
+			}
+			if (!busy.current && wanted) await follow(runtime);
+			// A room event that arrived meanwhile still gets its own follow.
+			schedule(forced ? 0 : next());
 		}
-		wake.current = () => schedule(0);
-		schedule(othersGenerating.current ? 0 : IDLE_POLL_MS);
+		wake.current = (force = false) => {
+			forced ||= force;
+			schedule(0);
+		};
+		schedule(othersGenerating.current ? 0 : next());
 		return () => {
 			stopped = true;
 			clearTimeout(timer);

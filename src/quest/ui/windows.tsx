@@ -878,6 +878,7 @@ export function CharacterWindow({
 const KEYS: [string[], string][] = [
 	[['W', 'A', 'S', 'D'], 'Walk (arrow keys work too)'],
 	[['F'], 'Talk, read or use what is in front of you'],
+	[['G'], 'Wave to other visitors'],
 	[['Click'], 'Walk to a spot, a person or a place'],
 	[['Q', 'E'], 'Turn the view by a quarter'],
 	[['Wheel'], 'Zoom in and out (pinch on touch screens)'],

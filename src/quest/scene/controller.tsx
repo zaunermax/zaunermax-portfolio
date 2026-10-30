@@ -12,10 +12,12 @@ import {
 	type CompiledWorld,
 } from '../world/compile';
 import { CAMERA_YAW } from '../world/types';
+import type { Appearance } from '../world/appearance';
 import { isTypingTarget } from '../ui/hooks';
 import { ActorModel, BlobShadow, turn, type Motion } from './actors';
 import type { GameBus, Interactable, WalkTarget } from './bus';
 import { materials } from './materials';
+import { now } from './spawn';
 
 /*
  * The visitor and the camera. The camera is a fixed three-quarter view (pitch 50°) from the
@@ -185,6 +187,7 @@ export function Controller({
 	inputEnabled,
 	reducedMotion,
 	respawnKey,
+	appearance = null,
 }: {
 	world: CompiledWorld;
 	bus: GameBus;
@@ -192,6 +195,8 @@ export function Controller({
 	inputEnabled: boolean;
 	reducedMotion: boolean;
 	respawnKey: string;
+	/** How others in the room see this visitor; the default visitor when null. */
+	appearance?: Appearance | null;
 }) {
 	const gl = useThree((s) => s.gl);
 	const group = useRef<THREE.Group>(null);
@@ -279,6 +284,7 @@ export function Controller({
 			if (e.code === 'KeyQ') rig.current.targetYaw += Math.PI / 2;
 			if (e.code === 'KeyE') rig.current.targetYaw -= Math.PI / 2;
 			if (e.code === 'KeyF') bus.interact();
+			if (e.code === 'KeyG') bus.wave();
 		};
 		const up = (e: KeyboardEvent) => keys.current.delete(e.code);
 		const blur = () => keys.current.clear();
@@ -291,6 +297,8 @@ export function Controller({
 			window.removeEventListener('blur', blur);
 		};
 	}, [bus]);
+
+	useEffect(() => bus.onWave(() => (motion.current.waveAt = now())), [bus]);
 
 	// Wheel and pinch zoom, within a narrow range.
 	useEffect(() => {
@@ -548,7 +556,7 @@ export function Controller({
 		<>
 			<group ref={group}>
 				<group ref={inner}>
-					<ActorModel character="visitor" motion={motion} reducedMotion={reducedMotion} castShadow />
+					<ActorModel character="visitor" appearance={appearance} motion={motion} reducedMotion={reducedMotion} castShadow />
 				</group>
 				<BlobShadow />
 			</group>
