@@ -31,7 +31,8 @@ export const WORLD_API = '/api/lab/quest/world';
  *                   409 { message } while another generation runs,
  *                   200 application/x-ndjson stream of WorldStreamEvent, one JSON object per line.
  * `brief` events carry the whole settled brief so far (sanitized), so a late follower only
- * needs the latest one. The server persists the world before sending "done"; on "error" the
+ * needs the latest one. A brief with a `closing` is the whole brief: the model is done and the
+ * server is checking and moderating the office. The server persists the world before sending "done"; on "error" the
  * previous world stays.
  */
 export type WorldStreamEvent =

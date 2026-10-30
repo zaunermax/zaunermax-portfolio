@@ -5,7 +5,8 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import portrait from '@/components/ui/own-avatar/assets/pp.jpg';
 import type { LandmarkId } from '../world/schema';
 import { GRID_H, GRID_W, type CompiledWorld } from '../world/compile';
-import type { Outside, TimeOfDay } from '../world/schema';
+import type { Brief, Outside, TimeOfDay } from '../world/schema';
+import { DEFAULT_ZONE_NAMES } from '../world/sanitize';
 import { EDGE } from '../world/types';
 import type { GameBus, Interactable } from '../scene/bus';
 import { floorColors, LIGHTING } from '../scene/palette';
@@ -543,31 +544,110 @@ export function promptText(target: Interactable, touch: boolean) {
 }
 
 // ---------------------------------------------------------------------------
-// Build progress: while an office assembles, how many rooms are furnished so far, so an empty
-// floor reads as work in progress rather than a broken page.
+// Build progress: while an office assembles, which part of the brief is arriving, in the order
+// the model writes it (rooms, then landmark signs and the event, then the staff, then the
+// server's checks), so every wait reads as work in progress rather than a stuck page.
 
-export function buildProgress(world: Pick<CompiledWorld, 'rooms'>) {
+export const BUILD_STAGES = ['rooms', 'signs', 'staff', 'checks'] as const;
+export type BuildStage = (typeof BUILD_STAGES)[number] | 'open';
+
+const STAGE_LABELS: Record<(typeof BUILD_STAGES)[number], string> = {
+	rooms: 'Rooms',
+	signs: 'Signs',
+	staff: 'Staff',
+	checks: 'Checks',
+};
+
+/**
+ * Where a build stands. `live` is a real redeploy, which ends in the server's checks; a replay
+ * of a finished office simply opens.
+ */
+export function buildProgress(brief: Brief, world: Pick<CompiledWorld, 'rooms'>, live: boolean) {
 	const rooms = world.rooms.filter((r) => !r.hall);
-	return { done: rooms.filter((r) => r.revealed && r.kind).length, total: rooms.length };
+	const revealed = rooms.filter((r) => r.revealed && r.kind).length;
+	const zone = brief.zones.at(-1);
+	const member = brief.cast.at(-1);
+	// Landmarks and the event settle together, once the model starts on the cast.
+	const staffing =
+		brief.cast.length > 0 || Object.keys(brief.landmarks).length > 0 || brief.event.kind !== 'none';
+	let stage: BuildStage;
+	let detail: string;
+	if (brief.closing) {
+		stage = live ? 'checks' : 'open';
+		detail = live ? 'Fire inspection before opening' : 'Open for business';
+	} else if (staffing) {
+		stage = 'staff';
+		const at = member && (brief.zones.find((z) => z.kind === member.zone)?.name ?? DEFAULT_ZONE_NAMES[member.zone]);
+		detail = member
+			? `${member.name} clocks in at ${at}`
+			: brief.event.kind !== 'none' && brief.event.title
+				? `Setting up: ${brief.event.title}`
+				: 'Calling in the staff';
+	} else if (zone && brief.zones.length >= rooms.length) {
+		stage = 'signs';
+		detail = 'Painting the name plates';
+	} else {
+		stage = 'rooms';
+		detail = zone ? `Furnishing ${zone.name}` : 'Drawing up the floor plan';
+	}
+	const index = stage === 'open' ? BUILD_STAGES.length : BUILD_STAGES.indexOf(stage);
+	return {
+		stage,
+		detail,
+		/** Rooms on screen; the ones the brief leaves unnamed are filled in when it is done. */
+		rooms: { done: index > 0 ? rooms.length : revealed, total: rooms.length },
+		staff: brief.cast.length,
+		/** Per stage: 0 pending, 1 done, in between (or null: no known end) while it runs. */
+		steps: BUILD_STAGES.map((s, i): number | null =>
+			i < index ? 1 : i > index ? 0 : s === 'rooms' ? revealed / Math.max(1, rooms.length) : null,
+		),
+	};
 }
 
-export function BuildProgress({ world, label }: { world: Pick<CompiledWorld, 'rooms'>; label: string }) {
-	const { done, total } = buildProgress(world);
-	const cells = Array.from({ length: total }, (_, i) => i < done);
+export function BuildProgress({
+	brief,
+	world,
+	live,
+}: {
+	brief: Brief;
+	world: Pick<CompiledWorld, 'rooms'>;
+	live: boolean;
+}) {
+	const { stage, detail, rooms, staff, steps } = buildProgress(brief, world, live);
+	const counts: Partial<Record<BuildStage, string>> = {
+		rooms: `${rooms.done}/${rooms.total}`,
+		staff: staff ? String(staff) : undefined,
+	};
 	return (
 		<div className={styles.build} data-hud="" role="status" aria-live="polite">
 			<span className={styles.buildText}>
-				{label} <span aria-hidden="true">&mdash;</span>{' '}
-				<b>
-					{done}/{total}
-				</b>{' '}
-				rooms
+				{detail}
+				{stage === 'open' ? null : <span className={styles.buildDots} aria-hidden="true" />}
 			</span>
-			<span className={styles.buildTrack} aria-hidden="true">
-				{cells.map((on, i) => (
-					<span key={i} className={styles.buildCell} data-on={on} />
-				))}
-			</span>
+			<ol className={styles.buildSteps}>
+				{BUILD_STAGES.map((s, i) => {
+					const fill = steps[i];
+					const state = fill === 1 ? 'done' : fill === 0 ? 'todo' : 'now';
+					return (
+						<li
+							key={s}
+							className={styles.buildStep}
+							data-state={state}
+							aria-current={state === 'now' ? 'step' : undefined}
+						>
+							<span className={styles.buildLabel}>
+								{STAGE_LABELS[s]}
+								{counts[s] ? <b> {counts[s]}</b> : null}
+							</span>
+							<span
+								className={styles.buildBar}
+								data-busy={state === 'now' && fill === null}
+								style={{ '--fill': fill ?? 0 } as CSSProperties}
+							/>
+						</li>
+					);
+				})}
+			</ol>
 		</div>
 	);
 }
