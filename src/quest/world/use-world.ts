@@ -339,15 +339,21 @@ export function postGenerate(runtime: Runtime) {
 	});
 }
 
-/** Streams a running generation when this instance has one, else applies the latest state. */
-export function follow(runtime: Runtime) {
+/**
+ * Streams a running generation when this instance has one, else applies the latest state.
+ * `onFail` hears when the server could not be reached or answered with an error.
+ */
+export function follow(runtime: Runtime, onFail?: () => void) {
 	return exclusive(runtime, async (signal) => {
 		try {
 			const response = await fetch(`${WORLD_API}?follow=1`, {
 				signal,
 				cache: 'no-store',
 			});
-			if (!response.ok) return;
+			if (!response.ok) {
+				onFail?.();
+				return;
+			}
 			if (response.headers.get('content-type')?.includes('ndjson') && response.body) {
 				await consume(runtime, response.body, 'follow', signal);
 			} else {
@@ -358,6 +364,7 @@ export function follow(runtime: Runtime) {
 			}
 		} catch {
 			/* Offline or aborted: the next poll tries again. */
+			if (!signal.aborted) onFail?.();
 		}
 	});
 }
@@ -403,6 +410,8 @@ export function useWorld(initial: WorldState, room?: WorldRoom): UseWorld {
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		let stopped = false;
 		let forced = false;
+		/** Failed forced follows in a row, for the retry backoff. */
+		let retries = 0;
 		const schedule = (ms: number | null) => {
 			clearTimeout(timer);
 			if (!stopped && ms !== null) timer = setTimeout(tick, ms);
@@ -424,7 +433,15 @@ export function useWorld(initial: WorldState, room?: WorldRoom): UseWorld {
 				schedule(500);
 				return;
 			}
-			if (!busy.current && wanted) await follow(runtime);
+			let failed = false;
+			if (!busy.current && wanted) await follow(runtime, () => (failed = true));
+			if (failed && force) {
+				// The room will not announce this again: keep trying until the world is in sync.
+				forced = true;
+				schedule(Math.min(30_000, 2_000 * 2 ** retries++));
+				return;
+			}
+			if (force) retries = 0;
 			// A room event that arrived meanwhile still gets its own follow.
 			schedule(forced ? 0 : next());
 		}

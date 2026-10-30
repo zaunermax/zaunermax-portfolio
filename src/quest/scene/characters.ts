@@ -124,6 +124,30 @@ export function assemblePerson(library: PartsLibrary, appearance: Appearance): C
 	return kit;
 }
 
+const holds = new Map<string, number>();
+
+/**
+ * Keeps a passing visitor's assembled look cached while one is shown. People come and go in the
+ * live room, so once nobody has shown a look for a while it is dropped and its geometry freed
+ * (three.js uploads it again should anything still draw it). Returns the release function.
+ */
+export function holdPerson(library: PartsLibrary, appearance: Appearance, linger = 30_000) {
+	const key = JSON.stringify(appearance);
+	holds.set(key, (holds.get(key) ?? 0) + 1);
+	return () => {
+		const left = (holds.get(key) ?? 1) - 1;
+		if (left > 0) holds.set(key, left);
+		else holds.delete(key);
+		setTimeout(() => {
+			if (holds.has(key)) return;
+			const cache = assembled.get(library);
+			const kit = cache?.get(key);
+			cache?.delete(key);
+			for (const part of kit?.parts ?? []) for (const mesh of part.parts) mesh.geometry.dispose();
+		}, linger);
+	};
+}
+
 const NOBODY: CharacterKit = { parts: [], placeholder: true };
 
 export function resolveCharacter(kit: Kit, character: CharacterId, appearance: Appearance | null): CharacterKit {

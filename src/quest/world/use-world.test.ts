@@ -332,4 +332,17 @@ describe('network', () => {
 		);
 		expect(actions).toEqual([{ type: 'polled', state }]);
 	});
+
+	it('follow reports failures so a missed room event can be retried', async () => {
+		const { runtime: rt } = runtime();
+		const onFail = vi.fn();
+		vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('offline'); }));
+		await follow(rt, onFail);
+		vi.stubGlobal('fetch', vi.fn(async () => new Response('nope', { status: 503 })));
+		await follow(rt, onFail);
+		expect(onFail).toHaveBeenCalledTimes(2);
+		vi.stubGlobal('fetch', vi.fn(async () => Response.json({ world: newWorld, nextGenerationAt: null, generating: false })));
+		await follow(rt, onFail);
+		expect(onFail).toHaveBeenCalledTimes(2);
+	});
 });

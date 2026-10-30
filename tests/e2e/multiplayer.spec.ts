@@ -30,6 +30,8 @@ test('two visitors see each other walk around the office', async ({ browser }) =
 	for (const page of [a, b]) {
 		page.on('pageerror', (error) => errors.push(error.message));
 		await intercept(page);
+		// Skip the intro replay: it ends by respawning the visitor next to Max.
+		await page.addInitScript(() => sessionStorage.setItem('quest-v2-intro-seen', '1'));
 	}
 	await Promise.all([a.goto('/'), b.goto('/')]);
 	for (const page of [a, b]) {

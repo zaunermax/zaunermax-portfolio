@@ -6,6 +6,8 @@ import type * as THREE from 'three';
 import { lookFor, visitorAnchor, type Presence } from '../room/presence';
 import { ActorModel, Anchor, BlobShadow, LABEL_HEIGHT, turn, type Motion } from './actors';
 import type { GameBus } from './bus';
+import { holdPerson } from './characters';
+import { useKit } from './kit';
 
 /*
  * Other visitors, live from the room. They are visual only: nobody collides with them, and they
@@ -44,6 +46,8 @@ function Visitor({
 	const group = useRef<THREE.Group>(null);
 	const inner = useRef<THREE.Group>(null);
 	const look = useMemo(() => lookFor(id), [id]);
+	const library = useKit().parts;
+	useEffect(() => (library ? holdPerson(library, look) : undefined), [library, look]);
 	const motion = useRef<Motion>({ moving: false, pose: 'stand', waveAt: -10, look: 0 });
 	const drawn = useRef<{ x: number; y: number; h: number } | null>(null);
 
