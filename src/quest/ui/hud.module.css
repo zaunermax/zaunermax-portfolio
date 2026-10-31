@@ -163,6 +163,60 @@
 	background: var(--teal);
 }
 
+/* ------------------------------------------------------------------ cues over the scene */
+
+/* The skip hint, build banner and touch hint. Desktop places each on its own; phones stack them
+   in one column just above the dock, so they never overlap each other or the dock. */
+.cues {
+	display: contents;
+}
+
+/* ------------------------------------------------------------------ walking to a place */
+
+.walkCue {
+	position: absolute;
+	z-index: 13;
+	left: 50%;
+	bottom: calc(32px + var(--dock-h, 150px));
+	transform: translateX(-50%);
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin: 0;
+	padding: 6px 6px 6px 14px;
+	font-family: var(--pixel);
+	font-size-adjust: var(--pixel-adjust);
+	font-size: 16px;
+	white-space: nowrap;
+	color: var(--ink);
+	background: var(--paper);
+	box-shadow: var(--ring3), var(--lift3);
+	animation: hintIn 0.25s ease-out;
+}
+
+.walkCue span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.walkCue button {
+	flex: none;
+	min-height: 36px;
+	padding: 0 12px;
+	border: 0;
+	font: inherit;
+	color: var(--ink);
+	background: var(--mustard-light);
+	box-shadow: var(--ring2), 0 3px 0 0 var(--ink);
+	cursor: pointer;
+}
+
+.walkCue button:hover,
+.walkCue button:focus-visible {
+	background: var(--mustard);
+}
+
 /* ------------------------------------------------------------------ first-visit touch hint */
 
 .touchHint {
@@ -224,6 +278,13 @@
 	from {
 		opacity: 0;
 		transform: translate(-50%, 10px);
+	}
+}
+
+@keyframes hintRise {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
 	}
 }
 
@@ -343,14 +404,43 @@
 	}
 }
 
-@media (max-width: 640px) {
-	.touchHint {
-		bottom: 162px;
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
+	.cues {
+		position: absolute;
+		z-index: 14;
+		left: 12px;
+		right: 12px;
+		bottom: calc(24px + var(--dock-h, 112px));
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 12px;
+		pointer-events: none;
+	}
+
+	/* The open chat log sits in the same spot; it carries the build lines too. */
+	.root:has(.chat[data-open='true']) .cues {
+		display: none;
+	}
+
+	.cues > :is(.skipHint, .build, .touchHint, .walkCue) {
+		position: relative;
+		inset: auto;
+		transform: none;
+		max-width: 100%;
+	}
+
+	.touchHint,
+	.walkCue {
+		pointer-events: auto;
+		animation-name: hintRise;
+	}
+
+	.walkCue {
+		font-size: 15px;
 	}
 
 	.build {
-		top: auto;
-		bottom: 162px;
 		padding: 5px 10px 8px;
 	}
 
@@ -874,6 +964,10 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.presenceShort {
+	display: none;
 }
 
 .presenceWave {
@@ -2448,6 +2542,43 @@ textarea.fieldInput {
 	margin: 0;
 }
 
+.keysMore {
+	margin-top: 24px;
+}
+
+.keysMore summary {
+	min-height: 44px;
+	display: flex;
+	list-style: none;
+	align-items: center;
+	gap: 8px;
+	font-family: var(--pixel);
+	font-size-adjust: var(--pixel-adjust);
+	cursor: pointer;
+}
+
+.keysMore summary::-webkit-details-marker {
+	display: none;
+}
+
+/* A pixel chevron that turns down when open. */
+.keysMore summary::before {
+	content: '';
+	width: 8px;
+	height: 12px;
+	background: var(--ink);
+	clip-path: polygon(0 0, 100% 50%, 0 100%);
+	transition: transform 0.15s steps(2);
+}
+
+.keysMore[open] summary::before {
+	transform: rotate(90deg);
+}
+
+.keysMore[open] summary {
+	margin-bottom: 12px;
+}
+
 .touchNote {
 	margin: 24px 0 0;
 	padding: 12px 14px;
@@ -2539,7 +2670,7 @@ textarea.fieldInput {
 
 /* ------------------------------------------------------------------ phones */
 
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
 	.unit {
 		top: 22px;
 		left: 10px;
@@ -2570,6 +2701,50 @@ textarea.fieldInput {
 	.mapFold span {
 		width: 9px;
 		height: 6px;
+	}
+
+	/* Small on screen, finger-sized to tap: the hit area reaches past the drawn button. */
+	.mapFold,
+	.presenceWave {
+		position: relative;
+	}
+
+	.mapFold::after,
+	.presenceWave::after,
+	.mapIcon::after {
+		content: '';
+		position: absolute;
+		inset: -10px;
+	}
+
+	.presenceWave::after {
+		inset: -9px -4px;
+	}
+
+	.mapIcon::after {
+		inset: -5px;
+	}
+
+	.presence {
+		gap: 6px;
+		font-size: 13px;
+	}
+
+	.presenceDot {
+		display: none;
+	}
+
+	.presenceLong {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+
+	.presenceShort {
+		display: inline;
 	}
 
 	.chatMore {
@@ -2648,6 +2823,15 @@ textarea.fieldInput {
 		gap: 18px;
 	}
 
+	/* The hello card runs tall here; keep the loading bar below it, where the dock will be. */
+	.veil {
+		padding-bottom: max(28px, 8vh);
+	}
+
+	.loadText {
+		font-size: 18px;
+	}
+
 	.zoneTitle {
 		font-size: 38px;
 	}
@@ -2666,11 +2850,9 @@ textarea.fieldInput {
 	}
 
 	.skipHint {
-		bottom: 232px;
 		font-size: 14px;
 		white-space: normal;
 		width: max-content;
-		max-width: 86vw;
 		text-align: center;
 	}
 
@@ -2761,7 +2943,7 @@ textarea.fieldInput {
 
 	.chat[data-open='true'] {
 		top: auto;
-		bottom: 162px;
+		bottom: calc(24px + var(--dock-h, 112px));
 		width: calc(100vw - 20px);
 		gap: 10px;
 	}
@@ -2883,6 +3065,67 @@ textarea.fieldInput {
 
 /* ------------------------------------------------------------------ calm mode */
 
+/* ------------------------------------------------------------------ short phones */
+
+/* Centred at 36%, the hello reaches the chat button; hang it below the top panels instead. */
+@media (max-width: 640px) and (max-height: 600px) {
+	.zone {
+		top: 132px;
+		gap: 14px;
+		transform: translate(-50%, 0);
+	}
+
+	.zoneTitle {
+		font-size: 32px;
+	}
+}
+
+/* ------------------------------------------------------------------ phones held sideways */
+
+/* Too short to stack things above the dock: the open chat becomes a column beside it, the cues
+   move up between the name tag and the floor plan, and the wiki keeps its files beside the page. */
+@media (max-height: 500px) and (min-width: 641px) and (pointer: coarse) {
+	/* Between Max's name tag and the floor plan. */
+	.cues {
+		top: 10px;
+		bottom: auto;
+		left: 200px;
+		right: 162px;
+	}
+
+	.book {
+		grid-template-columns: 220px 1fr;
+		grid-template-rows: none;
+	}
+
+	.pageLeft {
+		max-height: none;
+		box-shadow: inset -4px 0 0 0 var(--ink);
+	}
+
+	.chat[data-open='true'] {
+		top: 84px;
+		bottom: 12px;
+		width: calc(50vw - 205px);
+		min-width: 200px;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.chat[data-open='true'] .chatBody {
+		flex: 1;
+		height: auto;
+		min-height: 0;
+	}
+}
+
+/* Smaller phones sideways: the column would run under the dock, so it ends above it. */
+@media (max-height: 500px) and (min-width: 641px) and (max-width: 785px) and (pointer: coarse) {
+	.chat[data-open='true'] {
+		bottom: calc(24px + var(--dock-h, 112px));
+	}
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.zone,
 	.veil,
@@ -2915,7 +3158,8 @@ textarea.fieldInput {
 	.buildDots::after,
 	.buildBar::before,
 	.touchHint,
-	.touchHintIcon {
+	.touchHintIcon,
+	.walkCue {
 		animation: none;
 	}
 

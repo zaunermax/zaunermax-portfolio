@@ -30,3 +30,18 @@ describe('GameBus speech', () => {
 		expect(bus.getSpeech().get('a')!.until).toBe(5000);
 	});
 });
+
+describe('GameBus goal', () => {
+	it('tells the HUD when the walk target changes, not on every frame that repeats it', () => {
+		const bus = new GameBus();
+		const heard = vi.fn();
+		bus.subscribeGoal(heard);
+		const goal = { kind: 'landmark', id: 'library' } as const;
+		bus.setGoal(goal);
+		bus.setGoal(goal);
+		expect(heard).toHaveBeenCalledTimes(1);
+		expect(bus.getGoal()).toBe(goal);
+		bus.setGoal(null);
+		expect(heard).toHaveBeenCalledTimes(2);
+	});
+});

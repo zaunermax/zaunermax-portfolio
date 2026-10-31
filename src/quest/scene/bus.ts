@@ -24,6 +24,8 @@ export type Speech = { text: string; until: number; run: number };
 
 /** Anchor id of Max himself; his desk needs no plate of its own. */
 export const MAX_ANCHOR = 'max-npc';
+/** Anchor id of the visitor's own character. */
+export const PLAYER_ANCHOR = 'you';
 
 export class GameBus {
 	/** Player position in cell space and heading in radians (0 faces south). */
@@ -43,6 +45,7 @@ export class GameBus {
 
 	private nearby: Interactable | null = null;
 	private nearbyListeners = new Set<Listener>();
+	private goalListeners = new Set<Listener>();
 	private speech: ReadonlyMap<string, Speech> = new Map();
 	private speechRuns = 0;
 	private speechListeners = new Set<Listener>();
@@ -61,8 +64,15 @@ export class GameBus {
 	}
 
 	setGoal(goal: WalkTarget | null) {
+		if (goal === this.goal) return;
 		this.goal = goal;
+		for (const l of this.goalListeners) l();
 	}
+	getGoal = () => this.goal;
+	subscribeGoal = (l: Listener) => {
+		this.goalListeners.add(l);
+		return () => this.goalListeners.delete(l);
+	};
 
 	setNpc(id: string, x: number, y: number) {
 		const pos = this.npcs.get(id);

@@ -157,12 +157,14 @@ export function QuestApp({
 	const [log] = useState(() => new ChatLog());
 	const reducedMotion = useMedia('(prefers-reduced-motion: reduce)');
 	const touch = useMedia('(pointer: coarse)');
-	const compact = useMedia('(max-width: 640px)');
+	// Phones, held either way: narrow, or short with a touch screen. Matches the phone blocks in hud.module.css.
+	const compact = useMedia('(max-width: 640px), (max-height: 500px) and (pointer: coarse)');
 	const hidden = useDocumentHidden();
 	const seenIntro = useSessionFlag(INTRO_KEY);
 	const seenTouchHint = useStoredFlag(TOUCH_HINT_KEY);
 	const now = useNow(1000);
 	const nearby = useSyncExternalStore(bus.subscribeNearby, bus.getNearby, () => null);
+	const goal = useSyncExternalStore(bus.subscribeGoal, bus.getGoal, () => null);
 
 	const [sceneReady, setSceneReady] = useState(false);
 	const [open, setOpen] = useState<WindowId | null>(null);
@@ -419,6 +421,20 @@ export function QuestApp({
 	};
 
 	const landmarkName = (id: LandmarkId) => compiled.landmark[id]?.name ?? '';
+
+	// What a walk under way is heading for, so a dock tap never looks like it did nothing.
+	const walkingTo =
+		goal?.kind === 'landmark'
+			? `Walking to ${landmarkName(goal.id) || 'it'}`
+			: goal?.kind === 'npc'
+				? `Walking over to ${compiled.npcs.find((n) => n.id === goal.id)?.name ?? 'them'}`
+				: null;
+	const skipWalk = () => {
+		if (goal?.kind !== 'landmark') return;
+		bus.warpTo(goal);
+		setOpen(LANDMARK_WINDOW[goal.id]);
+	};
+
 	const cooldownMs =
 		world.nextGenerationAt && now
 			? Math.max(0, world.nextGenerationAt.getTime() - now)
@@ -554,25 +570,39 @@ export function QuestApp({
 				</p>
 				<LoadingVeil ready={sceneReady} name={worldName} />
 				<ZoneText state={zoneState} worldName={worldName} tagline={tagline} />
-				{(generating || frozen || introRunning) && sceneReady ? (
-					<BuildProgress brief={shown} world={compiled} live={generating} />
-				) : null}
-				{touch && seenTouchHint === false && sceneReady && !introActive && !generating && open === null ? (
-					<div className={styles.touchHint} role="note">
-						<span className={styles.touchHintIcon} aria-hidden="true" />
-						<p>
-							Tap or hold the floor to walk <span aria-hidden="true">&middot;</span> tap people to chat
+				{/* Desktop places each cue on its own; phones stack them above the dock. */}
+				<div className={styles.cues}>
+					{introRunning ? (
+						<p className={styles.skipHint} aria-hidden="true">
+							The office is setting itself up.{' '}
+							{touch ? 'Tap anywhere to skip.' : 'Press any key or click to skip.'}
 						</p>
-						<button type="button" onClick={() => setStoredFlag(TOUCH_HINT_KEY)}>
-							Got it
-						</button>
-					</div>
-				) : null}
-				{introRunning ? (
-					<p className={styles.skipHint} aria-hidden="true">
-						The office is setting itself up. Press any key or click to skip.
-					</p>
-				) : null}
+					) : null}
+					{(generating || frozen || introRunning) && sceneReady ? (
+						<BuildProgress brief={shown} world={compiled} live={generating} />
+					) : null}
+					{walkingTo && sceneReady && !overview && open === null ? (
+						<div className={styles.walkCue} role="status">
+							<span>{walkingTo}&hellip;</span>
+							{goal?.kind === 'landmark' ? (
+								<button type="button" onClick={skipWalk}>
+									Skip
+								</button>
+							) : null}
+						</div>
+					) : null}
+					{touch && seenTouchHint === false && sceneReady && zoneState === 'small' && !generating && !walkingTo && open === null ? (
+						<div className={styles.touchHint} role="note">
+							<span className={styles.touchHintIcon} aria-hidden="true" />
+							<p>
+								Tap or hold the floor to walk <span aria-hidden="true">&middot;</span> tap people to chat
+							</p>
+							<button type="button" onClick={() => setStoredFlag(TOUCH_HINT_KEY)}>
+								Got it
+							</button>
+						</div>
+					) : null}
+				</div>
 				<UnitFrame
 					level={xp.level}
 					compact={compact || zoneState !== 'big'}
@@ -597,7 +627,8 @@ export function QuestApp({
 				<Dock
 					actions={actions}
 					xp={xp}
-					nearby={open ? null : nearby}
+					// A walk under way owns the next step; no offers to greet whoever it passes.
+					nearby={open || goal ? null : nearby}
 					touch={touch}
 					aboutMax={nearby?.kind === 'npc' && askAbout?.chatter === chatter && askAbout.ids.has(nearby.id)}
 					onInteract={() => bus.interact()}
@@ -652,7 +683,7 @@ export function QuestApp({
 					level={xp.level}
 					onHire={() => setOpen('questboard')}
 				/>
-				<ControlsWindow open={open === 'controls'} onClose={() => setOpen(null)} />
+				<ControlsWindow open={open === 'controls'} touch={touch} onClose={() => setOpen(null)} />
 			</div>
 		</LayerContext.Provider>
 	);
