@@ -886,11 +886,46 @@ const KEYS: [string[], string][] = [
 	[['Esc'], 'Close a window'],
 ];
 
+const GESTURES: [string[], string][] = [
+	[['Tap'], 'Walk to a spot on the floor'],
+	[['Hold'], 'Keep walking towards your finger'],
+	[['Tap'], 'A person to chat, a sign to visit that place'],
+	[['Pinch'], 'Zoom in and out'],
+	[['Dock'], 'Walk to an app and open it (tap again to skip the walk)'],
+	[['Wave'], 'Under the floor plan: wave to other visitors'],
+];
+
+function KeyList({ rows }: { rows: [string[], string][] }) {
+	return (
+		<dl className={styles.keys}>
+			{rows.map(([keys, what]) => (
+				<div key={what} style={{ display: 'contents' }}>
+					<dt>
+						{keys.map((k) =>
+							k === '–' ? (
+								<span key={k}>–</span>
+							) : (
+								<kbd key={k} className={styles.key}>
+									{k}
+								</kbd>
+							),
+						)}
+					</dt>
+					<dd>{what}</dd>
+				</div>
+			))}
+		</dl>
+	);
+}
+
 export function ControlsWindow({
 	open,
+	touch,
 	onClose,
 }: {
 	open: boolean;
+	/** Touch screens lead with gestures and fold the keyboard away. */
+	touch: boolean;
 	onClose: () => void;
 }) {
 	return (
@@ -904,28 +939,23 @@ export function ControlsWindow({
 			width="600px"
 		>
 			<div className={styles.panelBody}>
-				<dl className={styles.keys}>
-					{KEYS.map(([keys, what]) => (
-						<div key={what} style={{ display: 'contents' }}>
-							<dt>
-								{keys.map((k) =>
-									k === '–' ? (
-										<span key={k}>–</span>
-									) : (
-										<kbd key={k} className={styles.key}>
-											{k}
-										</kbd>
-									),
-								)}
-							</dt>
-							<dd>{what}</dd>
-						</div>
-					))}
-				</dl>
-				<p className={styles.touchNote}>
-					On a phone: tap the floor to walk there or hold a finger down to keep walking
-					towards it, tap a person or place to visit it and pinch to zoom.
-				</p>
+				{touch ? (
+					<>
+						<KeyList rows={GESTURES} />
+						<details className={styles.keysMore}>
+							<summary>With a keyboard and mouse</summary>
+							<KeyList rows={KEYS} />
+						</details>
+					</>
+				) : (
+					<>
+						<KeyList rows={KEYS} />
+						<p className={styles.touchNote}>
+							On a phone: tap the floor to walk there or hold a finger down to keep walking
+							towards it, tap a person or place to visit it and pinch to zoom.
+						</p>
+					</>
+				)}
 			</div>
 		</AppWindow>
 	);

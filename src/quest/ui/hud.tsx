@@ -379,7 +379,13 @@ export function PresenceStrip({
 		<div className={styles.presence} data-presence="live" data-count={count}>
 			<span className={styles.presenceDot} aria-hidden="true" />
 			<span className={styles.presenceText}>
-				{count === 1 ? 'Just you here' : `${count} visitors here`}
+				<span className={styles.presenceLong}>
+					{count === 1 ? 'Just you here' : `${count} visitors here`}
+				</span>
+				{/* Phones: the floor plan is too narrow for the long line. */}
+				<span className={styles.presenceShort} aria-hidden="true">
+					{count === 1 ? 'Just you' : `${count} here`}
+				</span>
 			</span>
 			<button type="button" className={styles.presenceWave} onClick={onWave} title="Wave (G)">
 				Wave
@@ -444,9 +450,21 @@ export function Dock({
 	onInteract: () => void;
 }) {
 	const percent = Math.round(xp.fraction * 100);
+	// Publish the dock's height so the phone cues above it (see .cues) stack clear of it, prompt included.
+	const ref = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		const el = ref.current;
+		const host = el?.parentElement;
+		if (!el || !host) return;
+		const ro = new ResizeObserver(() => {
+			if (el.offsetHeight > 0) host.style.setProperty('--dock-h', `${el.offsetHeight}px`);
+		});
+		ro.observe(el);
+		return () => ro.disconnect();
+	}, []);
 	return (
 		<Tooltip.Provider delay={150} closeDelay={60}>
-			<div className={styles.dock} data-hud="">
+			<div ref={ref} className={styles.dock} data-hud="">
 				{nearby ? (
 					<button type="button" className={styles.prompt} onClick={onInteract}>
 						{touch ? null : <kbd className={styles.key}>F</kbd>}

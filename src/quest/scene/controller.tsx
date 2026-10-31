@@ -14,8 +14,8 @@ import {
 import { CAMERA_YAW } from '../world/types';
 import type { Appearance } from '../world/appearance';
 import { isTypingTarget } from '../ui/hooks';
-import { ActorModel, BlobShadow, turn, type Motion } from './actors';
-import type { GameBus, Interactable, WalkTarget } from './bus';
+import { ActorModel, Anchor, BlobShadow, LABEL_HEIGHT, turn, type Motion } from './actors';
+import { PLAYER_ANCHOR, type GameBus, type Interactable, type WalkTarget } from './bus';
 import { materials } from './materials';
 import { now } from './spawn';
 
@@ -593,9 +593,11 @@ export function Controller({
 		bus.setPlayer(p.x, p.y, p.heading, moving);
 		bus.setGoal(p.goal);
 
-		// --- what is in reach
-		if (state.clock.elapsedTime - p.nearbyAt > 0.1) {
-			p.nearbyAt = state.clock.elapsedTime;
+		// --- what is in reach. The clock restarts at 0 when a paused canvas resumes (phones pause it
+		// behind open windows), so a timestamp from the future means look again now.
+		const t = state.clock.elapsedTime;
+		if (t - p.nearbyAt > 0.1 || t < p.nearbyAt) {
+			p.nearbyAt = t;
 			let best: Interactable | null = null;
 			let bestD = Infinity;
 			for (const l of w.landmarks) {
@@ -677,6 +679,7 @@ export function Controller({
 					<ActorModel character="visitor" appearance={appearance} motion={motion} reducedMotion={reducedMotion} castShadow />
 				</group>
 				<BlobShadow />
+				<Anchor bus={bus} id={PLAYER_ANCHOR} height={LABEL_HEIGHT.human} />
 			</group>
 			<mesh
 				position={[world.width / 2, 0, world.height / 2]}

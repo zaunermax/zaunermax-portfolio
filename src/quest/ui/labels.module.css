@@ -90,6 +90,15 @@
 		0 2px 0 var(--ink);
 }
 
+/* The visitor's own character: a small paper tag, so it stands apart from the other visitors. */
+.plate[data-tone='you'] {
+	padding: 1px 6px 2px;
+	font-size: 13px;
+	color: var(--ink);
+	background: var(--paper);
+	box-shadow: var(--ring2), 0 2px 0 0 var(--ink);
+}
+
 /* Places: a small paper sign with a sparkle. */
 .plate[data-tone='place'] {
 	flex-direction: row;
@@ -185,7 +194,7 @@
 	text-overflow: ellipsis;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
 	.plate[data-tone='max'] .plateTitle {
 		display: none;
 	}

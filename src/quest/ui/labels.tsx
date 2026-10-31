@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 import type { CompiledWorld } from '../world/compile';
-import { MAX_ANCHOR, type GameBus } from '../scene/bus';
+import { MAX_ANCHOR, PLAYER_ANCHOR, type GameBus } from '../scene/bus';
 import { visitorAnchor } from '../room/presence';
 import styles from './labels.module.css';
 
@@ -10,7 +10,7 @@ type Label = {
 	id: string;
 	name: string;
 	title?: string;
-	tone: 'friendly' | 'max' | 'place' | 'visitor';
+	tone: 'friendly' | 'max' | 'place' | 'visitor' | 'you';
 	/** A small call to action under the name (touch screens: Max says "tap to talk"). */
 	hint?: string;
 	/** Fully visible up to this camera distance, gone 4 units later. */
@@ -64,6 +64,8 @@ export function Labels({
 			});
 	for (const id of visitors)
 		labels.push({ id: visitorAnchor(id), name: 'Visitor', tone: 'visitor', fade: 34, hideInOverview: true });
+	// Which one is me: everyone starts in the same crowd.
+	labels.push({ id: PLAYER_ANCHOR, name: 'You', tone: 'you', fade: 34, hideInOverview: true });
 
 	useEffect(() => {
 		let frame = 0;
