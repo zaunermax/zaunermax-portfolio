@@ -591,7 +591,7 @@ export function QuestApp({
 							) : null}
 						</div>
 					) : null}
-					{touch && seenTouchHint === false && sceneReady && zoneState === 'small' && !generating && open === null ? (
+					{touch && seenTouchHint === false && sceneReady && zoneState === 'small' && !generating && !walkingTo && open === null ? (
 						<div className={styles.touchHint} role="note">
 							<span className={styles.touchHintIcon} aria-hidden="true" />
 							<p>

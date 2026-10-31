@@ -3085,13 +3085,12 @@ textarea.fieldInput {
 /* Too short to stack things above the dock: the open chat becomes a column beside it, the cues
    move up between the name tag and the floor plan, and the wiki keeps its files beside the page. */
 @media (max-height: 500px) and (min-width: 641px) and (pointer: coarse) {
+	/* Between Max's name tag and the floor plan. */
 	.cues {
 		top: 10px;
 		bottom: auto;
-		left: 50%;
-		right: auto;
-		width: calc(100vw - 472px);
-		transform: translateX(-50%);
+		left: 200px;
+		right: 162px;
 	}
 
 	.book {
@@ -3117,6 +3116,13 @@ textarea.fieldInput {
 		flex: 1;
 		height: auto;
 		min-height: 0;
+	}
+}
+
+/* Smaller phones sideways: the column would run under the dock, so it ends above it. */
+@media (max-height: 500px) and (min-width: 641px) and (max-width: 785px) and (pointer: coarse) {
+	.chat[data-open='true'] {
+		bottom: calc(24px + var(--dock-h, 112px));
 	}
 }
 
