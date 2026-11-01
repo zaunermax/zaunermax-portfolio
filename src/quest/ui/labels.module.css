@@ -31,8 +31,12 @@
 	left: 0;
 	top: 0;
 	opacity: 0;
-	transition: opacity 0.15s linear;
 	will-change: transform, opacity;
+}
+
+/* Only showing and hiding fade; distance and edge fades follow the frames directly (labels.tsx). */
+.anchor[data-fading] {
+	transition: opacity 0.15s linear;
 }
 
 .anchor > .plate {
