@@ -160,6 +160,7 @@ export class QualityMonitor {
 		this.targets = [];
 		this.span = 0;
 		this.last = Number.NaN;
+		this.strikes = 0;
 	}
 
 	/** Feed the timestamp of a rendered frame and the interval aimed for; true on the decline. */

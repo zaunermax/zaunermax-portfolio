@@ -197,6 +197,16 @@ describe('QualityMonitor', () => {
 		expect(m.declined).toBe(true);
 	});
 
+	it('judges a restarted cadence afresh', () => {
+		const m = new QualityMonitor();
+		m.arm();
+		// One slow window, a deliberate restart (pause, cover), then one more slow window.
+		expect(feed(m, 1000 / 36, 80)).toBe(false);
+		m.restart();
+		expect(feed(m, 1000 / 36, 80, 10_000)).toBe(false);
+		expect(m.declined).toBe(false);
+	});
+
 	it('keeps quality at a steady 60 fps with the odd hitch', () => {
 		const m = new QualityMonitor();
 		m.arm();
