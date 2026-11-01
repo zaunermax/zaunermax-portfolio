@@ -1,7 +1,7 @@
 'use client';
 
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentProps, type RefObject } from 'react';
 import * as THREE from 'three';
 import type { Presence } from '../room/presence';
 import type { Appearance } from '../world/appearance';
@@ -50,11 +50,31 @@ export type WorldCanvasProps = {
 /** How long the veil waits for the kit before showing whatever there is. */
 const KIT_TIMEOUT_MS = 30000;
 
-/** Review aids: ?fx=full keeps full quality however slow the frames (headless software GL),
- * ?fx=lite starts in lite quality, ?fps=max renders on every vsync instead of about 60 fps. */
+/** Review aids: ?fx=full (and ?fx=ao) keep full quality however slow the frames (headless
+ * software GL), ?fx=lite starts in lite quality, ?fps=max renders on every vsync instead of about
+ * 60 fps. */
 function reviewFlags() {
 	const q = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
-	return { adaptive: q.get('fx') !== 'full', lite: q.get('fx') === 'lite', uncapped: q.get('fps') === 'max' };
+	const fx = q.get('fx');
+	return { adaptive: fx !== 'full' && fx !== 'ao', lite: fx === 'lite', uncapped: q.get('fps') === 'max' };
+}
+
+/** What R3F hands a renderer factory: its default renderer parameters and the canvas. */
+type GlDefaults = Parameters<Extract<NonNullable<ComponentProps<typeof Canvas>['gl']>, (...args: never[]) => unknown>>[0];
+
+/** The desktop canvas's context: no alpha, antialiasing or depth of its own (pipeline.ts). */
+const OPAQUE = { alpha: false, antialias: false, depth: false, stencil: false, powerPreference: 'high-performance' } as const;
+
+/**
+ * three.js always asks for an alpha channel when it creates the context itself, and a
+ * transparent canvas has the compositor blend a full-screen layer over the page on every frame
+ * (costly in Firefox), so the desktop renderer gets an opaque context made here. The scene covers
+ * every pixel with alpha 1 anyway. Should that context fail, three.js tries (and reports) itself.
+ */
+function opaqueRenderer(defaults: GlDefaults) {
+	// <Canvas> always renders into a DOM canvas.
+	const context = (defaults.canvas as HTMLCanvasElement).getContext('webgl2', OPAQUE) as WebGL2RenderingContext | null;
+	return new THREE.WebGLRenderer({ ...defaults, ...OPAQUE, context: context ?? undefined });
 }
 
 export default function WorldCanvas(props: WorldCanvasProps) {
@@ -91,9 +111,10 @@ export default function WorldCanvas(props: WorldCanvasProps) {
 			frameloop="never"
 			camera={{ fov: 30, near: 0.5, far: 400, position: [20, 30, 50] }}
 			// The scene renders into its own MSAA target (pipeline.ts) and covers every pixel with
-			// an opaque sky: the canvas needs no antialiasing, alpha or depth of its own (unless
-			// low quality draws straight to it).
-			gl={{ antialias: direct, alpha: false, depth: direct, powerPreference: 'high-performance' }}
+			// an opaque sky: the canvas needs no antialiasing, alpha or depth of its own. Low
+			// quality (phones) draws straight to an antialiased canvas, as it always has: an
+			// opaque one shows black while a paused office is resized.
+			gl={direct ? { antialias: true, alpha: false, depth: true, powerPreference: 'high-performance' } : opaqueRenderer}
 			style={{ touchAction: 'none' }}
 		>
 			<FrameLoop

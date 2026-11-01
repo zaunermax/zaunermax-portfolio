@@ -554,7 +554,8 @@ export function QuestApp({
 								reducedMotion={reducedMotion}
 								quality={touch || compact ? 'low' : 'high'}
 								paused={hidden || (compact && open !== null)}
-								covered={open !== null}
+								// Centred windows cover the office; the chat docks left and leaves most of it in view.
+								covered={open !== null && open !== 'gossip'}
 								inputEnabled={open === null}
 								respawnKey={`${world.worldId}|${generating ? 'gen' : 'live'}|${introActive ? 'intro' : 'play'}`}
 								presence={room.status === 'live' ? room.presence : null}

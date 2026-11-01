@@ -2,7 +2,7 @@
 
 import { useThree } from '@react-three/fiber';
 import { useEffect, useRef, useState } from 'react';
-import { COVERED_FPS, FramePacer, QualityMonitor, TARGET_FPS } from './frame-pacing';
+import { COVERED_FPS, FramePacer, judgedInterval, QualityMonitor, TARGET_FPS } from './frame-pacing';
 
 /** Longest step the scene clock takes in one frame (s), so a long stall never jumps ahead. */
 const MAX_STEP = 0.1;
@@ -50,9 +50,9 @@ export function FrameLoop({
 		// The cadence changes on purpose here; judge the new one afresh.
 		monitor.restart();
 		const fps = uncapped ? Number.POSITIVE_INFINITY : covered ? COVERED_FPS : TARGET_FPS;
-		// Judged against 60 fps (or the covered rate), or the pacer's own aim if that is quicker
-		// (144 Hz renders at 72), so a struggling machine can never talk the bar down.
-		const bar = 1000 / (covered ? COVERED_FPS : TARGET_FPS);
+		// Judged against the pacer's aim, held between 60 fps (or the covered rate) and a little
+		// under it (frame-pacing.ts).
+		const rate = covered ? COVERED_FPS : TARGET_FPS;
 		let last = Number.NaN;
 		let frame = 0;
 		const tick = (t: number) => {
@@ -62,7 +62,7 @@ export function FrameLoop({
 			last = t;
 			clock.current += step;
 			advance(clock.current);
-			if (judge && monitor.frame(t, Math.min(bar, pacer.targetInterval(fps)))) decline.current();
+			if (judge && monitor.frame(t, judgedInterval(pacer.targetInterval(fps), rate))) decline.current();
 		};
 		frame = requestAnimationFrame(tick);
 		return () => cancelAnimationFrame(frame);
