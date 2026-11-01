@@ -8,6 +8,7 @@ import { EDGE, type CompiledWorld } from '../world/types';
 import type { GameBus } from './bus';
 import { materials, radialTexture } from './materials';
 import { VIBES, type Lighting } from './palette';
+import { markShadows } from './shadows';
 import { now, popScale, type Spawns } from './spawn';
 import { canvasTexture, paintFloor } from './textures';
 
@@ -144,6 +145,23 @@ function targetHeight(s: Segment, fx: number, fz: number, dirX: number, dirZ: nu
 	return tall ? (s.outer ? TALL_OUTER : TALL) : LOW;
 }
 
+/**
+ * Eases one wall height towards its target by `k`, snapping once close; true if it changed.
+ * The target is rounded as the Float32Array stores it, so a settled wall compares equal and
+ * stops counting as moving (which would redraw the shadow map every frame).
+ */
+export function easeHeight(heights: Float32Array, i: number, target: number, k: number) {
+	const goal = Math.fround(target);
+	const h = heights[i];
+	if (Math.abs(goal - h) < 0.002) {
+		if (h === goal) return false;
+		heights[i] = goal;
+		return true;
+	}
+	heights[i] = h + (goal - h) * k;
+	return true;
+}
+
 const box = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
 const m4 = new THREE.Matrix4();
 const q = new THREE.Quaternion();
@@ -231,20 +249,12 @@ export function Walls({
 		let changed = force.current;
 		const hs = heights.current;
 		list.forEach((s, i) => {
-			const target = targetHeight(s, fx, fz, dirX, dirZ, overview);
-			const h = hs[i];
-			if (Math.abs(target - h) < 0.002) {
-				if (h !== target) {
-					hs[i] = target;
-					changed = true;
-				}
-				return;
-			}
-			hs[i] = h + (target - h) * k;
-			changed = true;
+			if (easeHeight(hs, i, targetHeight(s, fx, fz, dirX, dirZ, overview), k)) changed = true;
 		});
 		if (!changed) return;
 		force.current = false;
+		// Walls cast shadows (and, with variance shadows, receive them through the shadow map too).
+		markShadows();
 		const b = body.current;
 		const c = cap.current;
 		const bb = base.current;
@@ -344,11 +354,18 @@ export function Walls({
 	const n = capacity;
 	return (
 		<group key={capacity}>
-			<instancedMesh ref={body} args={[box, m.solid, n * BODY_SLOTS]} castShadow receiveShadow frustumCulled={false} />
+			<instancedMesh
+				ref={body}
+				args={[box, m.solid, n * BODY_SLOTS]}
+				customDepthMaterial={m.depth.tinted}
+				castShadow
+				receiveShadow
+				frustumCulled={false}
+			/>
 			<instancedMesh ref={cap} args={[box, m.solid, n]} frustumCulled={false} />
 			<instancedMesh ref={base} args={[box, m.solid, n]} frustumCulled={false} />
 			<instancedMesh ref={frame} args={[box, m.solid, n * 2]} frustumCulled={false} />
-			<instancedMesh ref={jamb} args={[box, m.solid, n * 3]} castShadow frustumCulled={false} />
+			<instancedMesh ref={jamb} args={[box, m.solid, n * 3]} customDepthMaterial={m.depth.tinted} castShadow frustumCulled={false} />
 			<instancedMesh ref={pane} args={[box, m.pane, n]} frustumCulled={false} renderOrder={3} />
 		</group>
 	);
@@ -387,7 +404,16 @@ export function Seams({ world }: { world: CompiledWorld }) {
 		if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
 	}, [list, vibe]);
 	if (!list.length) return null;
-	return <instancedMesh key={list.length} ref={ref} args={[box, materials().solid, list.length]} receiveShadow frustumCulled={false} />;
+	return (
+		<instancedMesh
+			key={list.length}
+			ref={ref}
+			args={[box, materials().solid, list.length]}
+			customDepthMaterial={materials().depth.tinted}
+			receiveShadow
+			frustumCulled={false}
+		/>
+	);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -471,7 +497,10 @@ export function Floors({ world, spawns }: { world: CompiledWorld; spawns: Spawns
 			const mesh = rooms.current[i];
 			if (!mesh) return;
 			const s = popScale(spawns.progress(plane.id, t, 0.5));
+			if (mesh.scale.x === s) return;
 			mesh.scale.set(s, 1, s);
+			// Variance shadows draw receivers into the shadow map as well: a floor popping in counts.
+			markShadows();
 		});
 	});
 

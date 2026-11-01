@@ -17,6 +17,7 @@ import { isTypingTarget } from '../ui/hooks';
 import { ActorModel, Anchor, BlobShadow, LABEL_HEIGHT, turn, type Motion } from './actors';
 import { PLAYER_ANCHOR, type GameBus, type Interactable, type WalkTarget } from './bus';
 import { materials } from './materials';
+import { markShadows, moved } from './shadows';
 import { now } from './spawn';
 
 /*
@@ -241,6 +242,8 @@ export function Controller({
 	const ring = useRef<THREE.Mesh>(null);
 	const ringAt = useRef<{ x: number; y: number; t: number } | null>(null);
 	const motion = useRef<Motion>({ moving: false, pose: 'stand', waveAt: -10, look: 0 });
+	/** Where the visitor stood when their shadow was last marked for a redraw. */
+	const shadowAt = useRef({ x: Number.NaN, y: Number.NaN, heading: Number.NaN });
 	const keys = useRef(new Set<string>());
 	const hold = useRef<Hold | null>(null);
 	const input = useRef(inputEnabled);
@@ -588,6 +591,15 @@ export function Controller({
 		}
 
 		motion.current.moving = moving;
+		// The visitor casts a real shadow: keep it glued to them while they walk or wave.
+		const waving = now() - motion.current.waveAt < 1.6;
+		const cast = shadowAt.current;
+		if (moving || waving || moved(cast.x, p.x) || moved(cast.y, p.y) || moved(cast.heading, p.heading)) {
+			cast.x = p.x;
+			cast.y = p.y;
+			cast.heading = p.heading;
+			markShadows();
+		}
 		if (group.current) group.current.position.set(p.x, 0, p.y);
 		if (inner.current) inner.current.rotation.y = p.heading;
 		bus.setPlayer(p.x, p.y, p.heading, moving);

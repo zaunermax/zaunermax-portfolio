@@ -503,6 +503,7 @@ export function Grounds({ world, lighting }: { world: CompiledWorld; lighting: L
 						key={props.boxes.length}
 						ref={voxels}
 						args={[unitBox, materials().solid, props.boxes.length]}
+						customDepthMaterial={materials().depth.tinted}
 						castShadow
 						receiveShadow
 						raycast={noRaycast}

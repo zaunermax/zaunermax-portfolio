@@ -74,6 +74,8 @@ export function Labels({
 		let hud: { l: number; t: number; r: number; b: number }[] = [];
 		let hudAt = -1e9;
 		const sizes = new WeakMap<HTMLElement, { w: number; h: number; lift: number; text: string | null }>();
+		/** What each anchor's style says now, so unchanged values are never written again. */
+		const written = new WeakMap<HTMLElement, { opacity: string; transform: string; fadeUntil: number }>();
 		const tick = () => {
 			frame = requestAnimationFrame(tick);
 			const v = bus.view;
@@ -150,9 +152,29 @@ export function Labels({
 						}
 					}
 				}
-				node.style.opacity = String(opacity);
+				let style = written.get(node);
+				if (!style) written.set(node, (style = { opacity: '0', transform: '', fadeUntil: 0 }));
+				// Hundredths are finer than the eye can tell apart, and keep still labels still.
+				const o = opacity <= 0 ? '0' : opacity >= 1 ? '1' : opacity.toFixed(2);
+				if (o !== style.opacity) {
+					// Showing or hiding fades over 0.15 s (labels.module.css); everything else is direct.
+					if ((o === '0') !== (style.opacity === '0')) {
+						node.dataset.fading = '';
+						style.fadeUntil = now + 200;
+					}
+					style.opacity = o;
+					node.style.opacity = o;
+				}
+				if (style.fadeUntil && now > style.fadeUntil) {
+					style.fadeUntil = 0;
+					delete node.dataset.fading;
+				}
 				if (opacity > 0) {
-					node.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+					const transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+					if (transform !== style.transform) {
+						style.transform = transform;
+						node.style.transform = transform;
+					}
 					if (plate && plate.dataset.dx !== dx.toFixed(0)) {
 						plate.dataset.dx = dx.toFixed(0);
 						plate.style.setProperty('--dx', `${dx.toFixed(0)}px`);

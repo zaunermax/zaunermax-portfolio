@@ -1,8 +1,7 @@
 'use client';
 
-import { PerformanceMonitor } from '@react-three/drei';
-import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
+import { useEffect, useMemo, useRef, useState, type ComponentProps, type RefObject } from 'react';
 import * as THREE from 'three';
 import type { Presence } from '../room/presence';
 import type { Appearance } from '../world/appearance';
@@ -10,6 +9,7 @@ import type { CompiledWorld } from '../world/compile';
 import { Anchor, Npc, setCursor } from './actors';
 import { MAX_ANCHOR, type GameBus } from './bus';
 import { Controller } from './controller';
+import { FrameLoop } from './frame-loop';
 import { Props } from './furniture';
 import { KitProvider, useKit } from './kit';
 import { Life } from './life';
@@ -18,7 +18,9 @@ import { EventScreen, NightLights, RainOnGlass } from './night';
 import { Grounds } from './grounds';
 import { Floors, Seams, WallCut, Walls, WindowLight } from './office';
 import { LIGHTING, type Lighting } from './palette';
-import { ContactShade, PostFX } from './shading';
+import type { FramePath } from './pipeline';
+import { ContactShade, Render } from './shading';
+import { markShadows } from './shadows';
 import { Spawns } from './spawn';
 import { Visitors } from './visitors';
 import { Weather, weatherLighting } from './weather';
@@ -33,6 +35,8 @@ export type WorldCanvasProps = {
 	reducedMotion: boolean;
 	quality: 'high' | 'low';
 	paused: boolean;
+	/** A window and its backdrop cover the office: it keeps moving, at half the frame rate. */
+	covered?: boolean;
 	inputEnabled: boolean;
 	/** Changes when the visitor should be placed next to Max again. */
 	respawnKey: string;
@@ -46,20 +50,54 @@ export type WorldCanvasProps = {
 /** How long the veil waits for the kit before showing whatever there is. */
 const KIT_TIMEOUT_MS = 30000;
 
+/** Review aids: ?fx=full (and ?fx=ao) keep full quality however slow the frames (headless
+ * software GL), ?fx=lite starts in lite quality, ?fps=max renders on every vsync instead of about
+ * 60 fps. */
+function reviewFlags() {
+	const q = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
+	const fx = q.get('fx');
+	return { adaptive: fx !== 'full' && fx !== 'ao', lite: fx === 'lite', uncapped: q.get('fps') === 'max' };
+}
+
+/** What R3F hands a renderer factory: its default renderer parameters and the canvas. */
+type GlDefaults = Parameters<Extract<NonNullable<ComponentProps<typeof Canvas>['gl']>, (...args: never[]) => unknown>>[0];
+
+/** The desktop canvas's context: no alpha, antialiasing or depth of its own (pipeline.ts). */
+const OPAQUE = { alpha: false, antialias: false, depth: false, stencil: false, powerPreference: 'high-performance' } as const;
+
+/**
+ * three.js always asks for an alpha channel when it creates the context itself, and a
+ * transparent canvas has the compositor blend a full-screen layer over the page on every frame
+ * (costly in Firefox), so the desktop renderer gets an opaque context made here. The scene covers
+ * every pixel with alpha 1 anyway. Should that context fail, three.js tries (and reports) itself.
+ */
+function opaqueRenderer(defaults: GlDefaults) {
+	// <Canvas> always renders into a DOM canvas.
+	const context = (defaults.canvas as HTMLCanvasElement).getContext('webgl2', OPAQUE) as WebGL2RenderingContext | null;
+	return new THREE.WebGLRenderer({ ...defaults, ...OPAQUE, context: context ?? undefined });
+}
+
 export default function WorldCanvas(props: WorldCanvasProps) {
-	const { quality, paused, onReady } = props;
+	const { quality, paused, covered = false, onReady } = props;
+	const [flags] = useState(reviewFlags);
 	// Once the frame rate sags for a few seconds (Firefox on a laptop, say), drop the ambient
 	// occlusion and render at one pixel per CSS pixel for the rest of the visit.
-	const [lite, setLite] = useState(false);
-	// Review aid: ?fx=full keeps full quality however slow the frames (headless software GL).
-	const [adaptive] = useState(() => typeof window === 'undefined' || new URLSearchParams(window.location.search).get('fx') !== 'full');
+	const [lite, setLite] = useState(flags.lite);
+	const [settled, setSettled] = useState(false);
+	const pipeline = useRef<FramePath | null>(null);
 	const high = quality === 'high';
+	// Phones (low quality from the start) keep an antialiased canvas and draw straight to it, as
+	// they always have; everyone else renders through the MSAA target (pipeline.ts).
+	const [direct] = useState(() => quality === 'low');
 	const ready = useRef(onReady);
 	useEffect(() => {
 		ready.current = onReady;
 	}, [onReady]);
 	useEffect(() => {
-		const id = window.setTimeout(() => ready.current(), KIT_TIMEOUT_MS);
+		const id = window.setTimeout(() => {
+			setSettled(true);
+			ready.current();
+		}, KIT_TIMEOUT_MS);
 		return () => window.clearTimeout(id);
 	}, []);
 	return (
@@ -67,34 +105,71 @@ export default function WorldCanvas(props: WorldCanvasProps) {
 			flat
 			// Variance shadows: soft edges that also survive software GL, where blurred PCF does not.
 			shadows={quality === 'high' ? 'variance' : false}
-			// The composer renders at most 1.5x anyway; a denser canvas would only upscale it.
+			// Rendering stops at 1.5x; a denser canvas would only be upscaled.
 			dpr={lite ? 1 : [1, 1.5]}
-			frameloop={paused ? 'never' : 'always'}
+			// FrameLoop drives the frames.
+			frameloop="never"
 			camera={{ fov: 30, near: 0.5, far: 400, position: [20, 30, 50] }}
-			gl={{ antialias: true, powerPreference: 'high-performance' }}
+			// The scene renders into its own MSAA target (pipeline.ts) and covers every pixel with
+			// an opaque sky: the canvas needs no antialiasing, alpha or depth of its own. Low
+			// quality (phones) draws straight to an antialiased canvas, as it always has: an
+			// opaque one shows black while a paused office is resized.
+			gl={direct ? { antialias: true, alpha: false, depth: true, powerPreference: 'high-performance' } : opaqueRenderer}
 			style={{ touchAction: 'none' }}
 		>
-			{high && !lite && adaptive ? <PerformanceMonitor onDecline={() => setLite(true)} /> : null}
+			<FrameLoop
+				paused={paused}
+				covered={covered}
+				uncapped={flags.uncapped}
+				judge={high && !lite && flags.adaptive && settled}
+				onDecline={() => setLite(true)}
+			/>
 			<KitProvider>
-				<Scene {...props} post={high && !lite} />
-				<ReadyWithKit onReady={() => ready.current()} />
+				<Scene
+					{...props}
+					ao={high && !lite}
+					direct={direct && !high}
+					onPipeline={(p) => {
+						pipeline.current = p;
+					}}
+				/>
+				<ReadyWithKit
+					pipeline={pipeline}
+					onReady={() => {
+						setSettled(true);
+						ready.current();
+					}}
+				/>
 			</KitProvider>
 		</Canvas>
 	);
 }
 
 /**
- * Tells the app the office is ready once the voxel kit has arrived (or failed for good) and a
- * couple of frames have drawn it, so the veil never lifts on placeholder boxes.
+ * Tells the app the office is ready once the voxel kit has arrived (or failed for good), its
+ * shaders have linked in the background and a couple of frames have drawn it, so the veil never
+ * lifts on placeholder boxes or on frames stalled by shader compiles.
  */
-function ReadyWithKit({ onReady }: { onReady: () => void }) {
+function ReadyWithKit({ onReady, pipeline }: { onReady: () => void; pipeline: RefObject<FramePath | null> }) {
 	const kit = useKit();
+	const scene = useThree((state) => state.scene);
+	const camera = useThree((state) => state.camera);
+	const stage = useRef<'kit' | 'compiling' | 'drawing' | 'done'>('kit');
 	const frames = useRef(0);
-	const done = useRef(false);
 	useFrame(() => {
-		if (done.current || !kit.ready) return;
-		if (++frames.current < 3) return;
-		done.current = true;
+		if (stage.current === 'done' || !kit.ready) return;
+		if (stage.current === 'kit') {
+			const p = pipeline.current;
+			if (!p) return;
+			stage.current = 'compiling';
+			const drawn = () => {
+				stage.current = 'drawing';
+			};
+			p.compile(scene, camera).then(drawn, drawn);
+			return;
+		}
+		if (stage.current === 'compiling' || ++frames.current < 3) return;
+		stage.current = 'done';
 		onReady();
 	});
 	return null;
@@ -106,6 +181,7 @@ function Lights({ world, lighting, shadows }: { world: CompiledWorld; lighting: 
 	const cz = world.height / 2;
 	useEffect(() => {
 		materials().glow.color.setScalar(lighting.glow);
+		materials().actor.glow.color.setScalar(lighting.glow);
 	}, [lighting]);
 	useEffect(() => {
 		const light = sun.current;
@@ -122,7 +198,9 @@ function Lights({ world, lighting, shadows }: { world: CompiledWorld; lighting: 
 		camera.far = 140;
 		camera.updateProjectionMatrix();
 		light.shadow.needsUpdate = true;
+		markShadows();
 	}, [cx, cz]);
+	useEffect(() => markShadows(), [lighting, shadows]);
 	const [dx, dy, dz] = lighting.sunDir;
 	return (
 		<>
@@ -203,7 +281,9 @@ function useSpawns(world: CompiledWorld, animate: boolean) {
 }
 
 function Scene({
-	post,
+	ao,
+	direct,
+	onPipeline,
 	world,
 	bus,
 	mode,
@@ -214,7 +294,7 @@ function Scene({
 	respawnKey,
 	presence,
 	appearance,
-}: WorldCanvasProps & { post: boolean }) {
+}: WorldCanvasProps & { ao: boolean; direct: boolean; onPipeline: (path: FramePath | null) => void }) {
 	const lighting = useMemo(
 		() => weatherLighting(LIGHTING[world.meta.timeOfDay], world.meta.outside),
 		[world.meta.timeOfDay, world.meta.outside],
@@ -227,6 +307,8 @@ function Scene({
 		const ids = new Set(world.npcs.map((n) => n.id));
 		for (const id of bus.npcs.keys()) if (!ids.has(id)) bus.npcs.delete(id);
 	}, [world, bus]);
+	// A new office: redraw the sun's shadows.
+	useEffect(() => markShadows(), [world]);
 
 	return (
 		<>
@@ -239,7 +321,7 @@ function Scene({
 			<WindowLight world={world} lighting={lighting} />
 			<Seams world={world} />
 			<ContactShade world={world} />
-			{post ? <PostFX strength={lighting.ao} /> : null}
+			<Render ao={ao} direct={direct} strength={lighting.ao} onPipeline={onPipeline} />
 			<Walls world={world} bus={bus} cut={cut} reducedMotion={reducedMotion} />
 			<Props world={world} spawns={spawns} cut={cut} />
 			<Landmarks world={world} bus={bus} />

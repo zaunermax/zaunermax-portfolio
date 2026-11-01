@@ -13,6 +13,7 @@ import { materialFor } from './furniture';
 import { resolveCharacter } from './characters';
 import { useKit } from './kit';
 import { blobGeometry, materials } from './materials';
+import { markShadows, moved } from './shadows';
 import { dropOffset, now, popScale, type Spawns } from './spawn';
 
 const tmpPos = new THREE.Vector3();
@@ -312,7 +313,12 @@ export function ActorModel({
 					}}
 				>
 					{part.parts.map((p, k) => (
-						<mesh key={k} geometry={p.geometry} material={materialFor(p.material)} castShadow={castShadow && p.material === 'voxel'} />
+						<mesh
+							key={k}
+							geometry={p.geometry}
+							material={materialFor(p.material, true)}
+							castShadow={castShadow && p.material === 'voxel'}
+						/>
 					))}
 				</group>
 			))}
@@ -400,6 +406,8 @@ export function Npc({
 	const inner = useRef<THREE.Group>(null);
 	const motion = useRef<Motion>({ moving: false, pose: actor.pose, waveAt: -10, look: 0, seated: actor.sit });
 	const state = useRef<Wander | null>(null);
+	/** Where Max's shadow was last drawn: he is the one coworker who casts a real shadow. */
+	const cast = useRef({ x: Number.NaN, y: Number.NaN, drop: Number.NaN, heading: Number.NaN, scale: Number.NaN });
 	const kind = CHARACTERS[actor.character];
 	const isMax = actor.character === 'max';
 	// Fliers only bump into walls; furniture passes underneath.
@@ -502,9 +510,22 @@ export function Npc({
 		m.moving = moving;
 		if (!isMax) m.pose = actor.pose;
 		const p = spawns.progress(actor.id, t);
-		g.position.set(s.x, (actor.sit ? actor.elev : actor.elev) + dropOffset(p), s.y);
-		g.scale.setScalar(popScale(p));
+		const drop = dropOffset(p);
+		const scale = popScale(p);
+		g.position.set(s.x, (actor.sit ? actor.elev : actor.elev) + drop, s.y);
+		g.scale.setScalar(scale);
 		if (inner.current) inner.current.rotation.y = s.heading;
+		if (isMax) {
+			const c = cast.current;
+			if (moved(c.x, s.x) || moved(c.y, s.y) || moved(c.drop, drop) || moved(c.heading, s.heading) || moved(c.scale, scale)) {
+				c.x = s.x;
+				c.y = s.y;
+				c.drop = drop;
+				c.heading = s.heading;
+				c.scale = scale;
+				markShadows();
+			}
+		}
 		bus.setNpc(actor.id, s.x, s.y);
 	});
 

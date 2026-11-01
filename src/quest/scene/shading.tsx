@@ -3,14 +3,11 @@
 import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
-import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
-import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ASSETS } from '../world/catalog';
 import { hIndex, vIndex } from '../world/furnish';
 import { EDGE, type CompiledWorld } from '../world/types';
 import { indoors } from './office';
+import { DirectPath, RenderPipeline, type FramePath } from './pipeline';
 
 /*
  * Grounding and depth. Two layers, so low-quality mode still reads well:
@@ -18,7 +15,8 @@ import { indoors } from './office';
  * - Contact shade, always on: soft dark decals on the floor under every piece of furniture
  *   and along the foot of every wall, one instanced mesh each.
  * - Ambient occlusion, high quality only: three's GTAO pass between the scene render and the
- *   output pass, ignoring see-through and invisible helpers (glass, light pools, hit boxes).
+ *   output pass (pipeline.ts). It reads the scene's own depth buffer, which see-through and
+ *   invisible helpers (glass, light pools, hit boxes) never write.
  */
 
 const noRaycast = () => null;
@@ -174,94 +172,53 @@ export function ContactShade({ world }: { world: CompiledWorld }) {
 	);
 }
 
-type Hideable = { _visibilityCache: THREE.Object3D[] };
-type Overridable = { _renderOverride: (renderer: THREE.WebGLRenderer, ...rest: unknown[]) => void };
-
 /**
- * GTAO that leaves out anything which does not write depth or colour: glass, decals, hit boxes.
- * Its buffers run at a fraction of the composer's size (AO is soft anyway), and its extra scene
- * render reuses the frame's shadow map instead of drawing and blurring it a second time.
+ * Draws every frame through the office's render pipeline (pipeline.ts): the scene into one MSAA
+ * target, GTAO from its depth in high quality, then a single pass to the canvas. Low quality on
+ * an antialiased canvas draws straight to it instead.
  */
-class OfficeAO extends GTAOPass {
-	/** Size of the AO buffers relative to the composer's. */
-	scale = 1;
-
-	setSize(width: number, height: number) {
-		const k = this.scale ?? 1;
-		super.setSize(Math.max(1, Math.round(width * k)), Math.max(1, Math.round(height * k)));
-	}
-
-	_renderOverride(renderer: THREE.WebGLRenderer, ...rest: unknown[]) {
-		const auto = renderer.shadowMap.autoUpdate;
-		renderer.shadowMap.autoUpdate = false;
-		try {
-			(GTAOPass.prototype as unknown as Overridable)._renderOverride.call(this, renderer, ...rest);
-		} finally {
-			renderer.shadowMap.autoUpdate = auto;
-		}
-	}
-
-	_overrideVisibility() {
-		const cache = (this as unknown as Hideable)._visibilityCache;
-		this.scene.traverse((object) => {
-			if (!object.visible) return;
-			const mesh = object as THREE.Mesh;
-			const material = mesh.material as THREE.Material | undefined;
-			const skip =
-				(object as THREE.Points).isPoints ||
-				(object as THREE.Line).isLine ||
-				(object as THREE.Sprite).isSprite ||
-				(mesh.isMesh && material && !Array.isArray(material) && (material.transparent || !material.depthWrite || !material.colorWrite));
-			if (skip) {
-				object.visible = false;
-				cache.push(object);
-			}
-		});
-	}
-}
-
-/** Renders the scene through ambient occlusion and the output transform (high quality only). */
-export function PostFX({ strength = 1 }: { strength?: number }) {
+export function Render({
+	ao,
+	direct,
+	strength = 1,
+	onPipeline,
+}: {
+	/** Ambient occlusion on (high quality, not lite). */
+	ao: boolean;
+	/** Straight to the canvas (low quality on a canvas created with antialiasing). */
+	direct: boolean;
+	strength?: number;
+	/** Hands the path to whoever compiles the shaders before the first frames. */
+	onPipeline: (path: FramePath | null) => void;
+}) {
 	const gl = useThree((state) => state.gl);
 	const scene = useThree((state) => state.scene);
 	const camera = useThree((state) => state.camera);
-	const fx = useRef<{ composer: EffectComposer; ao: OfficeAO; size: string } | null>(null);
+	const fx = useRef<FramePath | null>(null);
+	const handOver = useRef(onPipeline);
+	useEffect(() => {
+		handOver.current = onPipeline;
+	}, [onPipeline]);
 
 	useEffect(() => {
-		const target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
-		const composer = new EffectComposer(gl, target);
-		composer.addPass(new RenderPass(scene, camera));
-		const ao = new OfficeAO(scene, camera, 1, 1);
-		ao.updateGtaoMaterial({ radius: 1.1, distanceExponent: 1.2, thickness: 2, scale: 1.6, samples: 8 });
-		ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 8 });
 		// Review aid: ?fx=ao shows the occlusion buffer alone.
-		if (new URLSearchParams(window.location.search).get('fx') === 'ao') ao.output = GTAOPass.OUTPUT.Denoise;
-		composer.addPass(ao);
-		composer.addPass(new OutputPass());
-		fx.current = { composer, ao, size: '' };
+		const aoOnly = new URLSearchParams(window.location.search).get('fx') === 'ao';
+		const current = direct && !ao ? new DirectPath(gl) : new RenderPipeline(gl, scene, camera, { ao, aoOnly });
+		fx.current = current;
+		handOver.current(current);
 		return () => {
 			fx.current = null;
-			composer.dispose();
+			handOver.current(null);
+			current.dispose();
 		};
-	}, [gl, scene, camera]);
+	}, [gl, scene, camera, ao, direct]);
 
 	// A positive priority takes over rendering from R3F.
-	useFrame((state, delta) => {
+	useFrame((state) => {
 		const current = fx.current;
-		if (!current) return gl.render(scene, camera);
-		const { width, height } = state.size;
-		// AO is soft anyway; capping the pixel ratio keeps it affordable on retina screens.
-		const ratio = Math.min(state.viewport.dpr, 1.5);
-		const size = `${width}x${height}@${ratio}`;
-		if (current.size !== size) {
-			// The occlusion buffers stay at one sample per CSS pixel, whatever the screen's density.
-			current.ao.scale = 1 / ratio;
-			current.composer.setPixelRatio(ratio);
-			current.composer.setSize(width, height);
-			current.size = size;
-		}
-		current.ao.blendIntensity = strength;
-		current.composer.render(delta);
+		// Nothing draws while the shaders link in the background (under the loading veil).
+		if (!current || current.compiling) return;
+		current.render(scene, camera, strength, state.clock.elapsedTime);
 	}, 1);
 	return null;
 }

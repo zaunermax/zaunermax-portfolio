@@ -217,6 +217,8 @@ export function Minimap({
 	}, [world]);
 
 	useEffect(() => {
+		// A folded plan is not drawn at all; unfolding starts drawing again at once.
+		if (collapsed) return;
 		let frame = 0;
 		let last = 0;
 		const draw = (t: number) => {
@@ -271,7 +273,7 @@ export function Minimap({
 		};
 		frame = requestAnimationFrame(draw);
 		return () => cancelAnimationFrame(frame);
-	}, [bus]);
+	}, [bus, collapsed]);
 
 	const onMapClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
 		const r = e.currentTarget.getBoundingClientRect();

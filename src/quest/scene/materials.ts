@@ -49,12 +49,16 @@ let shared: ReturnType<typeof create> | null = null;
 function create() {
 	const voxel = new THREE.MeshLambertMaterial({ vertexColors: true });
 	const glow = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
+	// Transparent and double-sided, glass and panes would be drawn twice by default (back faces,
+	// then front faces), with three.js flipping `side` and re-resolving the program both times, on
+	// every frame. Both faces of these thin, evenly lit shells blend to the same colour either way.
 	const glass = new THREE.MeshLambertMaterial({
 		vertexColors: true,
 		transparent: true,
 		opacity: 0.38,
 		depthWrite: false,
 		side: THREE.DoubleSide,
+		forceSinglePass: true,
 	});
 	/** Walls and placeholders: one colour per instance, voxel jitter on top. */
 	const solid = voxelize(new THREE.MeshLambertMaterial({ color: '#ffffff' }));
@@ -65,6 +69,7 @@ function create() {
 		opacity: 0.32,
 		depthWrite: false,
 		side: THREE.DoubleSide,
+		forceSinglePass: true,
 	});
 	const shadow = new THREE.MeshBasicMaterial({
 		color: '#2b2433',
@@ -80,7 +85,20 @@ function create() {
 		colorWrite: false,
 		visible: false,
 	});
-	return { voxel, glow, glass, solid, pane, shadow, hitbox };
+	/**
+	 * The kit's materials again, for plain (non-instanced) meshes: characters. Instanced and plain
+	 * meshes compile different programs, and one material shared by both makes three.js work out
+	 * its program afresh every time a frame switches between the two.
+	 */
+	const actor = { voxel: voxel.clone(), glow: glow.clone(), glass: glass.clone() };
+	/**
+	 * Shadow depth for instanced meshes: per-instance colours (walls, floors, the street's props)
+	 * and the kit's furniture. Variance shadows draw casters and receivers into the shadow map, and
+	 * three.js's one built-in depth material, left to plain meshes (floors, characters), would
+	 * re-resolve its program at every switch between these kinds of mesh.
+	 */
+	const depth = { tinted: new THREE.MeshDepthMaterial(), kit: new THREE.MeshDepthMaterial() };
+	return { voxel, glow, glass, solid, pane, shadow, hitbox, actor, depth };
 }
 
 export function materials() {

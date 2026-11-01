@@ -57,23 +57,28 @@ function componentParts(template: THREE.Object3D): SourcePart[] {
 	return out;
 }
 
-/** A recoloured copy of a source part with exactly position, normal and an RGB colour. */
+/**
+ * A recoloured copy of a source part with exactly position, normal and an RGBA colour. RGBA like
+ * the kit's own COLOR_0, so assembled people and bespoke characters share one program: three.js
+ * compiles a separate one per colour layout and would switch between them every frame.
+ */
 function recolour(source: THREE.BufferGeometry, linear: (THREE.Color | null)[]) {
 	const position = source.getAttribute('position');
 	const color = source.getAttribute('color');
 	const slot = source.getAttribute('_slot');
-	const rgb = new Float32Array(position.count * 3);
+	const rgba = new Float32Array(position.count * 4);
 	for (let i = 0; i < position.count; i++) {
 		const s = slot ? Math.round(slot.getX(i)) : 0;
 		const p = linear[s] ?? null;
-		rgb[i * 3] = (color ? color.getX(i) : 1) * (p ? p.r : 1);
-		rgb[i * 3 + 1] = (color ? color.getY(i) : 1) * (p ? p.g : 1);
-		rgb[i * 3 + 2] = (color ? color.getZ(i) : 1) * (p ? p.b : 1);
+		rgba[i * 4] = (color ? color.getX(i) : 1) * (p ? p.r : 1);
+		rgba[i * 4 + 1] = (color ? color.getY(i) : 1) * (p ? p.g : 1);
+		rgba[i * 4 + 2] = (color ? color.getZ(i) : 1) * (p ? p.b : 1);
+		rgba[i * 4 + 3] = color && color.itemSize === 4 ? color.getW(i) : 1;
 	}
 	const g = new THREE.BufferGeometry();
 	g.setAttribute('position', position);
 	g.setAttribute('normal', source.getAttribute('normal'));
-	g.setAttribute('color', new THREE.BufferAttribute(rgb, 3));
+	g.setAttribute('color', new THREE.BufferAttribute(rgba, 4));
 	const index = source.getIndex();
 	if (index) g.setIndex(index);
 	return g;
