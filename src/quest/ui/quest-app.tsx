@@ -554,6 +554,7 @@ export function QuestApp({
 								reducedMotion={reducedMotion}
 								quality={touch || compact ? 'low' : 'high'}
 								paused={hidden || (compact && open !== null)}
+								covered={open !== null}
 								inputEnabled={open === null}
 								respawnKey={`${world.worldId}|${generating ? 'gen' : 'live'}|${introActive ? 'intro' : 'play'}`}
 								presence={room.status === 'live' ? room.presence : null}
