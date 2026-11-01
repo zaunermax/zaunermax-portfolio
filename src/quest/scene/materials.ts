@@ -80,7 +80,15 @@ function create() {
 		colorWrite: false,
 		visible: false,
 	});
-	return { voxel, glow, glass, solid, pane, shadow, hitbox };
+	/**
+	 * The kit's materials again, for plain (non-instanced) meshes: characters. Instanced and plain
+	 * meshes compile different programs, and one material shared by both makes three.js work out
+	 * its program afresh every time a frame switches between the two.
+	 */
+	const actor = { voxel: voxel.clone(), glow: glow.clone(), glass: glass.clone() };
+	/** Shadow depth for plain casters; three.js's built-in one is shared with instanced casters. */
+	const actorDepth = new THREE.MeshDepthMaterial();
+	return { voxel, glow, glass, solid, pane, shadow, hitbox, actor, actorDepth };
 }
 
 export function materials() {

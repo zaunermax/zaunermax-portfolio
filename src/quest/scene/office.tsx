@@ -8,6 +8,7 @@ import { EDGE, type CompiledWorld } from '../world/types';
 import type { GameBus } from './bus';
 import { materials, radialTexture } from './materials';
 import { VIBES, type Lighting } from './palette';
+import { markShadows } from './shadows';
 import { now, popScale, type Spawns } from './spawn';
 import { canvasTexture, paintFloor } from './textures';
 
@@ -245,6 +246,8 @@ export function Walls({
 		});
 		if (!changed) return;
 		force.current = false;
+		// Walls cast shadows (and, with variance shadows, receive them through the shadow map too).
+		markShadows();
 		const b = body.current;
 		const c = cap.current;
 		const bb = base.current;
@@ -471,7 +474,10 @@ export function Floors({ world, spawns }: { world: CompiledWorld; spawns: Spawns
 			const mesh = rooms.current[i];
 			if (!mesh) return;
 			const s = popScale(spawns.progress(plane.id, t, 0.5));
+			if (mesh.scale.x === s) return;
 			mesh.scale.set(s, 1, s);
+			// Variance shadows draw receivers into the shadow map as well: a floor popping in counts.
+			markShadows();
 		});
 	});
 

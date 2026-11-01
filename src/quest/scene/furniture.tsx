@@ -8,12 +8,14 @@ import type { CompiledWorld } from '../world/types';
 import { assetParts, mirrorParts, useKit, type KitPart } from './kit';
 import { materials } from './materials';
 import type { WallCut } from './office';
+import { markShadows } from './shadows';
 import { dropOffset, now, popScale, type Spawns } from './spawn';
 
 /**
  * Every piece of furniture and every prop, instanced per asset id: one InstancedMesh per kit
  * mesh part, so a hundred desks cost a handful of draw calls. Matrices are only rewritten while
- * something pops in, or for wall props that hide when their wall is cut down.
+ * something pops in, or for wall props that hide when their wall is cut down; each rewrite also
+ * refreshes the instances' bounding sphere, so groups off screen are culled.
  */
 
 export type PropItem = {
@@ -29,8 +31,10 @@ export type PropItem = {
 
 const noRaycast = () => null;
 
-export function materialFor(kind: KitPart['material']) {
-	const m = materials();
+/** A kit material for instanced meshes, or for plain ones (characters) with `plain`. */
+export function materialFor(kind: KitPart['material'], plain = false) {
+	const all = materials();
+	const m = plain ? all.actor : all;
 	return kind === 'glow' ? m.glow : kind === 'glass' ? m.glass : m.voxel;
 }
 
@@ -112,8 +116,11 @@ function AssetInstances({
 			if (mesh) {
 				mesh.count = items.length;
 				mesh.instanceMatrix.needsUpdate = true;
+				// Bounds of the instances as they stand now (mid-bounce included), for culling.
+				mesh.computeBoundingSphere();
 			}
 		dirty.current = animating;
+		markShadows();
 	});
 
 	return (
@@ -128,7 +135,6 @@ function AssetInstances({
 					args={[part.geometry, materialFor(part.material), capacity]}
 					castShadow={part.material === 'voxel'}
 					receiveShadow={part.material !== 'glow'}
-					frustumCulled={false}
 					raycast={noRaycast}
 				/>
 			))}
