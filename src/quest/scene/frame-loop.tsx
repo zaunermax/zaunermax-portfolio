@@ -1,7 +1,7 @@
 'use client';
 
 import { useThree } from '@react-three/fiber';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { COVERED_FPS, FramePacer, judgedInterval, QualityMonitor, TARGET_FPS } from './frame-pacing';
 
 /** Longest step the scene clock takes in one frame (s), so a long stall never jumps ahead. */
@@ -31,6 +31,8 @@ export function FrameLoop({
 	onDecline: () => void;
 }) {
 	const advance = useThree((state) => state.advance);
+	const size = useThree((state) => state.size);
+	const dpr = useThree((state) => state.viewport.dpr);
 	const [pacer] = useState(() => new FramePacer());
 	const [monitor] = useState(() => new QualityMonitor());
 	/** The scene clock (s): keeps counting across pauses, without the time spent paused. */
@@ -43,6 +45,17 @@ export function FrameLoop({
 	useEffect(() => {
 		if (judge) monitor.arm();
 	}, [judge, monitor]);
+
+	// Resizing wipes the (opaque) drawing buffer. Redraw before the next paint, so a skipped
+	// vsync, the covered rate or a pause never shows a black canvas.
+	const sized = useRef(false);
+	useLayoutEffect(() => {
+		if (!sized.current) {
+			sized.current = true;
+			return;
+		}
+		advance(clock.current);
+	}, [size, dpr, advance]);
 
 	useEffect(() => {
 		if (paused) return;
