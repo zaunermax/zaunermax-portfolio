@@ -133,6 +133,7 @@ function AssetInstances({
 						dirty.current = true;
 					}}
 					args={[part.geometry, materialFor(part.material), capacity]}
+					customDepthMaterial={materials().depth.kit}
 					castShadow={part.material === 'voxel'}
 					receiveShadow={part.material !== 'glow'}
 					raycast={noRaycast}

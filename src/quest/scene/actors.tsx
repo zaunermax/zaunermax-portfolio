@@ -13,7 +13,7 @@ import { materialFor } from './furniture';
 import { resolveCharacter } from './characters';
 import { useKit } from './kit';
 import { blobGeometry, materials } from './materials';
-import { markShadows } from './shadows';
+import { markShadows, moved } from './shadows';
 import { dropOffset, now, popScale, type Spawns } from './spawn';
 
 const tmpPos = new THREE.Vector3();
@@ -317,7 +317,6 @@ export function ActorModel({
 							key={k}
 							geometry={p.geometry}
 							material={materialFor(p.material, true)}
-							customDepthMaterial={materials().actorDepth}
 							castShadow={castShadow && p.material === 'voxel'}
 						/>
 					))}
@@ -518,7 +517,7 @@ export function Npc({
 		if (inner.current) inner.current.rotation.y = s.heading;
 		if (isMax) {
 			const c = cast.current;
-			if (c.x !== s.x || c.y !== s.y || c.drop !== drop || c.heading !== s.heading || c.scale !== scale) {
+			if (moved(c.x, s.x) || moved(c.y, s.y) || moved(c.drop, drop) || moved(c.heading, s.heading) || moved(c.scale, scale)) {
 				c.x = s.x;
 				c.y = s.y;
 				c.drop = drop;

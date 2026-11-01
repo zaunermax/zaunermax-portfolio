@@ -17,7 +17,7 @@ import { isTypingTarget } from '../ui/hooks';
 import { ActorModel, Anchor, BlobShadow, LABEL_HEIGHT, turn, type Motion } from './actors';
 import { PLAYER_ANCHOR, type GameBus, type Interactable, type WalkTarget } from './bus';
 import { materials } from './materials';
-import { markShadows } from './shadows';
+import { markShadows, moved } from './shadows';
 import { now } from './spawn';
 
 /*
@@ -594,7 +594,7 @@ export function Controller({
 		// The visitor casts a real shadow: keep it glued to them while they walk or wave.
 		const waving = now() - motion.current.waveAt < 1.6;
 		const cast = shadowAt.current;
-		if (moving || waving || cast.x !== p.x || cast.y !== p.y || cast.heading !== p.heading) {
+		if (moving || waving || moved(cast.x, p.x) || moved(cast.y, p.y) || moved(cast.heading, p.heading)) {
 			cast.x = p.x;
 			cast.y = p.y;
 			cast.heading = p.heading;

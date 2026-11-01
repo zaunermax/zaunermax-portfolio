@@ -32,3 +32,15 @@ export const shadowSchedule = new ShadowSchedule();
 export function markShadows() {
 	shadowSchedule.mark();
 }
+
+/** Smaller moves than this (units or radians) wait for the idle refresh. */
+export const SHADOW_TOLERANCE = 1e-4;
+
+/**
+ * Whether a caster moved enough since its shadow was last drawn to need a redraw now. Turns
+ * ease in exponentially, so an exact comparison would keep marking for seconds after they look
+ * done. True for NaN (never drawn).
+ */
+export function moved(from: number, to: number) {
+	return !(Math.abs(to - from) <= SHADOW_TOLERANCE);
+}

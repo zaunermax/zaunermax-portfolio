@@ -166,16 +166,19 @@ function colorBox(w: number, h: number, d: number, color: string, y = 0) {
 	const g = new THREE.BoxGeometry(w, h, d).toNonIndexed();
 	g.translate(0, y + h / 2, 0);
 	const c = new THREE.Color(color);
-	const colors = new Float32Array(g.getAttribute('position').count * 3);
+	// RGBA like the kit's COLOR_0: three.js compiles a separate program per colour layout, so
+	// mixing layouts under one material makes it re-resolve programs every frame.
+	const colors = new Float32Array(g.getAttribute('position').count * 4);
 	const normal = g.getAttribute('normal');
-	for (let i = 0; i < colors.length / 3; i++) {
+	for (let i = 0; i < colors.length / 4; i++) {
 		// Tops a little lighter, sides a little darker, like the voxel kit.
 		const f = normal.getY(i) > 0.5 ? 1.06 : normal.getY(i) < -0.5 ? 0.7 : 0.9;
-		colors[i * 3] = c.r * f;
-		colors[i * 3 + 1] = c.g * f;
-		colors[i * 3 + 2] = c.b * f;
+		colors[i * 4] = c.r * f;
+		colors[i * 4 + 1] = c.g * f;
+		colors[i * 4 + 2] = c.b * f;
+		colors[i * 4 + 3] = 1;
 	}
-	g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+	g.setAttribute('color', new THREE.BufferAttribute(colors, 4));
 	return g;
 }
 
