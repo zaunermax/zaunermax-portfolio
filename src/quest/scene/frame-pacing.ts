@@ -57,15 +57,28 @@ const REFRESH_FIRST = 20;
 /**
  * Callbacks in a row clearly quicker than the estimate (under QUICK of it) that re-estimate
  * from them at once: a load that slowed rAF down has passed, and waiting for the next periodic
- * estimate would skip healthy vsyncs for seconds.
+ * estimate would skip healthy vsyncs for seconds. The same run clearly slower (over 1 / QUICK
+ * of it) and steady (within STEADY of its median) does too: the window moved to a slower screen,
+ * where a stale, quick estimate would count every frame as late. Only a steady run, so a GPU
+ * that makes rAF stutter between two and three vsyncs keeps being judged against the real
+ * refresh rate; one that slows rAF to a steady crawl is still caught by slowInterval.
  */
 const QUICK_RUN = 12;
 const QUICK = 0.75;
+const STEADY = 1.3;
+
+/** The last `n` intervals all lie within STEADY of their median. */
+function steady(intervals: readonly number[], n: number) {
+	const run = intervals.slice(-n);
+	const mid = median(run);
+	return run.every((dt) => dt > mid / STEADY && dt < mid * STEADY);
+}
 
 /**
  * Measures the display's vsync interval from rAF timestamps (refreshInterval, re-measured now
  * and then, so a window dragged to another screen picks up its rate, and at once when callbacks
- * keep coming quicker than the estimate) and decides which callbacks render.
+ * keep coming clearly quicker or steadily slower than the estimate) and decides which callbacks
+ * render.
  */
 export class FramePacer {
 	/** Estimated vsync interval in ms; NaN until measured. */
@@ -75,6 +88,7 @@ export class FramePacer {
 	private lastRender = Number.NaN;
 	private untilEstimate = REFRESH_FIRST;
 	private quick = 0;
+	private slow = 0;
 
 	/** Forget timing after a pause, so the first callback afterwards renders at once. */
 	reset() {
@@ -93,10 +107,12 @@ export class FramePacer {
 			this.intervals.push(dt);
 			if (this.intervals.length > REFRESH_WINDOW) this.intervals.shift();
 			this.quick = dt < this.vsync * QUICK ? this.quick + 1 : 0;
-			if (this.quick >= QUICK_RUN) {
-				this.intervals = this.intervals.slice(-this.quick);
+			this.slow = dt > this.vsync / QUICK ? this.slow + 1 : 0;
+			if (this.quick >= QUICK_RUN || (this.slow >= QUICK_RUN && steady(this.intervals, QUICK_RUN))) {
+				this.intervals = this.intervals.slice(-QUICK_RUN);
 				this.untilEstimate = 0;
 				this.quick = 0;
+				this.slow = 0;
 			}
 		}
 		if (--this.untilEstimate <= 0 && this.intervals.length) {

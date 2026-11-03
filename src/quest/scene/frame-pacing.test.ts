@@ -435,6 +435,56 @@ describe('pacer and monitor together', () => {
 		expect(judder(120, 6)).toBeGreaterThan(0);
 	});
 
+	/** Steps after a window is dragged from a `from` Hz screen to a `to` Hz one at `at` ms. */
+	const switchScreens = (from: number, to: number, at: number, firefox = false, seed = 1) => {
+		const random = prng(seed);
+		const times: number[] = [];
+		for (let t = 0; t < at + 8000; ) {
+			t += 1000 / (t < at ? from : to);
+			times.push(firefox ? Math.round(t + (random() - 0.5) * 0.8) : t);
+		}
+		return play(times);
+	};
+
+	it('never downgrades a window dragged to a slower screen', () => {
+		for (const [from, to] of [
+			[100, 60],
+			[165, 60],
+			[90, 60],
+			[85, 50],
+			[144, 48],
+		])
+			for (let at = 10000; at < 14000; at += 250) {
+				expect(switchScreens(from, to, at), `${from} -> ${to} Hz at ${at} ms`).toBe(0);
+				expect(switchScreens(from, to, at, true, at), `${from} -> ${to} Hz at ${at} ms, Firefox`).toBe(0);
+			}
+	});
+
+	it('never downgrades a window dragged to a quicker screen', () => {
+		for (const [from, to] of [
+			[60, 120],
+			[50, 85],
+		])
+			for (let at = 10000; at < 12000; at += 500) expect(switchScreens(from, to, at, true, at)).toBe(0);
+	});
+
+	it('still downgrades a GPU that slows rAF to a steady 42.5 fps on an 85 Hz screen', () => {
+		// Healthy at first, then every callback lands two vsyncs apart: steady, so the pacer
+		// re-estimates as for a slower screen, and the median catches it.
+		const times = firefoxTimes(85, 30).filter((t, i) => t < 6000 || i % 2 === 0);
+		expect(play(times)).toBeGreaterThan(0);
+	});
+
+	it('still downgrades a GPU that makes rAF stutter between two and three vsyncs at 120 Hz', () => {
+		// About 55 fps: the median stays at two vsyncs, a third of the frames slip to three, and
+		// the run is not steady enough to pass for a slower screen.
+		const all = firefoxTimes(120, 30);
+		const times: number[] = [];
+		let k = 0;
+		for (let i = 0; i < all.length; i += all[i] < 6000 ? 1 : k++ % 3 === 0 ? 3 : 2) times.push(all[i]);
+		expect(play(times)).toBeGreaterThan(0);
+	});
+
 	it('keeps quality when only the odd frame slips', () => {
 		expect(judder(85, 50)).toBe(0);
 		expect(judder(120, 50)).toBe(0);
