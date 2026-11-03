@@ -346,7 +346,7 @@ function Scene({
 			<WindowLight world={world} lighting={lighting} />
 			<Seams world={world} />
 			<ContactShade world={world} />
-			<Render ao={ao} aoScale={aoScale} direct={direct} strength={lighting.ao} onPipeline={onPipeline} />
+			<Render ao={ao} aoScale={aoScale} bus={bus} direct={direct} strength={lighting.ao} onPipeline={onPipeline} />
 			<Walls world={world} bus={bus} cut={cut} reducedMotion={reducedMotion} />
 			<Props world={world} spawns={spawns} cut={cut} />
 			<Landmarks world={world} bus={bus} />

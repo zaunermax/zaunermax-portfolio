@@ -32,6 +32,26 @@ export function tierSettings(tier: QualityTier): TierSettings {
 	};
 }
 
+/** The camera distance the occlusion scales are set for: the default play view (controller.tsx). */
+const AO_REFERENCE_DIST = 19;
+/** The coarsest occlusion buffer a close camera brings, per CSS pixel. */
+const AO_CLOSE_MIN = 0.35;
+/** Occlusion scales come in twentieths, so a zoom resizes its buffers a few times, not every frame. */
+const AO_STEPS = 20;
+
+/**
+ * The occlusion buffer's scale for a camera `dist` from its focus. The occlusion reaches a fixed
+ * distance in the room, so a closer camera spreads it over more pixels, and every one of them
+ * costs more. Scaling the buffer with the distance keeps the cost of the occlusion about the
+ * same at any zoom. It looks the same too, since everything it shades has grown by the same
+ * factor. Never finer than `scale`, the tier's own.
+ */
+export function closeUpAoScale(scale: number, dist: number) {
+	if (!(dist < AO_REFERENCE_DIST)) return scale;
+	const close = Math.round(((scale * dist) / AO_REFERENCE_DIST) * AO_STEPS) / AO_STEPS;
+	return Math.min(scale, Math.max(AO_CLOSE_MIN, close));
+}
+
 /** The pixel ratio a tier actually renders at on a screen of `devicePixelRatio`. */
 function effectiveDpr(tier: QualityTier, devicePixelRatio: number) {
 	return Math.max(1, Math.min(devicePixelRatio, MAX_DPR[tier]));

@@ -7,7 +7,9 @@ import { ASSETS } from '../world/catalog';
 import { hIndex, vIndex } from '../world/furnish';
 import { EDGE, type CompiledWorld } from '../world/types';
 import { indoors } from './office';
+import type { GameBus } from './bus';
 import { DirectPath, RenderPipeline, type FramePath } from './pipeline';
+import { closeUpAoScale } from './quality';
 
 /*
  * Grounding and depth. Two layers, so low-quality mode still reads well:
@@ -180,14 +182,17 @@ export function ContactShade({ world }: { world: CompiledWorld }) {
 export function Render({
 	ao,
 	aoScale,
+	bus,
 	direct,
 	strength = 1,
 	onPipeline,
 }: {
 	/** Ambient occlusion on (high quality, not lite). */
 	ao: boolean;
-	/** Occlusion buffer size per CSS pixel, in each direction. */
+	/** Occlusion buffer size per CSS pixel, in each direction, at the default camera distance. */
 	aoScale: number;
+	/** The camera's distance, for a coarser occlusion up close (quality.ts closeUpAoScale). */
+	bus: GameBus;
 	/** Straight to the canvas (low quality on a canvas created with antialiasing). */
 	direct: boolean;
 	strength?: number;
@@ -221,7 +226,7 @@ export function Render({
 		const current = fx.current;
 		// Nothing draws while the shaders link in the background (under the loading veil).
 		if (!current || current.compiling) return;
-		if (current instanceof RenderPipeline) current.aoScale = aoScale;
+		if (current instanceof RenderPipeline) current.aoScale = closeUpAoScale(aoScale, bus.view.dist);
 		current.render(scene, camera, strength, state.clock.elapsedTime);
 	}, 1);
 	return null;

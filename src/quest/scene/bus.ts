@@ -40,8 +40,12 @@ export class GameBus {
 	cameraYaw = 0;
 	/** Where labels hang in world space (x, height, z), by entity id. Written by the scene. */
 	anchors = new Map<string, { x: number; y: number; z: number }>();
-	/** View-projection matrix and camera position of the last frame, for the HTML label layer. */
-	view = { matrix: new Float32Array(16), x: 0, y: 0, z: 0, frame: 0, overview: false };
+	/**
+	 * View-projection matrix and camera position of the last frame, for the HTML label layer, and
+	 * the camera's distance from its focus (NaN before the first frame; the render pipeline sizes
+	 * the occlusion by it).
+	 */
+	view = { matrix: new Float32Array(16), x: 0, y: 0, z: 0, dist: Number.NaN, frame: 0, overview: false };
 
 	private nearby: Interactable | null = null;
 	private nearbyListeners = new Set<Listener>();
@@ -99,11 +103,12 @@ export class GameBus {
 		this.anchors.delete(id);
 	}
 
-	setView(matrix: ArrayLike<number>, x: number, y: number, z: number, overview: boolean) {
+	setView(matrix: ArrayLike<number>, x: number, y: number, z: number, dist: number, overview: boolean) {
 		this.view.matrix.set(matrix);
 		this.view.x = x;
 		this.view.y = y;
 		this.view.z = z;
+		this.view.dist = dist;
 		this.view.overview = overview;
 		this.view.frame++;
 	}
