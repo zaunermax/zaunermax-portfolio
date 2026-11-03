@@ -173,6 +173,10 @@ const HIDE = new THREE.Matrix4().makeScale(0, 0, 0);
 /** Caps sit a hair above the wall body so their top faces never z-fight with it. */
 const CAP_LIFT = 0.004;
 
+/** Height of the rail a glass wall stands in, and how deep its pane sits in it. */
+const GLASS_RAIL = 0.08;
+const GLASS_SEAT = 0.03;
+
 /** Slots per segment in each instanced mesh. */
 const BODY_SLOTS = 2;
 
@@ -311,8 +315,10 @@ export function Walls({
 					doorFrame(i, s, h);
 				} else {
 					noFrame(i);
-					put(g, i, s, 0.08, h - 0.06, 1 / 16);
-					put(f, i * 2, s, 0, 0.08, T * 0.6);
+					// The pane stands in its rail, not on it: the glass is double-sided, so a bottom face
+					// flush with the rail's top face drew from above and z-fought it in a crawling sawtooth.
+					put(g, i, s, GLASS_RAIL - GLASS_SEAT, h - 0.06, 1 / 16);
+					put(f, i * 2, s, 0, GLASS_RAIL, T * 0.6);
 				}
 				f.setMatrixAt(i * 2 + 1, HIDE);
 				return;
@@ -362,8 +368,8 @@ export function Walls({
 				receiveShadow
 				frustumCulled={false}
 			/>
-			<instancedMesh ref={cap} args={[box, m.solid, n]} frustumCulled={false} />
-			<instancedMesh ref={base} args={[box, m.solid, n]} frustumCulled={false} />
+			<instancedMesh ref={cap} args={[box, m.trim, n]} frustumCulled={false} />
+			<instancedMesh ref={base} args={[box, m.trim, n]} frustumCulled={false} />
 			<instancedMesh ref={frame} args={[box, m.solid, n * 2]} frustumCulled={false} />
 			<instancedMesh ref={jamb} args={[box, m.solid, n * 3]} customDepthMaterial={m.depth.tinted} castShadow frustumCulled={false} />
 			<instancedMesh ref={pane} args={[box, m.pane, n]} frustumCulled={false} renderOrder={3} />

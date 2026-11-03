@@ -9,8 +9,9 @@ import { markShadows, shadowSchedule } from './shadows';
  *   scene → one 4× MSAA half-float target (colour + depth texture, resolved once per frame)
  *         → GTAO from that depth (high quality only; normals rebuilt from depth; at a fraction
  *           of the CSS resolution, aoScale)
- *         → one full-screen pass to the canvas: colour × mix(1, ao, strength), then the tone
- *           mapping and sRGB encoding OutputPass used to do
+ *         → one full-screen pass to the canvas: colour × mix(1, ao, strength), the occlusion
+ *           upsampled by depth so it keeps to each surface, then the tone mapping and sRGB
+ *           encoding OutputPass used to do
  *
  * The canvas itself has no antialiasing, alpha or depth: the target does the antialiasing, and
  * the scene always renders into a target, so every shader is compiled once for linear output
@@ -132,20 +133,77 @@ const finalShader = {
 
 		varying vec2 vUv;
 
+		#if defined( USE_AO ) || defined( AO_ONLY )
+
+			uniform sampler2D tDepth;
+			// The occlusion buffer's size in texels.
+			uniform vec2 aoSize;
+			uniform float cameraNear;
+			uniform float cameraFar;
+			// The relative depth step beyond which an occlusion texel lies on another surface.
+			uniform float depthTolerance;
+
+			// One of the four occlusion texels around this pixel, weighted by how close it lies to
+			// the bilinear position and by whether its depth (alpha, OfficeAO) matches this pixel's.
+			void aoTap( const in vec2 texel, const in float bilinear, const in float z, inout vec3 sum, inout float total, inout vec3 nearest, inout float best ) {
+
+				vec4 ao = texture2D( tAO, ( texel + 0.5 ) / aoSize );
+				float dz = abs( ao.a - z ) / ( z * depthTolerance );
+				float w = bilinear * max( 0.0, 1.0 - dz * dz );
+				sum += w * ao.rgb;
+				total += w;
+				if ( dz < best ) {
+
+					best = dz;
+					nearest = ao.rgb;
+
+				}
+
+			}
+
+			// Joint bilateral upsampling: the occlusion is computed at a fraction of the canvas, and
+			// plain bilinear filtering would blend a character's texels into the floor around it (a
+			// pale aura) and smear creases across silhouettes, where they crawl as the camera moves.
+			// Weighing each texel by its depth against this pixel's keeps every pixel to its own
+			// surface; if none of the four lies on it, the closest in depth stands in.
+			vec3 upsampleAO( const in vec2 uv ) {
+
+				float depth = texture2D( tDepth, uv ).x;
+				// The sky: nothing occludes it.
+				if ( depth >= 1.0 ) return vec3( 1.0 );
+				// Distance from the camera plane (the office's camera is perspective).
+				float z = ( cameraNear * cameraFar ) / ( cameraFar - depth * ( cameraFar - cameraNear ) );
+				vec2 p = uv * aoSize - 0.5;
+				vec2 base = floor( p );
+				vec2 f = p - base;
+				vec3 sum = vec3( 0.0 );
+				float total = 0.0;
+				vec3 nearest = vec3( 1.0 );
+				float best = 1e9;
+				aoTap( base, ( 1.0 - f.x ) * ( 1.0 - f.y ), z, sum, total, nearest, best );
+				aoTap( base + vec2( 1.0, 0.0 ), f.x * ( 1.0 - f.y ), z, sum, total, nearest, best );
+				aoTap( base + vec2( 0.0, 1.0 ), ( 1.0 - f.x ) * f.y, z, sum, total, nearest, best );
+				aoTap( base + vec2( 1.0, 1.0 ), f.x * f.y, z, sum, total, nearest, best );
+				return total > 1e-3 ? sum / total : nearest;
+
+			}
+
+		#endif
+
 		void main() {
 
 			gl_FragColor = texture2D( tDiffuse, vUv );
 
 			#if defined( AO_ONLY )
 
-				// Review aid (?fx=ao): the denoised occlusion buffer alone.
-				gl_FragColor = texture2D( tAO, vUv );
+				// Review aid (?fx=ao): the denoised occlusion buffer alone, as the blend sees it.
+				gl_FragColor = vec4( upsampleAO( vUv ), 1.0 );
 
 			#elif defined( USE_AO )
 
-				// GTAOBlendShader, applied as its multiply blend did.
-				vec4 ao = texture2D( tAO, vUv );
-				gl_FragColor = vec4( gl_FragColor.rgb * mix( vec3( 1. ), ao.rgb, intensity ), gl_FragColor.a * ao.a );
+				// GTAOBlendShader, applied as its multiply blend did (the occlusion's alpha, always 1
+				// there, now carries its depth).
+				gl_FragColor.rgb *= mix( vec3( 1. ), upsampleAO( vUv ), intensity );
 
 			#endif
 
@@ -210,6 +268,11 @@ export type PipelineOptions = {
 };
 
 const MSAA_SAMPLES = 4;
+/**
+ * The depth step, in occlusion texels' view angles, at which the upsampling stops blending a
+ * texel in (finalShader's depthTolerance): 8 accepts surfaces seen at up to about 80° from face-on.
+ */
+const UPSAMPLE_SLOPE = 8;
 const size = new THREE.Vector2();
 
 export class RenderPipeline implements FramePath {
@@ -252,6 +315,11 @@ export class RenderPipeline implements FramePath {
 			ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 8 });
 			// The final pass does the blend.
 			ao.output = GTAOPass.OUTPUT.Off;
+			// The denoised occlusion keeps each texel's distance from the camera plane in its alpha
+			// (otherwise always 1), so the final pass upsamples it by depth without reading the
+			// depth texture four more times. Half floats keep it to within about 0.05%.
+			ao.pdMaterial.defines.FRAGMENT_OUTPUT = 'vec4(denoised, -viewPos.z)';
+			ao.pdMaterial.needsUpdate = true;
 			this.ao = ao;
 		} else this.ao = null;
 		this.material = new THREE.RawShaderMaterial({
@@ -259,6 +327,11 @@ export class RenderPipeline implements FramePath {
 			uniforms: {
 				tDiffuse: { value: null },
 				tAO: { value: null },
+				tDepth: { value: null },
+				aoSize: { value: new THREE.Vector2(1, 1) },
+				cameraNear: { value: 0.1 },
+				cameraFar: { value: 1000 },
+				depthTolerance: { value: 0.01 },
 				intensity: { value: 1 },
 				toneMappingExposure: { value: 1 },
 			},
@@ -317,7 +390,19 @@ export class RenderPipeline implements FramePath {
 			m.needsUpdate = true;
 		}
 		m.uniforms.tDiffuse.value = this.target.texture;
-		m.uniforms.tAO.value = this.ao ? this.ao.gtaoMap : null;
+		if (this.ao) {
+			m.uniforms.tAO.value = this.ao.gtaoMap;
+			m.uniforms.tDepth.value = this.target.depthTexture;
+			m.uniforms.aoSize.value.set(this.ao.width, this.ao.height);
+			// The office's camera is perspective: its depth is linearised from the near and far planes.
+			const view = camera as THREE.PerspectiveCamera;
+			m.uniforms.cameraNear.value = view.near;
+			m.uniforms.cameraFar.value = view.far;
+			// How far apart in depth, relative to their distance, neighbouring occlusion texels on one
+			// surface can lie: a surface turned up to about 80° from the view still counts as one,
+			// while a character a few tenths in front of the floor does not.
+			m.uniforms.depthTolerance.value = (UPSAMPLE_SLOPE * 2) / (camera.projectionMatrix.elements[5] * this.ao.height);
+		}
 		m.uniforms.intensity.value = strength;
 		m.uniforms.toneMappingExposure.value = gl.toneMappingExposure;
 		gl.setRenderTarget(null);
