@@ -66,6 +66,15 @@ function segments(world: CompiledWorld): Segment[] {
 	const out: Segment[] = [];
 	const solidV = (x: number, y: number) =>
 		y >= 0 && y < H && x >= 0 && x <= W && SOLID.has(vEdge[vIndex(x, y)]);
+	const wallH = (x: number, y: number) =>
+		x >= 0 && x < W && (SOLID.has(hEdge[hIndex(x, y)]) || GLASSY.has(hEdge[hIndex(x, y)]));
+	/**
+	 * Overlap into an L-corner (a side wall leaving on one side only, this wall going no further)
+	 * to fill it. Anywhere else the end stays buried in the other wall: run through a crossing
+	 * wall, it would end on that wall's far face, where a lower wall's cap showed as a dark patch.
+	 */
+	const corner = (vx: number, y: number, beyond: number) =>
+		solidV(vx, y - 1) !== solidV(vx, y) && !wallH(beyond, y) ? T / 2 : 0;
 	for (let y = 0; y <= H; y++)
 		for (let x = 0; x < W; x++) {
 			const kind = hEdge[hIndex(x, y)];
@@ -75,9 +84,8 @@ function segments(world: CompiledWorld): Segment[] {
 			const outer = above !== below;
 			// Outside walls stand just outside the floor, so rooms keep their full width.
 			const nz = outer ? (above ? 1 : -1) : 0;
-			// Overlap into a corner where a side wall meets this one.
-			const west = solidV(x, y - 1) || solidV(x, y) ? T / 2 : 0;
-			const east = solidV(x + 1, y - 1) || solidV(x + 1, y) ? T / 2 : 0;
+			const west = corner(x, y, x - 1);
+			const east = corner(x + 1, y, x + 1);
 			out.push({ axis: 'h', x, y, kind, outer, nx: 0, nz, cx: x + 0.5, cz: y + (nz * T) / 2, len: 1 + west + east, shift: (east - west) / 2 });
 		}
 	for (let y = 0; y < H; y++)
@@ -317,7 +325,8 @@ export function Walls({
 					noFrame(i);
 					// The pane stands in its rail, not on it: the glass is double-sided, so a bottom face
 					// flush with the rail's top face drew from above and z-fought it in a crawling sawtooth.
-					put(g, i, s, GLASS_RAIL - GLASS_SEAT, h - 0.06, 1 / 16);
+					// A hair shorter than the rail too, so its ends never share the rail's end faces.
+					put(g, i, s, GLASS_RAIL - GLASS_SEAT, h - 0.06, 1 / 16, 1 - 0.01 / s.len);
 					put(f, i * 2, s, 0, GLASS_RAIL, T * 0.6);
 				}
 				f.setMatrixAt(i * 2 + 1, HIDE);

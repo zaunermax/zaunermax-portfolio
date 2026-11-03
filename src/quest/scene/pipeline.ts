@@ -123,6 +123,8 @@ const finalShader = {
 		}`,
 	fragmentShader: /* glsl */ `
 		precision highp float;
+		// Samplers default to lowp, and the depth and occlusion buffers carry depths.
+		precision highp sampler2D;
 
 		uniform sampler2D tDiffuse;
 		uniform sampler2D tAO;
