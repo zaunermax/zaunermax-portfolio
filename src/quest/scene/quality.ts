@@ -57,3 +57,23 @@ export function nextTier(tier: QualityTier, devicePixelRatio: number): QualityTi
 	}
 	return LOWEST_TIER;
 }
+
+/**
+ * A canvas's size in the device pixels tier 0 would render on this screen, whatever the tier in
+ * play: what the ladder compares across resizes and screens.
+ */
+export function canvasPixels(width: number, height: number, devicePixelRatio: number) {
+	return width * height * effectiveDpr(0, devicePixelRatio) ** 2;
+}
+
+/** A canvas at most this share of the size at which the ladder last stepped down starts it afresh. */
+const SHRUNK = 0.75;
+
+/**
+ * Whether a canvas of `pixels` is clearly smaller than the one at which the ladder last stepped
+ * down (`steppedAt`, NaN if it never did), so tier 0 deserves another chance: a window that grew
+ * huge, struggled and shrank back. Never on a time basis, so it cannot oscillate on its own.
+ */
+export function shrankSinceStep(pixels: number, steppedAt: number) {
+	return pixels < steppedAt * SHRUNK;
+}

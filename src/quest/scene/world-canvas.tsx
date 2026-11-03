@@ -19,7 +19,7 @@ import { Grounds } from './grounds';
 import { Floors, Seams, WallCut, Walls, WindowLight } from './office';
 import { LIGHTING, type Lighting } from './palette';
 import type { FramePath } from './pipeline';
-import { LOWEST_TIER, nextTier, tierSettings, type QualityTier } from './quality';
+import { LOWEST_TIER, nextTier, shrankSinceStep, tierSettings, type QualityTier } from './quality';
 import { ContactShade, Render } from './shading';
 import { markShadows } from './shadows';
 import { Spawns } from './spawn';
@@ -83,9 +83,12 @@ export default function WorldCanvas(props: WorldCanvasProps) {
 	const [flags] = useState(reviewFlags);
 	// While too many frames come late for a few seconds (a big screen, a laptop GPU), step down a
 	// tier: coarser ambient occlusion, then fewer pixels per CSS pixel, then no ambient occlusion.
-	// Steps are for the rest of the visit: every tier above has failed, and climbing back would
-	// only oscillate.
+	// Steps hold while the canvas stays as big: every tier above has failed, and climbing back
+	// would only oscillate. Once it shrinks well below where it last stepped down (a window that
+	// grew huge and came back), the ladder starts again at tier 0 and judges afresh.
 	const [tier, setTier] = useState<QualityTier>(flags.lite ? LOWEST_TIER : 0);
+	/** The canvas's size (quality.ts canvasPixels) at the last step down; NaN before any. */
+	const steppedAt = useRef(Number.NaN);
 	const settings = tierSettings(tier);
 	const [settled, setSettled] = useState(false);
 	const pipeline = useRef<FramePath | null>(null);
@@ -128,7 +131,16 @@ export default function WorldCanvas(props: WorldCanvasProps) {
 				covered={covered}
 				uncapped={flags.uncapped}
 				judge={high && tier !== LOWEST_TIER && flags.adaptive && settled}
-				onDecline={() => setTier((t) => nextTier(t, window.devicePixelRatio))}
+				onDecline={(pixels) => {
+					steppedAt.current = pixels;
+					setTier((t) => nextTier(t, window.devicePixelRatio));
+				}}
+				onResize={(pixels) => {
+					// ?fx=lite stays at the lowest tier.
+					if (flags.lite || !shrankSinceStep(pixels, steppedAt.current)) return;
+					steppedAt.current = Number.NaN;
+					setTier(0);
+				}}
 			/>
 			<KitProvider>
 				<Scene

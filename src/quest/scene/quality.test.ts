@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LOWEST_TIER, nextTier, tierSettings, type QualityTier } from './quality';
+import { canvasPixels, LOWEST_TIER, nextTier, shrankSinceStep, tierSettings, type QualityTier } from './quality';
 
 /** The tiers a visit passes through when every one of them struggles. */
 function ladder(devicePixelRatio: number) {
@@ -33,5 +33,33 @@ describe('quality ladder', () => {
 		expect(tierSettings(2)).toEqual({ ao: true, aoScale: 0.5, dpr: [1, 1.25] });
 		expect(tierSettings(3)).toEqual({ ao: true, aoScale: 0.5, dpr: 1 });
 		expect(tierSettings(4)).toEqual({ ao: false, aoScale: 0.5, dpr: 1 });
+	});
+});
+
+describe('canvasPixels', () => {
+	it('counts the device pixels tier 0 renders', () => {
+		expect(canvasPixels(3440, 1300, 1)).toBe(3440 * 1300);
+		expect(canvasPixels(1000, 500, 2)).toBe(1000 * 500 * 2.25);
+		expect(canvasPixels(1000, 500, 0.9)).toBe(1000 * 500);
+	});
+});
+
+describe('shrankSinceStep', () => {
+	const huge = canvasPixels(5000, 2500, 2);
+
+	it('starts the ladder afresh once the canvas shrinks well below where it stepped down', () => {
+		expect(shrankSinceStep(canvasPixels(3440, 1300, 2), huge)).toBe(true);
+		// Dragged to a screen of lower density.
+		expect(shrankSinceStep(canvasPixels(5000, 2500, 1), huge)).toBe(true);
+	});
+
+	it('keeps the tier for the same, a slightly smaller or a bigger canvas', () => {
+		expect(shrankSinceStep(huge, huge)).toBe(false);
+		expect(shrankSinceStep(canvasPixels(4500, 2400, 2), huge)).toBe(false);
+		expect(shrankSinceStep(canvasPixels(6000, 3000, 2), huge)).toBe(false);
+	});
+
+	it('never restarts a ladder that has not stepped down', () => {
+		expect(shrankSinceStep(1, Number.NaN)).toBe(false);
 	});
 });

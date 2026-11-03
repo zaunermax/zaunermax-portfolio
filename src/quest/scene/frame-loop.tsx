@@ -3,6 +3,7 @@
 import { useThree } from '@react-three/fiber';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { COVERED_FPS, FramePacer, lateInterval, QualityMonitor, slowInterval, TARGET_FPS } from './frame-pacing';
+import { canvasPixels } from './quality';
 
 /** Longest step the scene clock takes in one frame (s), so a long stall never jumps ahead. */
 const MAX_STEP = 0.1;
@@ -20,6 +21,7 @@ export function FrameLoop({
 	uncapped,
 	judge,
 	onDecline,
+	onResize,
 }: {
 	paused: boolean;
 	/** A window and its backdrop cover the office: half the frame rate is plenty. */
@@ -28,8 +30,13 @@ export function FrameLoop({
 	uncapped: boolean;
 	/** Watch for frames too slow for this quality (only once the scene is up and compiled). */
 	judge: boolean;
-	/** Too many frames came late: drop a quality step (judging then starts afresh). */
-	onDecline: () => void;
+	/**
+	 * Too many frames came late: drop a quality step (judging then starts afresh). `pixels` is the
+	 * canvas's size (quality.ts canvasPixels).
+	 */
+	onDecline: (pixels: number) => void;
+	/** The canvas changed size or pixel ratio; `pixels` as for onDecline. */
+	onResize: (pixels: number) => void;
 }) {
 	const advance = useThree((state) => state.advance);
 	const size = useThree((state) => state.size);
@@ -39,9 +46,13 @@ export function FrameLoop({
 	/** The scene clock (s): keeps counting across pauses, without the time spent paused. */
 	const clock = useRef(0);
 	const decline = useRef(onDecline);
+	const resized = useRef(onResize);
 	useEffect(() => {
 		decline.current = onDecline;
-	}, [onDecline]);
+		resized.current = onResize;
+	}, [onDecline, onResize]);
+	/** The canvas's size (quality.ts canvasPixels). */
+	const pixels = useRef(0);
 
 	useEffect(() => {
 		if (judge) monitor.arm();
@@ -51,6 +62,7 @@ export function FrameLoop({
 	// vsync, the covered rate or a pause never shows a black canvas.
 	const sized = useRef(false);
 	useLayoutEffect(() => {
+		pixels.current = canvasPixels(size.width, size.height, window.devicePixelRatio);
 		if (!sized.current) {
 			sized.current = true;
 			return;
@@ -58,6 +70,7 @@ export function FrameLoop({
 		advance(clock.current);
 		// A new canvas size (or a quality step's pixel ratio) costs a frame or two; judge after.
 		monitor.restart();
+		resized.current(pixels.current);
 	}, [size, dpr, advance, monitor]);
 
 	useEffect(() => {
@@ -80,7 +93,7 @@ export function FrameLoop({
 			clock.current += step;
 			advance(clock.current);
 			if (judge && monitor.frame(t, lateInterval(pacer.targetInterval(rate), pacer.vsync, rate), slow))
-				decline.current();
+				decline.current(pixels.current);
 		};
 		frame = requestAnimationFrame(tick);
 		return () => cancelAnimationFrame(frame);
