@@ -7,12 +7,20 @@ import * as THREE from 'three';
  * hand-pixelled look from a tiny shader patch that jitters each 1/16 voxel cell's brightness.
  */
 
-/** Per-voxel brightness jitter in world space, like the kit's baked pixel noise. */
+/**
+ * Per-voxel brightness jitter in world space, like the kit's baked pixel noise.
+ *
+ * The cell is looked up at the centroid of the pixel's covered samples. The office renders with
+ * MSAA (pipeline.ts), where a pixel on a face's edge whose centre lies just off the face still
+ * shades it, at a position extrapolated past the edge: there the lookup lands in the next cell
+ * over, so every edge was fringed with stray light and dark dashes that crawled as the camera
+ * moved. The face's normal still comes from the centre position, whose derivatives are exact.
+ */
 export function voxelize<T extends THREE.Material>(material: T, amount = 0.06): T {
 	material.onBeforeCompile = (shader) => {
 		shader.uniforms.uVoxelJitter = { value: amount };
 		shader.vertexShader = shader.vertexShader
-			.replace('#include <common>', '#include <common>\nvarying vec3 vVoxelPos;')
+			.replace('#include <common>', '#include <common>\nvarying vec3 vVoxelPos;\ncentroid varying vec3 vVoxelCell;')
 			.replace(
 				'#include <project_vertex>',
 				`#include <project_vertex>
@@ -20,13 +28,16 @@ export function voxelize<T extends THREE.Material>(material: T, amount = 0.06): 
 				#ifdef USE_INSTANCING
 					voxelWorld = instanceMatrix * voxelWorld;
 				#endif
-				vVoxelPos = (modelMatrix * voxelWorld).xyz;`,
+				vVoxelPos = (modelMatrix * voxelWorld).xyz;
+				vVoxelCell = vVoxelPos;`,
 			);
 		shader.fragmentShader = shader.fragmentShader
 			.replace(
 				'#include <common>',
 				`#include <common>
 				varying vec3 vVoxelPos;
+				// The same position, taken where the pixel's covered samples are (see below).
+				centroid varying vec3 vVoxelCell;
 				uniform float uVoxelJitter;
 				float voxelHash(vec3 p) {
 					return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
@@ -36,7 +47,7 @@ export function voxelize<T extends THREE.Material>(material: T, amount = 0.06): 
 				'#include <color_fragment>',
 				`#include <color_fragment>
 				vec3 voxelNormal = normalize(cross(dFdx(vVoxelPos), dFdy(vVoxelPos)));
-				vec3 voxelCell = floor(vVoxelPos * 16.0 - voxelNormal * 0.5);
+				vec3 voxelCell = floor(vVoxelCell * 16.0 - voxelNormal * 0.5);
 				diffuseColor.rgb *= 1.0 + (voxelHash(voxelCell) - 0.5) * 2.0 * uVoxelJitter;`,
 			);
 	};
@@ -62,6 +73,15 @@ function create() {
 	});
 	/** Walls and placeholders: one colour per instance, voxel jitter on top. */
 	const solid = voxelize(new THREE.MeshLambertMaterial({ color: '#ffffff' }));
+	/**
+	 * Wall caps and baseboards: `solid`, pulled a hair towards the camera. They are as long as
+	 * the wall body they wrap, so at every wall end their end faces share a plane with the body's;
+	 * without the offset the two colours z-fought there in speckles and stripes that crawled as the
+	 * camera moved. Same program as `solid`; the offset is only GL state.
+	 */
+	const trim = voxelize(
+		new THREE.MeshLambertMaterial({ color: '#ffffff', polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
+	);
 	const pane = new THREE.MeshLambertMaterial({
 		color: '#bfe6ff',
 		emissive: '#2a4a66',
@@ -98,7 +118,7 @@ function create() {
 	 * re-resolve its program at every switch between these kinds of mesh.
 	 */
 	const depth = { tinted: new THREE.MeshDepthMaterial(), kit: new THREE.MeshDepthMaterial() };
-	return { voxel, glow, glass, solid, pane, shadow, hitbox, actor, depth };
+	return { voxel, glow, glass, solid, trim, pane, shadow, hitbox, actor, depth };
 }
 
 export function materials() {

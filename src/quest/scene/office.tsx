@@ -66,6 +66,15 @@ function segments(world: CompiledWorld): Segment[] {
 	const out: Segment[] = [];
 	const solidV = (x: number, y: number) =>
 		y >= 0 && y < H && x >= 0 && x <= W && SOLID.has(vEdge[vIndex(x, y)]);
+	const wallH = (x: number, y: number) =>
+		x >= 0 && x < W && (SOLID.has(hEdge[hIndex(x, y)]) || GLASSY.has(hEdge[hIndex(x, y)]));
+	/**
+	 * Overlap into an L-corner (a side wall leaving on one side only, this wall going no further)
+	 * to fill it. Anywhere else the end stays buried in the other wall: run through a crossing
+	 * wall, it would end on that wall's far face, where a lower wall's cap showed as a dark patch.
+	 */
+	const corner = (vx: number, y: number, beyond: number) =>
+		solidV(vx, y - 1) !== solidV(vx, y) && !wallH(beyond, y) ? T / 2 : 0;
 	for (let y = 0; y <= H; y++)
 		for (let x = 0; x < W; x++) {
 			const kind = hEdge[hIndex(x, y)];
@@ -75,9 +84,8 @@ function segments(world: CompiledWorld): Segment[] {
 			const outer = above !== below;
 			// Outside walls stand just outside the floor, so rooms keep their full width.
 			const nz = outer ? (above ? 1 : -1) : 0;
-			// Overlap into a corner where a side wall meets this one.
-			const west = solidV(x, y - 1) || solidV(x, y) ? T / 2 : 0;
-			const east = solidV(x + 1, y - 1) || solidV(x + 1, y) ? T / 2 : 0;
+			const west = corner(x, y, x - 1);
+			const east = corner(x + 1, y, x + 1);
 			out.push({ axis: 'h', x, y, kind, outer, nx: 0, nz, cx: x + 0.5, cz: y + (nz * T) / 2, len: 1 + west + east, shift: (east - west) / 2 });
 		}
 	for (let y = 0; y < H; y++)
@@ -172,6 +180,10 @@ const HIDE = new THREE.Matrix4().makeScale(0, 0, 0);
 
 /** Caps sit a hair above the wall body so their top faces never z-fight with it. */
 const CAP_LIFT = 0.004;
+
+/** Height of the rail a glass wall stands in, and how deep its pane sits in it. */
+const GLASS_RAIL = 0.08;
+const GLASS_SEAT = 0.03;
 
 /** Slots per segment in each instanced mesh. */
 const BODY_SLOTS = 2;
@@ -311,8 +323,11 @@ export function Walls({
 					doorFrame(i, s, h);
 				} else {
 					noFrame(i);
-					put(g, i, s, 0.08, h - 0.06, 1 / 16);
-					put(f, i * 2, s, 0, 0.08, T * 0.6);
+					// The pane stands in its rail, not on it: the glass is double-sided, so a bottom face
+					// flush with the rail's top face drew from above and z-fought it in a crawling sawtooth.
+					// A hair shorter than the rail too, so its ends never share the rail's end faces.
+					put(g, i, s, GLASS_RAIL - GLASS_SEAT, h - 0.06, 1 / 16, 1 - 0.01 / s.len);
+					put(f, i * 2, s, 0, GLASS_RAIL, T * 0.6);
 				}
 				f.setMatrixAt(i * 2 + 1, HIDE);
 				return;
@@ -362,8 +377,8 @@ export function Walls({
 				receiveShadow
 				frustumCulled={false}
 			/>
-			<instancedMesh ref={cap} args={[box, m.solid, n]} frustumCulled={false} />
-			<instancedMesh ref={base} args={[box, m.solid, n]} frustumCulled={false} />
+			<instancedMesh ref={cap} args={[box, m.trim, n]} frustumCulled={false} />
+			<instancedMesh ref={base} args={[box, m.trim, n]} frustumCulled={false} />
 			<instancedMesh ref={frame} args={[box, m.solid, n * 2]} frustumCulled={false} />
 			<instancedMesh ref={jamb} args={[box, m.solid, n * 3]} customDepthMaterial={m.depth.tinted} castShadow frustumCulled={false} />
 			<instancedMesh ref={pane} args={[box, m.pane, n]} frustumCulled={false} renderOrder={3} />
