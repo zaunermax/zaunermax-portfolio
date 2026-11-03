@@ -2,7 +2,7 @@
 
 import { useThree } from '@react-three/fiber';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { COVERED_FPS, FramePacer, lateInterval, QualityMonitor, TARGET_FPS } from './frame-pacing';
+import { COVERED_FPS, FramePacer, lateInterval, QualityMonitor, slowInterval, TARGET_FPS } from './frame-pacing';
 
 /** Longest step the scene clock takes in one frame (s), so a long stall never jumps ahead. */
 const MAX_STEP = 0.1;
@@ -67,8 +67,9 @@ export function FrameLoop({
 		monitor.restart();
 		const fps = uncapped ? Number.POSITIVE_INFINITY : covered ? COVERED_FPS : TARGET_FPS;
 		// Frames count as missed when later than the pacer's own cadence, the capped one even
-		// with ?fps=max, by half a vsync (frame-pacing.ts).
+		// with ?fps=max, by half a vsync; their median must keep up with the rate (frame-pacing.ts).
 		const rate = covered ? COVERED_FPS : TARGET_FPS;
+		const slow = slowInterval(rate);
 		let last = Number.NaN;
 		let frame = 0;
 		const tick = (t: number) => {
@@ -78,7 +79,8 @@ export function FrameLoop({
 			last = t;
 			clock.current += step;
 			advance(clock.current);
-			if (judge && monitor.frame(t, lateInterval(pacer.targetInterval(rate), pacer.vsync, rate))) decline.current();
+			if (judge && monitor.frame(t, lateInterval(pacer.targetInterval(rate), pacer.vsync, rate), slow))
+				decline.current();
 		};
 		frame = requestAnimationFrame(tick);
 		return () => cancelAnimationFrame(frame);

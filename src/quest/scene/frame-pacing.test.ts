@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FramePacer, QualityMonitor, lateInterval, median, refreshInterval, vsyncDivisor } from './frame-pacing';
+import { FramePacer, QualityMonitor, lateInterval, median, refreshInterval, slowInterval, vsyncDivisor } from './frame-pacing';
 
 /** Feeds `seconds` of rAF callbacks at `hz` and returns the rendered timestamps. */
 function run(pacer: FramePacer, hz: number, seconds: number, fps?: number, start = 0, jitter = 0) {
@@ -25,11 +25,16 @@ function prng(seed: number) {
 	};
 }
 
-/** rAF timestamps as Firefox gives them: whole milliseconds, with a little jitter (8/9 ms at 120 Hz). */
-function firefoxTimes(hz: number, seconds: number, start = 0, seed = 1) {
+/**
+ * rAF timestamps as Firefox gives them: whole milliseconds, with a little jitter (8/9 ms at
+ * 120 Hz), or up to `jitter` ms either way.
+ */
+function firefoxTimes(hz: number, seconds: number, start = 0, seed = 1, jitter = 0.4) {
 	const random = prng(seed);
 	const period = 1000 / hz;
-	return Array.from({ length: Math.round(seconds * hz) }, (_, i) => Math.round(start + i * period + (random() - 0.5) * 0.8));
+	return Array.from({ length: Math.round(seconds * hz) }, (_, i) =>
+		Math.round(start + i * period + (random() - 0.5) * 2 * jitter),
+	);
 }
 
 describe('median', () => {
@@ -179,9 +184,10 @@ describe('FramePacer', () => {
 describe('QualityMonitor', () => {
 	const target = 1000 / 60;
 	const late = lateInterval(target, target);
+	const slow = slowInterval();
 	const feed = (m: QualityMonitor, interval: number, frames: number, start = 0) => {
 		let steps = 0;
-		for (let i = 0; i <= frames; i++) if (m.frame(start + i * interval, late)) steps++;
+		for (let i = 0; i <= frames; i++) if (m.frame(start + i * interval, late, slow)) steps++;
 		return steps;
 	};
 
@@ -212,7 +218,7 @@ describe('QualityMonitor', () => {
 		let steps = 0;
 		for (let i = 0; i < 3000; i++) {
 			t += i % 40 === 0 ? 120 : target;
-			if (m.frame(t, late)) steps++;
+			if (m.frame(t, late, slow)) steps++;
 		}
 		expect(steps).toBe(0);
 	});
@@ -224,10 +230,20 @@ describe('QualityMonitor', () => {
 		let at = Number.NaN;
 		for (let i = 0; i < 1000 && Number.isNaN(at); i++) {
 			t += i % 5 === 0 ? 2 * target : target;
-			if (m.frame(t, late)) at = t;
+			if (m.frame(t, late, slow)) at = t;
 		}
 		expect(at).toBeGreaterThanOrEqual(3000);
 		expect(at).toBeLessThan(3500);
+	});
+
+	it('steps down at 42 fps even when the lateness bar follows a slow refresh estimate', () => {
+		// The pacer read the slowed rAF (or a stale estimate) as a 42 Hz screen: no frame is late
+		// against its cadence, but the median is too slow for 60 fps.
+		const m = new QualityMonitor();
+		m.arm();
+		let steps = 0;
+		for (let i = 0; i <= 200; i++) if (m.frame(i * (1000 / 42), lateInterval(1000 / 42, 1000 / 42), slow)) steps++;
+		expect(steps).toBeGreaterThan(0);
 	});
 
 	it('shrugs off short bursts of judder', () => {
@@ -239,7 +255,7 @@ describe('QualityMonitor', () => {
 		for (let burst = 0; burst < 10; burst++)
 			for (let i = 0; i < 225; i++) {
 				t += i < 45 && i % 3 === 0 ? 2 * target : target;
-				if (m.frame(t, late)) steps++;
+				if (m.frame(t, late, slow)) steps++;
 			}
 		expect(steps).toBe(0);
 	});
@@ -252,7 +268,7 @@ describe('QualityMonitor', () => {
 			let steps = 0;
 			for (let i = 0; i < 600; i++) {
 				t += i === at ? 5000 : target;
-				if (m.frame(t, late)) steps++;
+				if (m.frame(t, late, slow)) steps++;
 			}
 			expect(steps).toBe(0);
 		}
@@ -262,7 +278,7 @@ describe('QualityMonitor', () => {
 	const secondsToStep = (fps: number, limit = 60) => {
 		const m = new QualityMonitor();
 		m.arm();
-		for (let t = 0; t <= limit * 1000; t += 1000 / fps) if (m.frame(t, late)) return t / 1000;
+		for (let t = 0; t <= limit * 1000; t += 1000 / fps) if (m.frame(t, late, slow)) return t / 1000;
 		return Number.POSITIVE_INFINITY;
 	};
 
@@ -280,7 +296,7 @@ describe('QualityMonitor', () => {
 		const steps: number[] = [];
 		for (let i = 0; i < 2000; i++) {
 			t += 40;
-			if (m.frame(t, late)) steps.push(t);
+			if (m.frame(t, late, slow)) steps.push(t);
 		}
 		// One step per two windows, never two at once.
 		expect(steps.length).toBeGreaterThanOrEqual(2);
@@ -294,18 +310,27 @@ describe('lateInterval', () => {
 		expect(lateInterval(1000 / 85, 1000 / 85)).toBeCloseTo(1500 / 85);
 		// 120 Hz renders every other vsync: three vsyncs (25 ms) are late.
 		expect(lateInterval(1000 / 60, 1000 / 120)).toBeCloseTo(1000 / 60 + 500 / 120);
-		expect(lateInterval(1000 / 60, 1000 / 60)).toBeCloseTo(25 * 0.875);
-	});
-
-	it('never lets a slowed-down rAF talk the bar down', () => {
-		// A machine whose rAF only comes every 25 ms still has 60 fps to meet.
-		expect(lateInterval(25, 25)).toBeCloseTo(1000 / 60 * 1.05 * 1.25);
+		expect(lateInterval(1000 / 60, 1000 / 60)).toBeCloseTo(25);
 		expect(lateInterval(1000 / 30, 1000 / 60, 30)).toBeCloseTo(1000 / 30 + 500 / 60);
 	});
 
-	it('falls back to the cap without a measurement', () => {
-		expect(lateInterval(Number.NaN, Number.NaN)).toBeCloseTo(1000 / 60 * 1.05 * 1.25);
-		expect(lateInterval(1000 / 60, Number.NaN)).toBeCloseTo(1000 / 60 * 1.05 * 1.25);
+	it('follows a slow screen, leaving the median to slowInterval', () => {
+		expect(lateInterval(1000 / 48, 1000 / 48)).toBeCloseTo(1500 / 48);
+	});
+
+	it('falls back to slowInterval without a measurement', () => {
+		expect(lateInterval(Number.NaN, Number.NaN)).toBeCloseTo(slowInterval());
+		expect(lateInterval(1000 / 60, Number.NaN)).toBeCloseTo(25);
+	});
+});
+
+describe('slowInterval', () => {
+	it('sits a little under the target rate', () => {
+		expect(slowInterval()).toBeCloseTo((1000 / 60) * 1.05 * 1.25);
+		expect(slowInterval(30)).toBeCloseTo((1000 / 30) * 1.05 * 1.25);
+		// Slower than the slowest healthy screens the pacer meets, quicker than 45 fps.
+		expect(slowInterval()).toBeGreaterThan(1000 / 48);
+		expect(slowInterval()).toBeLessThan(1000 / 45);
 	});
 });
 
@@ -322,7 +347,7 @@ describe('pacer and monitor together', () => {
 				m.arm();
 				armed = true;
 			}
-			if (pacer.tick(t, fps) && m.frame(t, lateInterval(pacer.targetInterval(fps), pacer.vsync, fps))) steps++;
+			if (pacer.tick(t, fps) && m.frame(t, lateInterval(pacer.targetInterval(fps), pacer.vsync, fps), slowInterval(fps))) steps++;
 		}
 		return steps;
 	};
@@ -337,6 +362,14 @@ describe('pacer and monitor together', () => {
 
 	it('never downgrades a steady 57 Hz screen', () => {
 		expect(play(firefoxTimes(57, 40))).toBe(0);
+	});
+
+	it('never downgrades a steady 48 or 50 Hz screen, even with 2 ms of jitter', () => {
+		for (const hz of [48, 50])
+			for (const seed of [1, 2, 3]) {
+				expect(play(firefoxTimes(hz, 40, 0, seed, 2))).toBe(0);
+				expect(play(firefoxTimes(hz, 40, 0, seed, 2), 30)).toBe(0);
+			}
 	});
 
 	/**
@@ -361,7 +394,7 @@ describe('pacer and monitor together', () => {
 				armed = true;
 			}
 			if (!pacer.tick(t)) continue;
-			if (m.frame(t, lateInterval(pacer.targetInterval(), pacer.vsync))) steps++;
+			if (m.frame(t, lateInterval(pacer.targetInterval(), pacer.vsync), slowInterval())) steps++;
 			if (t > 2000 && ++frames % every === 0) blocked = vsyncDivisor(pacer.vsync);
 		}
 		return steps;
