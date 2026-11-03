@@ -657,7 +657,7 @@ export function Controller({
 		state.camera.lookAt(focus);
 		state.camera.updateMatrixWorld();
 		viewProj.multiplyMatrices(state.camera.projectionMatrix, state.camera.matrixWorldInverse);
-		bus.setView(viewProj.elements, cx, cy, cz, ov > 0.5);
+		bus.setView(viewProj.elements, cx, cy, cz, dist, ov > 0.5);
 		bus.setCameraYaw(r.yaw);
 
 		// --- click marker

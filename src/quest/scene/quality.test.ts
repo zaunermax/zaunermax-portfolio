@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	canvasPixels,
+	closeUpAoScale,
 	LOWEST_TIER,
 	nextTier,
 	shrankSinceStep,
@@ -119,5 +120,36 @@ describe('watchPixelRatio', () => {
 		const stop = watchPixelRatio(() => {}, { devicePixelRatio: 1 } as DensityWindow);
 		expect(stop).toBeTypeOf('function');
 		stop();
+	});
+});
+
+describe('closeUpAoScale', () => {
+	it('keeps the tier scale at the default camera distance and beyond', () => {
+		expect(closeUpAoScale(0.7, 19)).toBe(0.7);
+		expect(closeUpAoScale(0.7, 30)).toBe(0.7);
+		expect(closeUpAoScale(0.5, 50)).toBe(0.5);
+	});
+
+	it('keeps the tier scale before the camera has reported a distance', () => {
+		expect(closeUpAoScale(0.7, Number.NaN)).toBe(0.7);
+	});
+
+	it('coarsens the occlusion with the distance up close', () => {
+		// 0.7 * 13 / 19 = 0.479, in twentieths.
+		expect(closeUpAoScale(0.7, 13)).toBe(0.5);
+		expect(closeUpAoScale(0.7, 16)).toBe(0.6);
+		expect(closeUpAoScale(0.5, 16)).toBe(0.4);
+	});
+
+	it('never goes below its floor or above the tier scale', () => {
+		expect(closeUpAoScale(0.5, 13)).toBe(0.35);
+		expect(closeUpAoScale(0.5, 6)).toBe(0.35);
+		expect(closeUpAoScale(0.7, 18.9)).toBe(0.7);
+	});
+
+	it('changes in a few steps over the whole zoom range', () => {
+		const scales = new Set<number>();
+		for (let d = 13; d <= 19; d += 0.01) scales.add(closeUpAoScale(0.7, d));
+		expect(scales.size).toBeLessThanOrEqual(5);
 	});
 });
