@@ -51,12 +51,29 @@ export type WorldCanvasProps = {
 const KIT_TIMEOUT_MS = 30000;
 
 /** Review aids: ?fx=full (and ?fx=ao) keep full quality however slow the frames (headless
- * software GL), ?fx=lite starts in lite quality, ?fps=max renders on every vsync instead of about
- * 60 fps. */
+ * software GL), ?fx=lite starts at the lowest quality tier, ?fps=max renders on every vsync
+ * instead of about 60 fps. */
 function reviewFlags() {
 	const q = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
 	const fx = q.get('fx');
 	return { adaptive: fx !== 'full' && fx !== 'ao', lite: fx === 'lite', uncapped: q.get('fps') === 'max' };
+}
+
+/**
+ * Quality tiers for high quality, from the least to the most noticeable sacrifice: 0 renders up to
+ * 1.5 device pixels per CSS pixel with half-resolution ambient occlusion, 1 renders one pixel per
+ * CSS pixel, 2 also drops the ambient occlusion.
+ */
+type QualityTier = 0 | 1 | 2;
+const LOWEST_TIER: QualityTier = 2;
+
+/**
+ * The tier below `tier`, skipping the pixel-ratio step on a screen that already renders one pixel
+ * per CSS pixel (it would change nothing).
+ */
+function nextTier(tier: QualityTier): QualityTier {
+	if (tier === 0 && window.devicePixelRatio > 1) return 1;
+	return LOWEST_TIER;
 }
 
 /** What R3F hands a renderer factory: its default renderer parameters and the canvas. */
@@ -80,9 +97,11 @@ function opaqueRenderer(defaults: GlDefaults) {
 export default function WorldCanvas(props: WorldCanvasProps) {
 	const { quality, paused, covered = false, onReady } = props;
 	const [flags] = useState(reviewFlags);
-	// Once the frame rate sags for a few seconds (Firefox on a laptop, say), drop the ambient
-	// occlusion and render at one pixel per CSS pixel for the rest of the visit.
-	const [lite, setLite] = useState(flags.lite);
+	// While too many frames come late for a few seconds (a big screen, a laptop GPU), step down a
+	// tier: first one pixel per CSS pixel, then no ambient occlusion. Steps are for the rest of
+	// the visit: every tier above has failed, and climbing back would only oscillate.
+	const [tier, setTier] = useState<QualityTier>(flags.lite ? LOWEST_TIER : 0);
+	const lite = tier === LOWEST_TIER;
 	const [settled, setSettled] = useState(false);
 	const pipeline = useRef<FramePath | null>(null);
 	const high = quality === 'high';
@@ -106,7 +125,7 @@ export default function WorldCanvas(props: WorldCanvasProps) {
 			// Variance shadows: soft edges that also survive software GL, where blurred PCF does not.
 			shadows={quality === 'high' ? 'variance' : false}
 			// Rendering stops at 1.5x; a denser canvas would only be upscaled.
-			dpr={lite ? 1 : [1, 1.5]}
+			dpr={tier > 0 ? 1 : [1, 1.5]}
 			// FrameLoop drives the frames.
 			frameloop="never"
 			camera={{ fov: 30, near: 0.5, far: 400, position: [20, 30, 50] }}
@@ -116,13 +135,15 @@ export default function WorldCanvas(props: WorldCanvasProps) {
 			// opaque one shows black while a paused office is resized.
 			gl={direct ? { antialias: true, alpha: false, depth: true, powerPreference: 'high-performance' } : opaqueRenderer}
 			style={{ touchAction: 'none' }}
+			// For performance tests: the quality tier in play (high quality only).
+			data-quality-tier={high ? tier : undefined}
 		>
 			<FrameLoop
 				paused={paused}
 				covered={covered}
 				uncapped={flags.uncapped}
 				judge={high && !lite && flags.adaptive && settled}
-				onDecline={() => setLite(true)}
+				onDecline={() => setTier(nextTier)}
 			/>
 			<KitProvider>
 				<Scene

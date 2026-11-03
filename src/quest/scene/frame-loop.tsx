@@ -2,7 +2,7 @@
 
 import { useThree } from '@react-three/fiber';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { COVERED_FPS, FramePacer, judgedInterval, QualityMonitor, TARGET_FPS } from './frame-pacing';
+import { COVERED_FPS, FramePacer, lateInterval, QualityMonitor, TARGET_FPS } from './frame-pacing';
 
 /** Longest step the scene clock takes in one frame (s), so a long stall never jumps ahead. */
 const MAX_STEP = 0.1;
@@ -12,7 +12,7 @@ const FIRST_STEP = 1 / 60;
 /**
  * Drives the canvas (frameloop="never") from one rAF loop: renders every Nth vsync for about
  * 60 fps on any display (30 while a window covers the office, every vsync with ?fps=max), stops
- * while paused, and tells the quality monitor how steadily the frames arrive.
+ * while paused, and tells the quality monitor which frames arrive late.
  */
 export function FrameLoop({
 	paused,
@@ -26,8 +26,9 @@ export function FrameLoop({
 	covered: boolean;
 	/** Review aid (?fps=max): render on every vsync. */
 	uncapped: boolean;
-	/** Watch for frames too slow for full quality (only once the scene is up and compiled). */
+	/** Watch for frames too slow for this quality (only once the scene is up and compiled). */
 	judge: boolean;
+	/** Too many frames came late: drop a quality step (judging then starts afresh). */
 	onDecline: () => void;
 }) {
 	const advance = useThree((state) => state.advance);
@@ -55,7 +56,9 @@ export function FrameLoop({
 			return;
 		}
 		advance(clock.current);
-	}, [size, dpr, advance]);
+		// A new canvas size (or a quality step's pixel ratio) costs a frame or two; judge after.
+		monitor.restart();
+	}, [size, dpr, advance, monitor]);
 
 	useEffect(() => {
 		if (paused) return;
@@ -63,8 +66,8 @@ export function FrameLoop({
 		// The cadence changes on purpose here; judge the new one afresh.
 		monitor.restart();
 		const fps = uncapped ? Number.POSITIVE_INFINITY : covered ? COVERED_FPS : TARGET_FPS;
-		// Judged against the pacer's aim, held between 60 fps (or the covered rate) and a little
-		// under it (frame-pacing.ts).
+		// Frames count as missed when later than the pacer's own cadence, the capped one even
+		// with ?fps=max, by half a vsync (frame-pacing.ts).
 		const rate = covered ? COVERED_FPS : TARGET_FPS;
 		let last = Number.NaN;
 		let frame = 0;
@@ -75,7 +78,7 @@ export function FrameLoop({
 			last = t;
 			clock.current += step;
 			advance(clock.current);
-			if (judge && monitor.frame(t, judgedInterval(pacer.targetInterval(fps), rate))) decline.current();
+			if (judge && monitor.frame(t, lateInterval(pacer.targetInterval(rate), pacer.vsync, rate))) decline.current();
 		};
 		frame = requestAnimationFrame(tick);
 		return () => cancelAnimationFrame(frame);

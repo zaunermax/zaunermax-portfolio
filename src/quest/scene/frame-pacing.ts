@@ -1,6 +1,6 @@
 /*
  * Frame pacing for the office: render every Nth vsync so motion runs at about 60 fps whatever
- * the display's refresh rate, and judge quality by how steadily those frames arrive.
+ * the display's refresh rate, and judge quality by how many of those frames arrive late.
  *
  * Pure logic, driven by rAF timestamps (ms), so it can be unit tested without a browser.
  */
@@ -109,41 +109,43 @@ export class FramePacer {
 	}
 }
 
+/** Slack on the slowest cadence vsyncDivisor picks on purpose before a frame counts as late. */
+const LATE_SLACK = 1.25;
+
 /**
- * The interval the quality monitor judges against: the cadence the pacer aims for, but never
- * quicker than `fps` (a 90 Hz screen renders every vsync, and 60 fps there is healthy) and no
- * slower than the slowest cadence vsyncDivisor picks on purpose (a 57 Hz screen, say). A
- * struggling machine slows its rAF down too, so it must not be able to talk the bar down.
+ * How long a rendered frame may take before it counts as missed: half a vsync past the cadence
+ * the pacer aims for (`aimMs`), so a frame that slipped by one whole vsync counts (85 Hz: 23.5
+ * against 11.8 ms; 120 Hz: 25 against 16.7 ms) while timestamp jitter, even Firefox's whole
+ * milliseconds, never does. A struggling machine slows its rAF down too, which the pacer reads
+ * as a slower screen, so the bar also stays under `fps` with a little slack (21.9 ms for 60):
+ * it must not be able to talk the bar down.
  */
-export function judgedInterval(aimMs: number, fps: number = TARGET_FPS) {
-	const bar = 1000 / fps;
-	return Math.min(Math.max(aimMs, bar), bar * 1.05);
+export function lateInterval(aimMs: number, vsyncMs: number, fps: number = TARGET_FPS) {
+	const cap = (1000 / fps) * 1.05 * LATE_SLACK;
+	if (!(aimMs > 0)) return cap;
+	const vsync = vsyncMs > 0 ? Math.min(vsyncMs, aimMs) : aimMs;
+	return Math.min(aimMs + Math.max(vsync / 2, 2), cap);
 }
 
-/** Rendered frames per verdict at most. */
-const QUALITY_WINDOW = 90;
-/**
- * A verdict is also due once this much time has passed, however few frames it saw, so a
- * machine drawing a frame or two a second declines within seconds too.
- */
-const QUALITY_WINDOW_MS = 2000;
-/** Slower than this multiple of the target interval counts as struggling. */
-const QUALITY_SLACK = 1.25;
-/** Verdicts in a row that must say "struggling" before quality drops. */
+/** A verdict is due once this much time has passed, however few frames it saw. */
+const QUALITY_WINDOW_MS = 1500;
+/** Share of missed frames in a window that counts as struggling. */
+const QUALITY_MISSED = 0.1;
+/** Verdicts in a row that must say "struggling" before quality drops a step. */
 const QUALITY_STRIKES = 2;
 
 /**
- * Decides when the office should drop to lite quality: when the median interval between rendered
- * frames stays well above what the pacer aims for. The median ignores one-off hitches, however
- * long, unless the next window is slow as well; the target follows the cap (and the covered
- * rate); only frames after `arm()` count, so loading and shader compiles never trigger it, and
- * pauses (hidden tab, phone windows) restart it. Once it declines it stays declined.
+ * Decides when the office should drop a quality step: when more than a tenth of the rendered
+ * frames come later than the pacer's own cadence (lateInterval) for two windows of 1.5 s in a
+ * row. Missed frames rather than the median: a GPU that misses every fifth vsync keeps the
+ * median at one vsync, yet judders visibly. One-off hitches, however long, fill one window at
+ * most; only frames after `arm()` count, so loading and shader compiles never trigger it, and
+ * pauses (hidden tab, phone windows), resizes and each step restart it.
  */
 export class QualityMonitor {
-	declined = false;
 	private armed = false;
-	private intervals: number[] = [];
-	private targets: number[] = [];
+	private frames = 0;
+	private missed = 0;
 	private last = Number.NaN;
 	private span = 0;
 	private strikes = 0;
@@ -156,30 +158,34 @@ export class QualityMonitor {
 
 	/** Drop the current window: the cadence changed on purpose (pause, cover, resize). */
 	restart() {
-		this.intervals = [];
-		this.targets = [];
+		this.frames = 0;
+		this.missed = 0;
 		this.span = 0;
 		this.last = Number.NaN;
 		this.strikes = 0;
 	}
 
-	/** Feed the timestamp of a rendered frame and the interval aimed for; true on the decline. */
-	frame(t: number, targetMs: number) {
-		if (!this.armed || this.declined) return false;
+	/**
+	 * Feed the timestamp of a rendered frame and the interval past which it counts as missed
+	 * (lateInterval); true when quality should drop a step. Judging then starts afresh, so the
+	 * next step needs a struggle of its own.
+	 */
+	frame(t: number, lateMs: number) {
+		if (!this.armed) return false;
 		const dt = t - this.last;
 		this.last = t;
 		if (!(dt > 0)) return false;
-		this.intervals.push(dt);
-		this.targets.push(targetMs);
+		this.frames++;
+		if (dt > lateMs) this.missed++;
 		this.span += dt;
-		if (this.intervals.length < QUALITY_WINDOW && this.span < QUALITY_WINDOW_MS) return false;
-		const slow = median(this.intervals) > median(this.targets) * QUALITY_SLACK;
-		this.intervals = [];
-		this.targets = [];
+		if (this.span < QUALITY_WINDOW_MS) return false;
+		const slow = this.missed > this.frames * QUALITY_MISSED;
+		this.frames = 0;
+		this.missed = 0;
 		this.span = 0;
 		this.strikes = slow ? this.strikes + 1 : 0;
 		if (this.strikes < QUALITY_STRIKES) return false;
-		this.declined = true;
+		this.restart();
 		return true;
 	}
 }
