@@ -7,7 +7,8 @@ import { markShadows, shadowSchedule } from './shadows';
  * The office's whole render path, in every quality:
  *
  *   scene → one 4× MSAA half-float target (colour + depth texture, resolved once per frame)
- *         → GTAO from that depth (high quality only; normals rebuilt from depth)
+ *         → GTAO from that depth (high quality only; normals rebuilt from depth; at a fraction
+ *           of the CSS resolution, aoScale)
  *         → one full-screen pass to the canvas: colour × mix(1, ao, strength), then the tone
  *           mapping and sRGB encoding OutputPass used to do
  *
@@ -215,10 +216,17 @@ export class RenderPipeline implements FramePath {
 	readonly target: THREE.WebGLRenderTarget;
 	/** Shaders are linking in the background; drawing now would stall on them. */
 	compiling = false;
+	/**
+	 * Size of the occlusion buffers per CSS pixel, in each direction, whatever the screen's
+	 * density: GTAO and its denoise are the costliest passes on a large canvas, and soft
+	 * occlusion upsampled (linear filtering) loses little. Takes effect on the next frame.
+	 */
+	aoScale = 0.7;
 	private readonly ao: OfficeAO | null;
 	private readonly material: THREE.RawShaderMaterial;
 	private readonly quad: FullScreenQuad;
 	private key = '';
+	private aoKey = '';
 	private outputColorSpace: string | null = null;
 	private toneMapping: THREE.ToneMapping | null = null;
 
@@ -280,12 +288,14 @@ export class RenderPipeline implements FramePath {
 		if (key !== this.key) {
 			this.key = key;
 			this.target.setSize(size.x, size.y);
-			if (this.ao) {
-				// The occlusion buffers stay at one sample per CSS pixel, whatever the screen's density.
-				this.ao.scale = 1 / ratio;
-				this.ao.setSize(size.x, size.y);
-			}
 			markShadows();
+		}
+		// Resized only when the canvas or the scale changes.
+		const aoKey = `${key}/${this.aoScale}`;
+		if (this.ao && aoKey !== this.aoKey) {
+			this.aoKey = aoKey;
+			this.ao.scale = this.aoScale / ratio;
+			this.ao.setSize(size.x, size.y);
 		}
 		scheduleShadows(gl, time);
 

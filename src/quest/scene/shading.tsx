@@ -179,12 +179,15 @@ export function ContactShade({ world }: { world: CompiledWorld }) {
  */
 export function Render({
 	ao,
+	aoScale,
 	direct,
 	strength = 1,
 	onPipeline,
 }: {
 	/** Ambient occlusion on (high quality, not lite). */
 	ao: boolean;
+	/** Occlusion buffer size per CSS pixel, in each direction. */
+	aoScale: number;
 	/** Straight to the canvas (low quality on a canvas created with antialiasing). */
 	direct: boolean;
 	strength?: number;
@@ -218,6 +221,7 @@ export function Render({
 		const current = fx.current;
 		// Nothing draws while the shaders link in the background (under the loading veil).
 		if (!current || current.compiling) return;
+		if (current instanceof RenderPipeline) current.aoScale = aoScale;
 		current.render(scene, camera, strength, state.clock.elapsedTime);
 	}, 1);
 	return null;

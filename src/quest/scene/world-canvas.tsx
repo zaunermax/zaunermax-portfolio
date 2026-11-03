@@ -19,6 +19,7 @@ import { Grounds } from './grounds';
 import { Floors, Seams, WallCut, Walls, WindowLight } from './office';
 import { LIGHTING, type Lighting } from './palette';
 import type { FramePath } from './pipeline';
+import { LOWEST_TIER, nextTier, shrankSinceStep, tierSettings, type QualityTier } from './quality';
 import { ContactShade, Render } from './shading';
 import { markShadows } from './shadows';
 import { Spawns } from './spawn';
@@ -51,8 +52,8 @@ export type WorldCanvasProps = {
 const KIT_TIMEOUT_MS = 30000;
 
 /** Review aids: ?fx=full (and ?fx=ao) keep full quality however slow the frames (headless
- * software GL), ?fx=lite starts in lite quality, ?fps=max renders on every vsync instead of about
- * 60 fps. */
+ * software GL), ?fx=lite starts at the lowest quality tier, ?fps=max renders on every vsync
+ * instead of about 60 fps. */
 function reviewFlags() {
 	const q = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
 	const fx = q.get('fx');
@@ -80,9 +81,15 @@ function opaqueRenderer(defaults: GlDefaults) {
 export default function WorldCanvas(props: WorldCanvasProps) {
 	const { quality, paused, covered = false, onReady } = props;
 	const [flags] = useState(reviewFlags);
-	// Once the frame rate sags for a few seconds (Firefox on a laptop, say), drop the ambient
-	// occlusion and render at one pixel per CSS pixel for the rest of the visit.
-	const [lite, setLite] = useState(flags.lite);
+	// While too many frames come late for a few seconds (a big screen, a laptop GPU), step down a
+	// tier: coarser ambient occlusion, then fewer pixels per CSS pixel, then no ambient occlusion.
+	// Steps hold while the canvas stays as big: every tier above has failed, and climbing back
+	// would only oscillate. Once it shrinks well below where it last stepped down (a window that
+	// grew huge and came back), the ladder starts again at tier 0 and judges afresh.
+	const [tier, setTier] = useState<QualityTier>(flags.lite ? LOWEST_TIER : 0);
+	/** The canvas's size (quality.ts canvasPixels) at the last step down; NaN before any. */
+	const steppedAt = useRef(Number.NaN);
+	const settings = tierSettings(tier);
 	const [settled, setSettled] = useState(false);
 	const pipeline = useRef<FramePath | null>(null);
 	const high = quality === 'high';
@@ -105,8 +112,8 @@ export default function WorldCanvas(props: WorldCanvasProps) {
 			flat
 			// Variance shadows: soft edges that also survive software GL, where blurred PCF does not.
 			shadows={quality === 'high' ? 'variance' : false}
-			// Rendering stops at 1.5x; a denser canvas would only be upscaled.
-			dpr={lite ? 1 : [1, 1.5]}
+			// Up to 1.5x, 1.25x at tier 2, one pixel per CSS pixel from tier 3 (quality.ts).
+			dpr={settings.dpr}
 			// FrameLoop drives the frames.
 			frameloop="never"
 			camera={{ fov: 30, near: 0.5, far: 400, position: [20, 30, 50] }}
@@ -116,18 +123,30 @@ export default function WorldCanvas(props: WorldCanvasProps) {
 			// opaque one shows black while a paused office is resized.
 			gl={direct ? { antialias: true, alpha: false, depth: true, powerPreference: 'high-performance' } : opaqueRenderer}
 			style={{ touchAction: 'none' }}
+			// For performance tests: the quality tier in play (high quality only).
+			data-quality-tier={high ? tier : undefined}
 		>
 			<FrameLoop
 				paused={paused}
 				covered={covered}
 				uncapped={flags.uncapped}
-				judge={high && !lite && flags.adaptive && settled}
-				onDecline={() => setLite(true)}
+				judge={high && tier !== LOWEST_TIER && flags.adaptive && settled}
+				onDecline={(pixels) => {
+					steppedAt.current = pixels;
+					setTier((t) => nextTier(t, window.devicePixelRatio));
+				}}
+				onResize={(pixels) => {
+					// ?fx=lite stays at the lowest tier.
+					if (flags.lite || !shrankSinceStep(pixels, steppedAt.current)) return;
+					steppedAt.current = Number.NaN;
+					setTier(0);
+				}}
 			/>
 			<KitProvider>
 				<Scene
 					{...props}
-					ao={high && !lite}
+					ao={high && settings.ao}
+					aoScale={settings.aoScale}
 					direct={direct && !high}
 					onPipeline={(p) => {
 						pipeline.current = p;
@@ -282,6 +301,7 @@ function useSpawns(world: CompiledWorld, animate: boolean) {
 
 function Scene({
 	ao,
+	aoScale,
 	direct,
 	onPipeline,
 	world,
@@ -294,7 +314,12 @@ function Scene({
 	respawnKey,
 	presence,
 	appearance,
-}: WorldCanvasProps & { ao: boolean; direct: boolean; onPipeline: (path: FramePath | null) => void }) {
+}: WorldCanvasProps & {
+	ao: boolean;
+	aoScale: number;
+	direct: boolean;
+	onPipeline: (path: FramePath | null) => void;
+}) {
 	const lighting = useMemo(
 		() => weatherLighting(LIGHTING[world.meta.timeOfDay], world.meta.outside),
 		[world.meta.timeOfDay, world.meta.outside],
@@ -321,7 +346,7 @@ function Scene({
 			<WindowLight world={world} lighting={lighting} />
 			<Seams world={world} />
 			<ContactShade world={world} />
-			<Render ao={ao} direct={direct} strength={lighting.ao} onPipeline={onPipeline} />
+			<Render ao={ao} aoScale={aoScale} direct={direct} strength={lighting.ao} onPipeline={onPipeline} />
 			<Walls world={world} bus={bus} cut={cut} reducedMotion={reducedMotion} />
 			<Props world={world} spawns={spawns} cut={cut} />
 			<Landmarks world={world} bus={bus} />

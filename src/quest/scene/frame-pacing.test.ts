@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { FramePacer, QualityMonitor, judgedInterval, median, refreshInterval, vsyncDivisor } from './frame-pacing';
+import {
+	FramePacer,
+	QualityMonitor,
+	lateInterval,
+	median,
+	refreshInterval,
+	slowInterval,
+	steady,
+	vsyncDivisor,
+} from './frame-pacing';
 
 /** Feeds `seconds` of rAF callbacks at `hz` and returns the rendered timestamps. */
 function run(pacer: FramePacer, hz: number, seconds: number, fps?: number, start = 0, jitter = 0) {
@@ -25,11 +34,16 @@ function prng(seed: number) {
 	};
 }
 
-/** rAF timestamps as Firefox gives them: whole milliseconds, with a little jitter (8/9 ms at 120 Hz). */
-function firefoxTimes(hz: number, seconds: number, start = 0, seed = 1) {
+/**
+ * rAF timestamps as Firefox gives them: whole milliseconds, with a little jitter (8/9 ms at
+ * 120 Hz), or up to `jitter` ms either way.
+ */
+function firefoxTimes(hz: number, seconds: number, start = 0, seed = 1, jitter = 0.4) {
 	const random = prng(seed);
 	const period = 1000 / hz;
-	return Array.from({ length: Math.round(seconds * hz) }, (_, i) => Math.round(start + i * period + (random() - 0.5) * 0.8));
+	return Array.from({ length: Math.round(seconds * hz) }, (_, i) =>
+		Math.round(start + i * period + (random() - 0.5) * 2 * jitter),
+	);
 }
 
 describe('median', () => {
@@ -78,6 +92,30 @@ describe('refreshInterval', () => {
 
 	it('ignores vsyncs the browser skipped while busy', () => {
 		expect(refreshInterval([8.3, 16.7, 8.3, 8.4, 16.6, 8.3, 8.3, 25, 8.3])).toBeCloseTo(8.33, 1);
+	});
+});
+
+describe('steady', () => {
+	it('takes one cadence, whole-millisecond rounding and all', () => {
+		expect(steady([16, 17, 17, 16, 17, 16])).toBe(true);
+		expect(steady([11, 12, 11, 12, 12, 11])).toBe(true);
+		expect(steady([4, 5, 4, 4, 3, 5])).toBe(true);
+		expect(steady([20.8, 20.8, 20.8])).toBe(true);
+	});
+
+	it('rejects a mix of two and three vsyncs', () => {
+		expect(steady([16.7, 25, 16.7, 25])).toBe(false);
+		expect(steady([17, 25, 16, 26])).toBe(false);
+		expect(steady([13.9, 13.9, 20.8])).toBe(false);
+		expect(steady([14, 14, 20, 14, 14, 21])).toBe(false);
+		expect(steady([12, 12, 18, 13, 12, 18])).toBe(false);
+		// At 240 Hz a whole vsync is barely more than the rounding allowance.
+		expect(steady([2000 / 240, 3000 / 240, 2000 / 240, 3000 / 240])).toBe(false);
+		expect(steady([8, 12, 9, 13, 8, 12])).toBe(false);
+	});
+
+	it('rejects nothing to go by', () => {
+		expect(steady([])).toBe(false);
 	});
 });
 
@@ -167,6 +205,35 @@ describe('FramePacer', () => {
 		expect(r.length).toBeLessThanOrEqual(541);
 	});
 
+	it('picks the refresh rate back up promptly once a load that halved rAF passes', () => {
+		for (const seed of [1, 2]) {
+			const pacer = new FramePacer();
+			const vsync = 1000 / 85;
+			// Eight seconds of load: callbacks only every other vsync, long enough for the pacer
+			// to take the screen for 42.5 Hz.
+			for (const t of firefoxTimes(85, 8, 0, seed).filter((_, i) => i % 2 === 0)) pacer.tick(t);
+			expect(pacer.vsync).toBeCloseTo(2 * vsync, 0);
+			// Load gone: callbacks every vsync again. Within a quarter of a second the pacer renders
+			// every one of them.
+			const after = firefoxTimes(85, 3, 8000, seed);
+			const rendered = after.filter((t) => pacer.tick(t) && t >= 8250);
+			expect(pacer.vsync).toBeCloseTo(vsync, 0);
+			expect(rendered.length).toBeGreaterThanOrEqual(after.filter((t) => t >= 8250).length - 1);
+		}
+	});
+
+	it('keeps its estimate through a busy stretch with the odd quick callback', () => {
+		const pacer = new FramePacer();
+		run(pacer, 120, 2);
+		// Callbacks at 40 Hz with every eighth one quick: never a run, so no re-estimate.
+		let t = 2000;
+		for (let i = 0; i < 400; i++) {
+			t += i % 8 === 0 ? 8.3 : 25;
+			pacer.tick(t);
+		}
+		expect(pacer.vsync).toBeGreaterThan(20);
+	});
+
 	it('re-measures the refresh rate when it changes', () => {
 		const pacer = new FramePacer();
 		run(pacer, 120, 2);
@@ -178,59 +245,81 @@ describe('FramePacer', () => {
 
 describe('QualityMonitor', () => {
 	const target = 1000 / 60;
+	const late = lateInterval(target, target);
+	const slow = slowInterval();
 	const feed = (m: QualityMonitor, interval: number, frames: number, start = 0) => {
-		let declined = false;
-		for (let i = 0; i <= frames; i++) if (m.frame(start + i * interval, target)) declined = true;
-		return declined;
+		let steps = 0;
+		for (let i = 0; i <= frames; i++) if (m.frame(start + i * interval, late, slow)) steps++;
+		return steps;
 	};
 
 	it('ignores frames until armed', () => {
 		const m = new QualityMonitor();
-		expect(feed(m, 40, 600)).toBe(false);
-		expect(m.declined).toBe(false);
+		expect(feed(m, 40, 600)).toBe(0);
 	});
 
-	it('declines on a sustained 36 fps', () => {
+	it('steps down on a sustained 36 fps', () => {
 		const m = new QualityMonitor();
 		m.arm();
-		expect(feed(m, 1000 / 36, 400)).toBe(true);
-		expect(m.declined).toBe(true);
+		expect(feed(m, 1000 / 36, 400)).toBeGreaterThan(0);
 	});
 
 	it('judges a restarted cadence afresh', () => {
 		const m = new QualityMonitor();
 		m.arm();
 		// One slow window, a deliberate restart (pause, cover), then one more slow window.
-		expect(feed(m, 1000 / 36, 80)).toBe(false);
+		expect(feed(m, 1000 / 36, 55)).toBe(0);
 		m.restart();
-		expect(feed(m, 1000 / 36, 80, 10_000)).toBe(false);
-		expect(m.declined).toBe(false);
+		expect(feed(m, 1000 / 36, 55, 10_000)).toBe(0);
 	});
 
 	it('keeps quality at a steady 60 fps with the odd hitch', () => {
 		const m = new QualityMonitor();
 		m.arm();
 		let t = 0;
-		let declined = false;
-		for (let i = 0; i < 1000; i++) {
+		let steps = 0;
+		for (let i = 0; i < 3000; i++) {
 			t += i % 40 === 0 ? 120 : target;
-			if (m.frame(t, target)) declined = true;
+			if (m.frame(t, late, slow)) steps++;
 		}
-		expect(declined).toBe(false);
+		expect(steps).toBe(0);
 	});
 
-	it('needs the slowness to last, not one bad window', () => {
+	it('steps down when a fifth of the frames slip a vsync, though the median stays at one', () => {
 		const m = new QualityMonitor();
 		m.arm();
 		let t = 0;
-		let declined = false;
-		// Slow and fast windows alternate: never two slow verdicts in a row.
-		for (let w = 0; w < 10; w++)
-			for (let i = 0; i < 90; i++) {
-				t += w % 2 ? target : 30;
-				if (m.frame(t, target)) declined = true;
+		let at = Number.NaN;
+		for (let i = 0; i < 1000 && Number.isNaN(at); i++) {
+			t += i % 5 === 0 ? 2 * target : target;
+			if (m.frame(t, late, slow)) at = t;
+		}
+		expect(at).toBeGreaterThanOrEqual(3000);
+		expect(at).toBeLessThan(3500);
+	});
+
+	it('steps down at 42 fps even when the lateness bar follows a slow refresh estimate', () => {
+		// The pacer read the slowed rAF (or a stale estimate) as a 42 Hz screen: no frame is late
+		// against its cadence, but the median is too slow for 60 fps.
+		const m = new QualityMonitor();
+		m.arm();
+		let steps = 0;
+		for (let i = 0; i <= 200; i++) if (m.frame(i * (1000 / 42), lateInterval(1000 / 42, 1000 / 42), slow)) steps++;
+		expect(steps).toBeGreaterThan(0);
+	});
+
+	it('shrugs off short bursts of judder', () => {
+		const m = new QualityMonitor();
+		m.arm();
+		let t = 0;
+		let steps = 0;
+		// Three quarters of a second with every third frame slipping, then three steady seconds.
+		for (let burst = 0; burst < 10; burst++)
+			for (let i = 0; i < 225; i++) {
+				t += i < 45 && i % 3 === 0 ? 2 * target : target;
+				if (m.frame(t, late, slow)) steps++;
 			}
-		expect(declined).toBe(false);
+		expect(steps).toBe(0);
 	});
 
 	it('shrugs off a single long stall', () => {
@@ -238,63 +327,84 @@ describe('QualityMonitor', () => {
 			const m = new QualityMonitor();
 			m.arm();
 			let t = 0;
-			let declined = false;
+			let steps = 0;
 			for (let i = 0; i < 600; i++) {
 				t += i === at ? 5000 : target;
-				if (m.frame(t, target)) declined = true;
+				if (m.frame(t, late, slow)) steps++;
 			}
-			expect(declined).toBe(false);
+			expect(steps).toBe(0);
 		}
 	});
 
-	/** Seconds from arming until the decline at a steady `fps`, or Infinity. */
-	const secondsToDecline = (fps: number, limit = 60) => {
+	/** Seconds from arming until the first step down at a steady `fps`, or Infinity. */
+	const secondsToStep = (fps: number, limit = 60) => {
 		const m = new QualityMonitor();
 		m.arm();
-		for (let t = 0; t <= limit * 1000; t += 1000 / fps) if (m.frame(t, target)) return t / 1000;
+		for (let t = 0; t <= limit * 1000; t += 1000 / fps) if (m.frame(t, late, slow)) return t / 1000;
 		return Number.POSITIVE_INFINITY;
 	};
 
-	it('declines within seconds however few frames arrive', () => {
-		expect(secondsToDecline(3)).toBeLessThanOrEqual(5);
-		expect(secondsToDecline(1)).toBeLessThanOrEqual(5);
-		expect(secondsToDecline(0.5)).toBeLessThanOrEqual(5);
-		expect(secondsToDecline(0.2, 120)).toBeLessThanOrEqual(11);
+	it('steps down within seconds however few frames arrive', () => {
+		expect(secondsToStep(3)).toBeLessThanOrEqual(5);
+		expect(secondsToStep(1)).toBeLessThanOrEqual(5);
+		expect(secondsToStep(0.5)).toBeLessThanOrEqual(5);
+		expect(secondsToStep(0.2, 120)).toBeLessThanOrEqual(11);
 	});
 
-	it('declines even when frames take a third of a second', () => {
+	it('needs a fresh struggle for each step', () => {
 		const m = new QualityMonitor();
 		m.arm();
-		expect(feed(m, 330, 400)).toBe(true);
-	});
-
-	it('stays declined and reports the decline once', () => {
-		const m = new QualityMonitor();
-		m.arm();
-		let count = 0;
-		for (let i = 0; i < 2000; i++) if (m.frame(i * 40, target)) count++;
-		expect(count).toBe(1);
+		let t = 0;
+		const steps: number[] = [];
+		for (let i = 0; i < 2000; i++) {
+			t += 40;
+			if (m.frame(t, late, slow)) steps.push(t);
+		}
+		// One step per two windows, never two at once.
+		expect(steps.length).toBeGreaterThanOrEqual(2);
+		for (const dt of intervals(steps)) expect(dt).toBeGreaterThanOrEqual(3000);
 	});
 });
 
-describe('judgedInterval', () => {
-	it('never asks for more than 60 fps, nor much less', () => {
-		expect(judgedInterval(1000 / 90)).toBeCloseTo(1000 / 60);
-		expect(judgedInterval(1000 / 72)).toBeCloseTo(1000 / 60);
-		expect(judgedInterval(1000 / 60)).toBeCloseTo(1000 / 60);
-		expect(judgedInterval(1000 / 58)).toBeCloseTo(1000 / 58);
-		// A rAF slowed down by a struggling machine looks like a slow screen.
-		expect(judgedInterval(1000 / 20)).toBeCloseTo(1050 / 60);
-		expect(judgedInterval(1000 / 60, 30)).toBeCloseTo(1000 / 30);
+describe('lateInterval', () => {
+	it('counts a frame late once it slips by a vsync past the cadence aimed for', () => {
+		// 85 Hz renders every vsync: a doubled vsync (23.5 ms) is late, 12 ms is not.
+		expect(lateInterval(1000 / 85, 1000 / 85)).toBeCloseTo(1500 / 85 - 1);
+		// 120 Hz renders every other vsync: three vsyncs (25 ms) are late.
+		expect(lateInterval(1000 / 60, 1000 / 120)).toBeCloseTo(1000 / 60 + 500 / 120 - 1);
+		// Two-vsync callbacks of a 120 Hz screen taken for 60 Hz: three vsyncs are still late.
+		expect(lateInterval(1000 / 60, 1000 / 60)).toBeCloseTo(24);
+		expect(lateInterval(1000 / 30, 1000 / 60, 30)).toBeCloseTo(1000 / 30 + 500 / 60 - 1);
+		// 240 Hz: never under 2 ms of slack.
+		expect(lateInterval(1000 / 60, 1000 / 240)).toBeCloseTo(1000 / 60 + 2);
+	});
+
+	it('follows a slow screen, leaving the median to slowInterval', () => {
+		expect(lateInterval(1000 / 48, 1000 / 48)).toBeCloseTo(1500 / 48 - 1);
+	});
+
+	it('falls back to slowInterval without a measurement', () => {
+		expect(lateInterval(Number.NaN, Number.NaN)).toBeCloseTo(slowInterval());
+		expect(lateInterval(1000 / 60, Number.NaN)).toBeCloseTo(24);
+	});
+});
+
+describe('slowInterval', () => {
+	it('sits a little under the target rate', () => {
+		expect(slowInterval()).toBeCloseTo((1000 / 60) * 1.05 * 1.25);
+		expect(slowInterval(30)).toBeCloseTo((1000 / 30) * 1.05 * 1.25);
+		// Slower than the slowest healthy screens the pacer meets, quicker than 45 fps.
+		expect(slowInterval()).toBeGreaterThan(1000 / 48);
+		expect(slowInterval()).toBeLessThan(1000 / 45);
 	});
 });
 
 describe('pacer and monitor together', () => {
-	/** Feeds Firefox-style rAF timestamps through the pacer and the monitor, as FrameLoop does. */
+	/** Feeds rAF timestamps through the pacer and the monitor, as FrameLoop does; the step count. */
 	const play = (times: number[], fps = 60) => {
 		const pacer = new FramePacer();
 		const m = new QualityMonitor();
-		let declined = false;
+		let steps = 0;
 		let armed = false;
 		for (const t of times) {
 			// Judged once the first estimate is in, as FrameLoop arms it once the scene settled.
@@ -302,25 +412,186 @@ describe('pacer and monitor together', () => {
 				m.arm();
 				armed = true;
 			}
-			if (pacer.tick(t, fps) && m.frame(t, judgedInterval(pacer.targetInterval(fps), fps))) declined = true;
+			if (pacer.tick(t, fps) && m.frame(t, lateInterval(pacer.targetInterval(fps), pacer.vsync, fps), slowInterval(fps))) steps++;
 		}
-		return declined;
+		return steps;
 	};
 
-	it('never downgrades healthy 90 to 95 Hz rendering', () => {
-		for (const hz of [90, 91, 93, 95]) for (const seed of [1, 2]) expect(play(firefoxTimes(hz, 60, 0, seed))).toBe(false);
+	it('never downgrades healthy rendering at the pacer\'s cadence, with Firefox-style timestamps', () => {
+		for (const hz of [60, 75, 85, 90, 91, 93, 95, 100, 120, 144, 165, 240])
+			for (const seed of [1, 2]) {
+				expect(play(firefoxTimes(hz, 40, 0, seed))).toBe(0);
+				expect(play(firefoxTimes(hz, 40, 0, seed), 30)).toBe(0);
+			}
 	});
 
-	it('never downgrades healthy 60, 120 or 144 Hz rendering, nor the covered rate', () => {
-		for (const hz of [60, 120, 144]) {
-			expect(play(firefoxTimes(hz, 30))).toBe(false);
-			expect(play(firefoxTimes(hz, 30), 30)).toBe(false);
+	it('never downgrades a steady 57 Hz screen', () => {
+		expect(play(firefoxTimes(57, 40))).toBe(0);
+	});
+
+	it('never downgrades a steady 48 or 50 Hz screen, even with 2 ms of jitter', () => {
+		for (const hz of [48, 50])
+			for (const seed of [1, 2, 3]) {
+				expect(play(firefoxTimes(hz, 40, 0, seed, 2))).toBe(0);
+				expect(play(firefoxTimes(hz, 40, 0, seed, 2), 30)).toBe(0);
+			}
+	});
+
+	/**
+	 * Callbacks at `hz` with Firefox-style timestamps, through the pacer and the monitor, where
+	 * every `every`th rendered frame keeps the GPU busy long enough that the browser skips the
+	 * next `divisor` vsyncs: the frame after it lands one vsync late. The step count.
+	 */
+	const judder = (hz: number, every: number, seconds = 30) => {
+		const pacer = new FramePacer();
+		const m = new QualityMonitor();
+		let steps = 0;
+		let frames = 0;
+		let blocked = 0;
+		let armed = false;
+		for (const t of firefoxTimes(hz, seconds)) {
+			if (blocked > 0) {
+				blocked--;
+				continue;
+			}
+			if (t > 3000 && !armed) {
+				m.arm();
+				armed = true;
+			}
+			if (!pacer.tick(t)) continue;
+			if (m.frame(t, lateInterval(pacer.targetInterval(), pacer.vsync), slowInterval())) steps++;
+			if (t > 2000 && ++frames % every === 0) blocked = vsyncDivisor(pacer.vsync);
 		}
+		return steps;
+	};
+
+	it('downgrades a big screen whose frames slip a vsync now and then, at 85 or 120 Hz', () => {
+		// About a fifth of the frames: the median interval stays at the pacer's cadence.
+		expect(judder(85, 5)).toBeGreaterThan(0);
+		expect(judder(120, 6)).toBeGreaterThan(0);
+	});
+
+	/** Steps after a window is dragged from a `from` Hz screen to a `to` Hz one at `at` ms. */
+	const switchScreens = (from: number, to: number, at: number, firefox = false, seed = 1) => {
+		const random = prng(seed);
+		const times: number[] = [];
+		for (let t = 0; t < at + 8000; ) {
+			t += 1000 / (t < at ? from : to);
+			times.push(firefox ? Math.round(t + (random() - 0.5) * 0.8) : t);
+		}
+		return play(times);
+	};
+
+	it('never downgrades a window dragged to a slower screen', () => {
+		for (const [from, to] of [
+			[100, 60],
+			[165, 60],
+			[90, 60],
+			[85, 50],
+			[144, 48],
+			// Firefox's whole milliseconds give 11 and 12 ms here, a hair either side of 120 Hz's
+			// 11.1 ms threshold for a slower screen.
+			[120, 85],
+			[120, 90],
+		])
+			for (let at = 10000; at < 14000; at += 250) {
+				expect(switchScreens(from, to, at), `${from} -> ${to} Hz at ${at} ms`).toBe(0);
+				expect(switchScreens(from, to, at, true, at), `${from} -> ${to} Hz at ${at} ms, Firefox`).toBe(0);
+			}
+	});
+
+	it('never downgrades a window dragged to a quicker screen', () => {
+		for (const [from, to] of [
+			[60, 120],
+			[50, 85],
+		])
+			for (let at = 10000; at < 12000; at += 500) expect(switchScreens(from, to, at, true, at)).toBe(0);
+	});
+
+	it('still downgrades a GPU that slows rAF to a steady 42.5 fps on an 85 Hz screen', () => {
+		// Healthy at first, then every callback lands two vsyncs apart: steady, so the pacer
+		// re-estimates as for a slower screen, and the median catches it.
+		const times = firefoxTimes(85, 30).filter((t, i) => t < 6000 || i % 2 === 0);
+		expect(play(times)).toBeGreaterThan(0);
+	});
+
+	it('still downgrades a GPU that makes rAF stutter between two and three vsyncs at 120 Hz', () => {
+		// About 55 fps: the median stays at two vsyncs, a third of the frames slip to three, and
+		// the run is not steady enough to pass for a slower screen.
+		const all = firefoxTimes(120, 30);
+		const times: number[] = [];
+		let k = 0;
+		for (let i = 0; i < all.length; i += all[i] < 6000 ? 1 : k++ % 3 === 0 ? 3 : 2) times.push(all[i]);
+		expect(play(times)).toBeGreaterThan(0);
+	});
+
+	/**
+	 * Callbacks at `hz`, healthy for six seconds, then a GPU that keeps rAF `pattern` vsyncs apart
+	 * in turn (2, 3: a steady stutter between two and three vsyncs), or as many as `pattern()`
+	 * says each time.
+	 */
+	const stutter = (hz: number, pattern: number[] | (() => number), firefox: boolean, seed = hz) => {
+		const random = prng(seed);
+		const next = typeof pattern === 'function' ? pattern : (k: number) => pattern[k % pattern.length];
+		const times: number[] = [];
+		let k = 0;
+		for (let v = 0; v < hz * 30; v += v < hz * 6 ? 1 : next(k++)) {
+			const t = (v * 1000) / hz;
+			times.push(firefox ? Math.round(t + (random() - 0.5) * 0.8) : t);
+		}
+		return play(times);
+	};
+	/** Steps that show the stutter is still seen after the first (24 s of it: up to 8). */
+	const KEEPS_STEPPING = 4;
+
+	it('keeps stepping down a steady stutter between two and three vsyncs on quick screens', () => {
+		for (const hz of [120, 144, 165, 240])
+			for (const pattern of [
+				[2, 3],
+				[2, 3, 2, 3, 3, 2],
+				[2, 2, 3, 3],
+				[2, 2, 3],
+			])
+				for (const firefox of [false, true])
+					expect(
+						stutter(hz, pattern, firefox),
+						`${hz} Hz, ${pattern.join(',')}, ${firefox ? 'Firefox' : 'exact'}`,
+					).toBeGreaterThanOrEqual(KEEPS_STEPPING);
+	});
+
+	it('keeps stepping down a 2, 2, 3 stutter at 165 Hz in Firefox, not just once', () => {
+		// The periodic estimate leaves out the three-vsync intervals (12 against 18 or 19 ms) and
+		// settles on two vsyncs; a three-vsync frame must still count late against that.
+		for (let seed = 1; seed <= 8; seed++)
+			expect(stutter(165, [2, 2, 3], true, seed), `seed ${seed}`).toBeGreaterThanOrEqual(6);
+	});
+
+	it('keeps stepping down a GPU that keeps rAF two or, at random, three vsyncs apart', () => {
+		// Runs of twelve two-vsync callbacks pass for a 60 or 72 Hz screen; a three-vsync frame,
+		// half a vsync of that past its cadence, must still count late.
+		for (const hz of [120, 144])
+			for (const share of [0.15, 0.2, 0.25])
+				for (const firefox of [false, true]) {
+					const random = prng(Math.round(hz * share * 100));
+					expect(
+						stutter(hz, () => (random() < share ? 3 : 2), firefox),
+						`${hz} Hz, ${share * 100} % three vsyncs, ${firefox ? 'Firefox' : 'exact'}`,
+					).toBeGreaterThanOrEqual(KEEPS_STEPPING);
+				}
+	});
+
+	it('keeps quality when only the odd frame slips', () => {
+		expect(judder(85, 50)).toBe(0);
+		expect(judder(120, 50)).toBe(0);
 	});
 
 	it('downgrades a machine that only manages 40 fps on a 90 Hz screen', () => {
 		// Callbacks still arrive at 90 Hz, but each frame takes long enough to skip a vsync or two.
 		const times = firefoxTimes(90, 30).filter((_, i) => i % 9 === 0 || i % 9 === 2 || i % 9 === 4 || i % 9 === 6);
-		expect(play(times)).toBe(true);
+		expect(play(times)).toBeGreaterThan(0);
+	});
+
+	it('downgrades a machine whose rAF itself runs at 42 fps', () => {
+		expect(play(firefoxTimes(42, 30))).toBeGreaterThan(0);
 	});
 });
