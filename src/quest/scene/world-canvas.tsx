@@ -82,7 +82,7 @@ export default function WorldCanvas(props: WorldCanvasProps) {
 	const { quality, paused, covered = false, onReady } = props;
 	const [flags] = useState(reviewFlags);
 	// While too many frames come late for a few seconds (a big screen, a laptop GPU), step down a
-	// tier: coarser ambient occlusion, then one pixel per CSS pixel, then no ambient occlusion.
+	// tier: coarser ambient occlusion, then fewer pixels per CSS pixel, then no ambient occlusion.
 	// Steps are for the rest of the visit: every tier above has failed, and climbing back would
 	// only oscillate.
 	const [tier, setTier] = useState<QualityTier>(flags.lite ? LOWEST_TIER : 0);
@@ -109,7 +109,7 @@ export default function WorldCanvas(props: WorldCanvasProps) {
 			flat
 			// Variance shadows: soft edges that also survive software GL, where blurred PCF does not.
 			shadows={quality === 'high' ? 'variance' : false}
-			// Up to 1.5x, or one pixel per CSS pixel from tier 2 (quality.ts).
+			// Up to 1.5x, 1.25x at tier 2, one pixel per CSS pixel from tier 3 (quality.ts).
 			dpr={settings.dpr}
 			// FrameLoop drives the frames.
 			frameloop="never"

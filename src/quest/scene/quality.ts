@@ -6,13 +6,13 @@
 /**
  * From the least to the most noticeable sacrifice: 0 renders up to 1.5 device pixels per CSS
  * pixel with ambient occlusion at 0.7 of the CSS resolution, 1 runs the occlusion at half the CSS
- * resolution, 2 renders one pixel per CSS pixel, 3 drops the occlusion.
+ * resolution, 2 renders up to 1.25 device pixels per CSS pixel, 3 one, 4 drops the occlusion.
  */
-export type QualityTier = 0 | 1 | 2 | 3;
-export const LOWEST_TIER: QualityTier = 3;
+export type QualityTier = 0 | 1 | 2 | 3 | 4;
+export const LOWEST_TIER: QualityTier = 4;
 
-/** Rendering stops at 1.5 device pixels per CSS pixel; a denser canvas would only be upscaled. */
-const MAX_DPR = 1.5;
+/** The most device pixels per CSS pixel each tier renders. */
+const MAX_DPR = [1.5, 1.5, 1.25, 1, 1] as const;
 
 export type TierSettings = {
 	/** Ambient occlusion on. */
@@ -24,19 +24,36 @@ export type TierSettings = {
 };
 
 export function tierSettings(tier: QualityTier): TierSettings {
+	const max = MAX_DPR[tier];
 	return {
-		ao: tier < 3,
+		ao: tier < 4,
 		aoScale: tier === 0 ? 0.7 : 0.5,
-		dpr: tier >= 2 ? 1 : [1, MAX_DPR],
+		dpr: max > 1 ? [1, max] : 1,
 	};
 }
 
+/** The pixel ratio a tier actually renders at on a screen of `devicePixelRatio`. */
+function effectiveDpr(tier: QualityTier, devicePixelRatio: number) {
+	return Math.max(1, Math.min(devicePixelRatio, MAX_DPR[tier]));
+}
+
 /**
- * The tier below `tier`, skipping the pixel-ratio step on a screen that already renders one pixel
- * per CSS pixel (it would change nothing).
+ * The tier below `tier`, skipping every rung that would change nothing on this screen: a
+ * pixel-ratio step that does not lower the ratio actually rendered (1.25 on a screen at 1.25 or
+ * less, 1 on a screen at 1).
  */
 export function nextTier(tier: QualityTier, devicePixelRatio: number): QualityTier {
-	if (tier === 0) return 1;
-	if (tier === 1 && devicePixelRatio > 1) return 2;
+	const from = tierSettings(tier);
+	let next = tier;
+	while (next < LOWEST_TIER) {
+		next = (next + 1) as QualityTier;
+		const to = tierSettings(next);
+		if (
+			to.ao !== from.ao ||
+			to.aoScale !== from.aoScale ||
+			effectiveDpr(next, devicePixelRatio) < effectiveDpr(tier, devicePixelRatio)
+		)
+			return next;
+	}
 	return LOWEST_TIER;
 }
