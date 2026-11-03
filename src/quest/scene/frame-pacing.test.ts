@@ -172,6 +172,35 @@ describe('FramePacer', () => {
 		expect(r.length).toBeLessThanOrEqual(541);
 	});
 
+	it('picks the refresh rate back up promptly once a load that halved rAF passes', () => {
+		for (const seed of [1, 2]) {
+			const pacer = new FramePacer();
+			const vsync = 1000 / 85;
+			// Eight seconds of load: callbacks only every other vsync, long enough for the pacer
+			// to take the screen for 42.5 Hz.
+			for (const t of firefoxTimes(85, 8, 0, seed).filter((_, i) => i % 2 === 0)) pacer.tick(t);
+			expect(pacer.vsync).toBeCloseTo(2 * vsync, 0);
+			// Load gone: callbacks every vsync again. Within a quarter of a second the pacer renders
+			// every one of them.
+			const after = firefoxTimes(85, 3, 8000, seed);
+			const rendered = after.filter((t) => pacer.tick(t) && t >= 8250);
+			expect(pacer.vsync).toBeCloseTo(vsync, 0);
+			expect(rendered.length).toBeGreaterThanOrEqual(after.filter((t) => t >= 8250).length - 1);
+		}
+	});
+
+	it('keeps its estimate through a busy stretch with the odd quick callback', () => {
+		const pacer = new FramePacer();
+		run(pacer, 120, 2);
+		// Callbacks at 40 Hz with every eighth one quick: never a run, so no re-estimate.
+		let t = 2000;
+		for (let i = 0; i < 400; i++) {
+			t += i % 8 === 0 ? 8.3 : 25;
+			pacer.tick(t);
+		}
+		expect(pacer.vsync).toBeGreaterThan(20);
+	});
+
 	it('re-measures the refresh rate when it changes', () => {
 		const pacer = new FramePacer();
 		run(pacer, 120, 2);
