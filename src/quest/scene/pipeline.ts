@@ -7,7 +7,8 @@ import { markShadows, shadowSchedule } from './shadows';
  * The office's whole render path, in every quality:
  *
  *   scene → one 4× MSAA half-float target (colour + depth texture, resolved once per frame)
- *         → GTAO from that depth (high quality only; normals rebuilt from depth)
+ *         → GTAO from that depth (high quality only; normals rebuilt from depth; half the CSS
+ *           resolution in each direction)
  *         → one full-screen pass to the canvas: colour × mix(1, ao, strength), then the tone
  *           mapping and sRGB encoding OutputPass used to do
  *
@@ -209,6 +210,8 @@ export type PipelineOptions = {
 };
 
 const MSAA_SAMPLES = 4;
+/** AO buffer size per CSS pixel, in each direction. */
+const AO_SCALE = 0.5;
 const size = new THREE.Vector2();
 
 export class RenderPipeline implements FramePath {
@@ -281,8 +284,10 @@ export class RenderPipeline implements FramePath {
 			this.key = key;
 			this.target.setSize(size.x, size.y);
 			if (this.ao) {
-				// The occlusion buffers stay at one sample per CSS pixel, whatever the screen's density.
-				this.ao.scale = 1 / ratio;
+				// The occlusion buffers run at half the CSS size in each direction, whatever the
+				// screen's density: GTAO and its denoise are the costliest passes on a large canvas,
+				// and soft occlusion upsampled (linear filtering) looks the same.
+				this.ao.scale = AO_SCALE / ratio;
 				this.ao.setSize(size.x, size.y);
 			}
 			markShadows();
