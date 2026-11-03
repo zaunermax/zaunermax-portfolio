@@ -109,6 +109,9 @@ describe('steady', () => {
 		expect(steady([13.9, 13.9, 20.8])).toBe(false);
 		expect(steady([14, 14, 20, 14, 14, 21])).toBe(false);
 		expect(steady([12, 12, 18, 13, 12, 18])).toBe(false);
+		// At 240 Hz a whole vsync is barely more than the rounding allowance.
+		expect(steady([2000 / 240, 3000 / 240, 2000 / 240, 3000 / 240])).toBe(false);
+		expect(steady([8, 12, 9, 13, 8, 12])).toBe(false);
 	});
 
 	it('rejects nothing to go by', () => {
@@ -366,20 +369,23 @@ describe('QualityMonitor', () => {
 describe('lateInterval', () => {
 	it('counts a frame late once it slips by a vsync past the cadence aimed for', () => {
 		// 85 Hz renders every vsync: a doubled vsync (23.5 ms) is late, 12 ms is not.
-		expect(lateInterval(1000 / 85, 1000 / 85)).toBeCloseTo(1500 / 85);
+		expect(lateInterval(1000 / 85, 1000 / 85)).toBeCloseTo(1500 / 85 - 1);
 		// 120 Hz renders every other vsync: three vsyncs (25 ms) are late.
-		expect(lateInterval(1000 / 60, 1000 / 120)).toBeCloseTo(1000 / 60 + 500 / 120);
-		expect(lateInterval(1000 / 60, 1000 / 60)).toBeCloseTo(25);
-		expect(lateInterval(1000 / 30, 1000 / 60, 30)).toBeCloseTo(1000 / 30 + 500 / 60);
+		expect(lateInterval(1000 / 60, 1000 / 120)).toBeCloseTo(1000 / 60 + 500 / 120 - 1);
+		// Two-vsync callbacks of a 120 Hz screen taken for 60 Hz: three vsyncs are still late.
+		expect(lateInterval(1000 / 60, 1000 / 60)).toBeCloseTo(24);
+		expect(lateInterval(1000 / 30, 1000 / 60, 30)).toBeCloseTo(1000 / 30 + 500 / 60 - 1);
+		// 240 Hz: never under 2 ms of slack.
+		expect(lateInterval(1000 / 60, 1000 / 240)).toBeCloseTo(1000 / 60 + 2);
 	});
 
 	it('follows a slow screen, leaving the median to slowInterval', () => {
-		expect(lateInterval(1000 / 48, 1000 / 48)).toBeCloseTo(1500 / 48);
+		expect(lateInterval(1000 / 48, 1000 / 48)).toBeCloseTo(1500 / 48 - 1);
 	});
 
 	it('falls back to slowInterval without a measurement', () => {
 		expect(lateInterval(Number.NaN, Number.NaN)).toBeCloseTo(slowInterval());
-		expect(lateInterval(1000 / 60, Number.NaN)).toBeCloseTo(25);
+		expect(lateInterval(1000 / 60, Number.NaN)).toBeCloseTo(24);
 	});
 });
 
@@ -521,21 +527,25 @@ describe('pacer and monitor together', () => {
 
 	/**
 	 * Callbacks at `hz`, healthy for six seconds, then a GPU that keeps rAF `pattern` vsyncs apart
-	 * in turn (2, 3: a steady stutter between two and three vsyncs).
+	 * in turn (2, 3: a steady stutter between two and three vsyncs), or as many as `pattern()`
+	 * says each time.
 	 */
-	const stutter = (hz: number, pattern: number[], firefox: boolean) => {
-		const random = prng(hz);
+	const stutter = (hz: number, pattern: number[] | (() => number), firefox: boolean, seed = hz) => {
+		const random = prng(seed);
+		const next = typeof pattern === 'function' ? pattern : (k: number) => pattern[k % pattern.length];
 		const times: number[] = [];
 		let k = 0;
-		for (let v = 0; v < hz * 30; v += v < hz * 6 ? 1 : pattern[k++ % pattern.length]) {
+		for (let v = 0; v < hz * 30; v += v < hz * 6 ? 1 : next(k++)) {
 			const t = (v * 1000) / hz;
 			times.push(firefox ? Math.round(t + (random() - 0.5) * 0.8) : t);
 		}
 		return play(times);
 	};
+	/** Steps that show the stutter is still seen after the first (24 s of it: up to 8). */
+	const KEEPS_STEPPING = 4;
 
-	it('downgrades a steady stutter between two and three vsyncs on quick screens', () => {
-		for (const hz of [120, 144, 165])
+	it('keeps stepping down a steady stutter between two and three vsyncs on quick screens', () => {
+		for (const hz of [120, 144, 165, 240])
 			for (const pattern of [
 				[2, 3],
 				[2, 3, 2, 3, 3, 2],
@@ -543,7 +553,31 @@ describe('pacer and monitor together', () => {
 				[2, 2, 3],
 			])
 				for (const firefox of [false, true])
-					expect(stutter(hz, pattern, firefox), `${hz} Hz, ${pattern.join(',')}, ${firefox ? 'Firefox' : 'exact'}`).toBeGreaterThan(0);
+					expect(
+						stutter(hz, pattern, firefox),
+						`${hz} Hz, ${pattern.join(',')}, ${firefox ? 'Firefox' : 'exact'}`,
+					).toBeGreaterThanOrEqual(KEEPS_STEPPING);
+	});
+
+	it('keeps stepping down a 2, 2, 3 stutter at 165 Hz in Firefox, not just once', () => {
+		// The periodic estimate leaves out the three-vsync intervals (12 against 18 or 19 ms) and
+		// settles on two vsyncs; a three-vsync frame must still count late against that.
+		for (let seed = 1; seed <= 8; seed++)
+			expect(stutter(165, [2, 2, 3], true, seed), `seed ${seed}`).toBeGreaterThanOrEqual(6);
+	});
+
+	it('keeps stepping down a GPU that keeps rAF two or, at random, three vsyncs apart', () => {
+		// Runs of twelve two-vsync callbacks pass for a 60 or 72 Hz screen; a three-vsync frame,
+		// half a vsync of that past its cadence, must still count late.
+		for (const hz of [120, 144])
+			for (const share of [0.15, 0.2, 0.25])
+				for (const firefox of [false, true]) {
+					const random = prng(Math.round(hz * share * 100));
+					expect(
+						stutter(hz, () => (random() < share ? 3 : 2), firefox),
+						`${hz} Hz, ${share * 100} % three vsyncs, ${firefox ? 'Firefox' : 'exact'}`,
+					).toBeGreaterThanOrEqual(KEEPS_STEPPING);
+				}
 	});
 
 	it('keeps quality when only the odd frame slips', () => {

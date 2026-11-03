@@ -48,16 +48,19 @@ function nearMedian(intervals: readonly number[]) {
 /** Allowance for timestamps rounded to whole milliseconds (Firefox), in ms. */
 const ROUNDING = 1;
 /** Widest spread (longest / shortest) a run of intervals may have to come from one cadence. */
-const STEADY = 1.25;
+const STEADY = 1.2;
 
 /**
  * The intervals come from one steady cadence, give or take whole-millisecond rounding, and not
  * from a mix of two: a GPU that keeps rAF two and three vsyncs apart in turn spreads them by
- * 1.5, Firefox's rounding of a 60 Hz screen (16 and 17 ms) by about 1.1.
+ * 1.5, Firefox's rounding of a 60 Hz screen (16 and 17 ms) by about 1.1. The rounding allowance
+ * (a millisecond either end) is added once, not scaled, so at 240 Hz, where a whole vsync is
+ * barely more than it, 8.3 and 12.5 ms still read as two cadences while 3 to 5 ms reads as one.
  */
 export function steady(intervals: readonly number[]) {
 	if (!intervals.length) return false;
-	return Math.max(...intervals) - ROUNDING < (Math.min(...intervals) + ROUNDING) * STEADY;
+	const shortest = Math.min(...intervals);
+	return Math.max(...intervals) - shortest < shortest * (STEADY - 1) + 2 * ROUNDING;
 }
 
 /** Intervals longer than this are a stall or a hidden tab, not a refresh rate. */
@@ -148,15 +151,18 @@ export class FramePacer {
 }
 
 /**
- * How long a rendered frame may take before it counts as missed: half a vsync past the cadence
- * the pacer aims for (`aimMs`), so a frame that slipped by one whole vsync counts (85 Hz: 23.5
- * against 17.6 ms; 120 Hz: 25 against 20.8 ms) while timestamp jitter, even Firefox's whole
- * milliseconds, never does. Without a measurement yet, falls back to slowInterval.
+ * How long a rendered frame may take before it counts as missed: a millisecond short of half a
+ * vsync past the cadence the pacer aims for (`aimMs`), at least 2 ms, so a frame that slipped by
+ * one whole vsync counts (85 Hz: 23.5 against 16.6 ms; 120 Hz: 25 against 19.8 ms) while
+ * timestamp jitter, even Firefox's whole milliseconds, never does. Short of half a vsync: when
+ * runs of two-vsync callbacks pass for a slower screen (60 Hz on a 120 Hz one, a GPU keeping rAF
+ * two or three vsyncs apart), a three-vsync frame is exactly 1.5 of that cadence and must not be
+ * left to rounding. Without a measurement yet, falls back to slowInterval.
  */
 export function lateInterval(aimMs: number, vsyncMs: number, fps: number = TARGET_FPS) {
 	if (!(aimMs > 0)) return slowInterval(fps);
 	const vsync = vsyncMs > 0 ? Math.min(vsyncMs, aimMs) : aimMs;
-	return aimMs + Math.max(vsync / 2, 2);
+	return aimMs + Math.max(vsync / 2 - ROUNDING, 2);
 }
 
 /**
