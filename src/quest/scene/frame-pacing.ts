@@ -35,15 +35,29 @@ export function vsyncDivisor(vsyncMs: number, fps = TARGET_FPS) {
  * keeps vsyncs the browser skipped while busy from passing for a slower screen.
  */
 export function refreshInterval(intervals: readonly number[]) {
+	const near = nearMedian(intervals);
+	return near.length ? near.reduce((a, b) => a + b, 0) / near.length : median(intervals);
+}
+
+/** The intervals refreshInterval averages: those within half the median either way. */
+function nearMedian(intervals: readonly number[]) {
 	const mid = median(intervals);
-	let sum = 0;
-	let n = 0;
-	for (const dt of intervals)
-		if (dt > mid * 0.5 && dt < mid * 1.5) {
-			sum += dt;
-			n++;
-		}
-	return n ? sum / n : mid;
+	return intervals.filter((dt) => dt > mid * 0.5 && dt < mid * 1.5);
+}
+
+/** Allowance for timestamps rounded to whole milliseconds (Firefox), in ms. */
+const ROUNDING = 1;
+/** Widest spread (longest / shortest) a run of intervals may have to come from one cadence. */
+const STEADY = 1.25;
+
+/**
+ * The intervals come from one steady cadence, give or take whole-millisecond rounding, and not
+ * from a mix of two: a GPU that keeps rAF two and three vsyncs apart in turn spreads them by
+ * 1.5, Firefox's rounding of a 60 Hz screen (16 and 17 ms) by about 1.1.
+ */
+export function steady(intervals: readonly number[]) {
+	if (!intervals.length) return false;
+	return Math.max(...intervals) - ROUNDING < (Math.min(...intervals) + ROUNDING) * STEADY;
 }
 
 /** Intervals longer than this are a stall or a hidden tab, not a refresh rate. */
@@ -58,27 +72,21 @@ const REFRESH_FIRST = 20;
  * Callbacks in a row clearly quicker than the estimate (under QUICK of it) that re-estimate
  * from them at once: a load that slowed rAF down has passed, and waiting for the next periodic
  * estimate would skip healthy vsyncs for seconds. The same run clearly slower (over 1 / QUICK
- * of it) and steady (within STEADY of its median) does too: the window moved to a slower screen,
- * where a stale, quick estimate would count every frame as late. Only a steady run, so a GPU
- * that makes rAF stutter between two and three vsyncs keeps being judged against the real
- * refresh rate; one that slows rAF to a steady crawl is still caught by slowInterval.
+ * of it, less the rounding allowance: 11 ms callbacks of an 85 or 90 Hz screen after 120 Hz)
+ * and steady does too: the window moved to a slower screen, where a stale, quick estimate
+ * would count every frame as late. Only a steady run, so a GPU that makes rAF stutter between
+ * two and three vsyncs keeps being judged against the real refresh rate; one that slows rAF to
+ * a steady crawl is still caught by slowInterval.
  */
 const QUICK_RUN = 12;
 const QUICK = 0.75;
-const STEADY = 1.3;
-
-/** The last `n` intervals all lie within STEADY of their median. */
-function steady(intervals: readonly number[], n: number) {
-	const run = intervals.slice(-n);
-	const mid = median(run);
-	return run.every((dt) => dt > mid / STEADY && dt < mid * STEADY);
-}
 
 /**
  * Measures the display's vsync interval from rAF timestamps (refreshInterval, re-measured now
  * and then, so a window dragged to another screen picks up its rate, and at once when callbacks
  * keep coming clearly quicker or steadily slower than the estimate) and decides which callbacks
- * render.
+ * render. A re-measure that finds a mix of two cadences (steady) keeps the estimate it has: such
+ * a mix is a stuttering GPU, not a screen, and averaging it would hide the stutter.
  */
 export class FramePacer {
 	/** Estimated vsync interval in ms; NaN until measured. */
@@ -107,8 +115,8 @@ export class FramePacer {
 			this.intervals.push(dt);
 			if (this.intervals.length > REFRESH_WINDOW) this.intervals.shift();
 			this.quick = dt < this.vsync * QUICK ? this.quick + 1 : 0;
-			this.slow = dt > this.vsync / QUICK ? this.slow + 1 : 0;
-			if (this.quick >= QUICK_RUN || (this.slow >= QUICK_RUN && steady(this.intervals, QUICK_RUN))) {
+			this.slow = dt > this.vsync / QUICK - ROUNDING ? this.slow + 1 : 0;
+			if (this.quick >= QUICK_RUN || (this.slow >= QUICK_RUN && steady(this.intervals.slice(-QUICK_RUN)))) {
 				this.intervals = this.intervals.slice(-QUICK_RUN);
 				this.untilEstimate = 0;
 				this.quick = 0;
@@ -116,7 +124,7 @@ export class FramePacer {
 			}
 		}
 		if (--this.untilEstimate <= 0 && this.intervals.length) {
-			this.vsync = refreshInterval(this.intervals);
+			if (Number.isNaN(this.vsync) || steady(nearMedian(this.intervals))) this.vsync = refreshInterval(this.intervals);
 			this.untilEstimate = REFRESH_EVERY;
 		}
 		if (!Number.isFinite(fps) || Number.isNaN(this.vsync) || Number.isNaN(this.lastRender)) {

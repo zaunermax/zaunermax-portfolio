@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { FramePacer, QualityMonitor, lateInterval, median, refreshInterval, slowInterval, vsyncDivisor } from './frame-pacing';
+import {
+	FramePacer,
+	QualityMonitor,
+	lateInterval,
+	median,
+	refreshInterval,
+	slowInterval,
+	steady,
+	vsyncDivisor,
+} from './frame-pacing';
 
 /** Feeds `seconds` of rAF callbacks at `hz` and returns the rendered timestamps. */
 function run(pacer: FramePacer, hz: number, seconds: number, fps?: number, start = 0, jitter = 0) {
@@ -83,6 +92,27 @@ describe('refreshInterval', () => {
 
 	it('ignores vsyncs the browser skipped while busy', () => {
 		expect(refreshInterval([8.3, 16.7, 8.3, 8.4, 16.6, 8.3, 8.3, 25, 8.3])).toBeCloseTo(8.33, 1);
+	});
+});
+
+describe('steady', () => {
+	it('takes one cadence, whole-millisecond rounding and all', () => {
+		expect(steady([16, 17, 17, 16, 17, 16])).toBe(true);
+		expect(steady([11, 12, 11, 12, 12, 11])).toBe(true);
+		expect(steady([4, 5, 4, 4, 3, 5])).toBe(true);
+		expect(steady([20.8, 20.8, 20.8])).toBe(true);
+	});
+
+	it('rejects a mix of two and three vsyncs', () => {
+		expect(steady([16.7, 25, 16.7, 25])).toBe(false);
+		expect(steady([17, 25, 16, 26])).toBe(false);
+		expect(steady([13.9, 13.9, 20.8])).toBe(false);
+		expect(steady([14, 14, 20, 14, 14, 21])).toBe(false);
+		expect(steady([12, 12, 18, 13, 12, 18])).toBe(false);
+	});
+
+	it('rejects nothing to go by', () => {
+		expect(steady([])).toBe(false);
 	});
 });
 
@@ -453,6 +483,10 @@ describe('pacer and monitor together', () => {
 			[90, 60],
 			[85, 50],
 			[144, 48],
+			// Firefox's whole milliseconds give 11 and 12 ms here, a hair either side of 120 Hz's
+			// 11.1 ms threshold for a slower screen.
+			[120, 85],
+			[120, 90],
 		])
 			for (let at = 10000; at < 14000; at += 250) {
 				expect(switchScreens(from, to, at), `${from} -> ${to} Hz at ${at} ms`).toBe(0);
@@ -483,6 +517,33 @@ describe('pacer and monitor together', () => {
 		let k = 0;
 		for (let i = 0; i < all.length; i += all[i] < 6000 ? 1 : k++ % 3 === 0 ? 3 : 2) times.push(all[i]);
 		expect(play(times)).toBeGreaterThan(0);
+	});
+
+	/**
+	 * Callbacks at `hz`, healthy for six seconds, then a GPU that keeps rAF `pattern` vsyncs apart
+	 * in turn (2, 3: a steady stutter between two and three vsyncs).
+	 */
+	const stutter = (hz: number, pattern: number[], firefox: boolean) => {
+		const random = prng(hz);
+		const times: number[] = [];
+		let k = 0;
+		for (let v = 0; v < hz * 30; v += v < hz * 6 ? 1 : pattern[k++ % pattern.length]) {
+			const t = (v * 1000) / hz;
+			times.push(firefox ? Math.round(t + (random() - 0.5) * 0.8) : t);
+		}
+		return play(times);
+	};
+
+	it('downgrades a steady stutter between two and three vsyncs on quick screens', () => {
+		for (const hz of [120, 144, 165])
+			for (const pattern of [
+				[2, 3],
+				[2, 3, 2, 3, 3, 2],
+				[2, 2, 3, 3],
+				[2, 2, 3],
+			])
+				for (const firefox of [false, true])
+					expect(stutter(hz, pattern, firefox), `${hz} Hz, ${pattern.join(',')}, ${firefox ? 'Firefox' : 'exact'}`).toBeGreaterThan(0);
 	});
 
 	it('keeps quality when only the odd frame slips', () => {
