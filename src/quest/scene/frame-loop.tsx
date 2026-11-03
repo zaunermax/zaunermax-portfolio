@@ -3,7 +3,7 @@
 import { useThree } from '@react-three/fiber';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { COVERED_FPS, FramePacer, lateInterval, QualityMonitor, slowInterval, TARGET_FPS } from './frame-pacing';
-import { canvasPixels } from './quality';
+import { canvasPixels, watchPixelRatio } from './quality';
 
 /** Longest step the scene clock takes in one frame (s), so a long stall never jumps ahead. */
 const MAX_STEP = 0.1;
@@ -35,7 +35,7 @@ export function FrameLoop({
 	 * canvas's size (quality.ts canvasPixels).
 	 */
 	onDecline: (pixels: number) => void;
-	/** The canvas changed size or pixel ratio; `pixels` as for onDecline. */
+	/** The canvas changed size or pixel ratio, or the screen its density; `pixels` as for onDecline. */
 	onResize: (pixels: number) => void;
 }) {
 	const advance = useThree((state) => state.advance);
@@ -53,6 +53,10 @@ export function FrameLoop({
 	}, [onDecline, onResize]);
 	/** The canvas's size (quality.ts canvasPixels). */
 	const pixels = useRef(0);
+	// The screen's own pixel ratio, watched on its own: at one pixel per CSS pixel (the lower
+	// tiers) a move from a Retina display to an external screen changes nothing R3F reports.
+	const [density, setDensity] = useState(() => window.devicePixelRatio);
+	useEffect(() => watchPixelRatio(setDensity), []);
 
 	useEffect(() => {
 		if (judge) monitor.arm();
@@ -62,7 +66,7 @@ export function FrameLoop({
 	// vsync, the covered rate or a pause never shows a black canvas.
 	const sized = useRef(false);
 	useLayoutEffect(() => {
-		pixels.current = canvasPixels(size.width, size.height, window.devicePixelRatio);
+		pixels.current = canvasPixels(size.width, size.height, density);
 		if (!sized.current) {
 			sized.current = true;
 			return;
@@ -71,7 +75,7 @@ export function FrameLoop({
 		// A new canvas size (or a quality step's pixel ratio) costs a frame or two; judge after.
 		monitor.restart();
 		resized.current(pixels.current);
-	}, [size, dpr, advance, monitor]);
+	}, [size, dpr, density, advance, monitor]);
 
 	useEffect(() => {
 		if (paused) return;

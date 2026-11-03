@@ -77,3 +77,28 @@ const SHRUNK = 0.75;
 export function shrankSinceStep(pixels: number, steppedAt: number) {
 	return pixels < steppedAt * SHRUNK;
 }
+
+/** What watchPixelRatio needs of the window. */
+export type DensityWindow = Pick<Window, 'devicePixelRatio' | 'matchMedia'>;
+
+/**
+ * Calls `onChange` with the screen's new pixel ratio whenever it changes (a window dragged
+ * between a Retina display and an external screen, or zoomed), even when nothing else about the
+ * canvas does; returns the cleanup. A resolution query only reports leaving its own ratio, so it
+ * is re-armed for the new one on every change.
+ */
+export function watchPixelRatio(onChange: (ratio: number) => void, win: DensityWindow = window) {
+	if (typeof win.matchMedia !== 'function') return () => {};
+	let query: MediaQueryList | null = null;
+	const changed = () => {
+		watch();
+		onChange(win.devicePixelRatio);
+	};
+	const watch = () => {
+		query?.removeEventListener('change', changed);
+		query = win.matchMedia(`(resolution: ${win.devicePixelRatio}dppx)`);
+		query.addEventListener('change', changed);
+	};
+	watch();
+	return () => query?.removeEventListener('change', changed);
+}

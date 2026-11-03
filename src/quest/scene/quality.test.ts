@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { canvasPixels, LOWEST_TIER, nextTier, shrankSinceStep, tierSettings, type QualityTier } from './quality';
+import {
+	canvasPixels,
+	LOWEST_TIER,
+	nextTier,
+	shrankSinceStep,
+	tierSettings,
+	watchPixelRatio,
+	type DensityWindow,
+	type QualityTier,
+} from './quality';
 
 /** The tiers a visit passes through when every one of them struggles. */
 function ladder(devicePixelRatio: number) {
@@ -61,5 +70,54 @@ describe('shrankSinceStep', () => {
 
 	it('never restarts a ladder that has not stepped down', () => {
 		expect(shrankSinceStep(1, Number.NaN)).toBe(false);
+	});
+});
+
+describe('watchPixelRatio', () => {
+	/** A window whose resolution queries can be fired by hand. */
+	function fakeWindow(ratio: number) {
+		const listeners = new Map<string, Set<() => void>>();
+		const queries: string[] = [];
+		const win = {
+			devicePixelRatio: ratio,
+			matchMedia(media: string) {
+				queries.push(media);
+				const set = listeners.get(media) ?? new Set();
+				listeners.set(media, set);
+				return {
+					addEventListener: (_: string, fn: () => void) => set.add(fn),
+					removeEventListener: (_: string, fn: () => void) => set.delete(fn),
+				} as unknown as MediaQueryList;
+			},
+		};
+		/** Moves the window to a screen of `next` pixels per CSS pixel. */
+		const move = (next: number) => {
+			const old = `(resolution: ${win.devicePixelRatio}dppx)`;
+			win.devicePixelRatio = next;
+			for (const fn of [...(listeners.get(old) ?? [])]) fn();
+		};
+		const active = () => [...listeners.values()].reduce((n, set) => n + set.size, 0);
+		return { win: win as DensityWindow, move, queries, active };
+	}
+
+	it('reports every change of pixel ratio, re-armed for the new one', () => {
+		const { win, move, queries, active } = fakeWindow(2);
+		const seen: number[] = [];
+		const stop = watchPixelRatio((r) => seen.push(r), win);
+		move(1);
+		move(2);
+		expect(seen).toEqual([1, 2]);
+		expect(queries).toEqual(['(resolution: 2dppx)', '(resolution: 1dppx)', '(resolution: 2dppx)']);
+		expect(active()).toBe(1);
+		stop();
+		expect(active()).toBe(0);
+		move(1);
+		expect(seen).toEqual([1, 2]);
+	});
+
+	it('does nothing without matchMedia', () => {
+		const stop = watchPixelRatio(() => {}, { devicePixelRatio: 1 } as DensityWindow);
+		expect(stop).toBeTypeOf('function');
+		stop();
 	});
 });
