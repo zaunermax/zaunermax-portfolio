@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { CharacterId } from '../world/catalog';
 import type { Actor } from '../world/types';
 import {
+	AMBIENT_GRACE_MS,
 	AMBIENT_REST_MS,
 	createChatter,
 	PAUSE_MS,
@@ -61,6 +62,10 @@ describe('createChatter', () => {
 		for (let i = 1; i < 3; i++) expect(said[i].t).toBeGreaterThanOrEqual(said[i - 1].t + said[i - 1].ms + TALK_GAP_MS);
 		// Only the last line of the talk stays up while the visitor listens.
 		expect(said.slice(0, 3).map((l) => l.hold)).toEqual([false, false, true]);
+		// Each reply keeps the line before it in view; every line but the last waits for its reply.
+		expect(said.slice(0, 3).map((l) => l.follows)).toEqual([undefined, 'a', 'b']);
+		expect(said[0].linger).toBeGreaterThan(TALK_GAP_MS);
+		expect(said[2].linger).toBeUndefined();
 		// The talk is done: a's remark waits for the pause, then comes once.
 		expect(said[3].text).toBe('Max owns an ErgoDox.');
 		expect(said[3].kind).toBe('about-max');
@@ -86,7 +91,7 @@ describe('createChatter', () => {
 
 	it('starts nothing while a bubble is up, and waits a moment after it closes', () => {
 		const chatter = createChatter({ npcs, talks: [] }, never);
-		const speaking = scene(20, 3, { speaking: true });
+		const speaking = scene(20, 3, { speaking: ['someone'] });
 		for (let t = 0; t < 20_000; t += 250) expect(chatter.tick(t, speaking)).toBeNull();
 		expect(chatter.tick(20_000, scene(20, 3))).toBeNull();
 		expect(chatter.tick(20_000 + PAUSE_MS, scene(20, 3))?.text).toBe('Max loves trains.');
@@ -96,7 +101,7 @@ describe('createChatter', () => {
 		const chatter = createChatter({ npcs, talks }, never);
 		expect(chatter.tick(0, scene(2, 4))?.text).toBe('One.');
 		// Someone else's bubble stays up well past the first line.
-		for (let t = 250; t < 30_000; t += 250) expect(chatter.tick(t, scene(2, 4, { speaking: true }))).toBeNull();
+		for (let t = 250; t < 30_000; t += 250) expect(chatter.tick(t, scene(2, 4, { speaking: ['c'] }))).toBeNull();
 		const rest = run(chatter, 30_000, 60_000, scene(2, 4));
 		expect(rest[0].text).toBe('Two.');
 		expect(rest[0].t).toBeGreaterThanOrEqual(30_000 + TALK_GAP_MS - 250);
@@ -187,6 +192,30 @@ describe('createChatter', () => {
 		expect(first?.actor.id).toBe('e');
 		const beep = run(busy, 250, 60_000, scene(30.5, 31)).find((l) => l.actor.id === 'bot');
 		expect(beep?.t).toBeGreaterThanOrEqual(first!.ms + PAUSE_MS);
+	});
+
+	it('lets the talk go on while its own line before is still up, but nobody else’s', () => {
+		const chatter = createChatter({ npcs, talks }, never);
+		const first = chatter.tick(0, scene(2, 4));
+		expect(first?.text).toBe('One.');
+		// a's bubble lingers into the reply; that does not hold up b.
+		const t = first!.ms + TALK_GAP_MS;
+		expect(chatter.tick(t, scene(2, 4, { speaking: ['a'] }))?.text).toBe('Two.');
+		// Someone else's bubble does.
+		expect(chatter.tick(t + 30_000, scene(2, 4, { speaking: ['c'] }))).toBeNull();
+	});
+
+	it('keeps robots and pets quiet until the visitor has heard about Max, or a while has passed', () => {
+		const bot = person('bot', 30, 30, undefined, 'robo_vacuum');
+		const quiet = createChatter({ npcs: [bot], talks: [] }, always);
+		const said = run(quiet, 0, AMBIENT_GRACE_MS * 2, scene(30, 31));
+		expect(said).toHaveLength(1);
+		expect(said[0].t).toBeGreaterThanOrEqual(AMBIENT_GRACE_MS);
+		// After a line about Max, no need to wait.
+		const told = createChatter({ npcs: [person('e', 50, 50, 'Max likes trains.'), bot], talks: [] }, always);
+		expect(told.tick(0, scene(50, 51))?.kind).toBe('about-max');
+		const beep = run(told, 250, AMBIENT_GRACE_MS, scene(30, 31));
+		expect(beep.map((l) => l.actor.id)).toEqual(['bot']);
 	});
 
 	it('picks the robot line rarely when the roll is ordinary', () => {

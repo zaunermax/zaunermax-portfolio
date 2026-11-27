@@ -12,8 +12,9 @@ import type { Actor, CompiledWorld } from '../world/types';
  * chattering: talks play again a while after they ended, people the visitor passes now and then
  * say their own line or their remark again, and once in a long while a robot or a pet chimes in.
  *
- * One bubble at a time: nothing starts while another bubble is up, a talk's next line waits for
- * the one before to close, and nothing is said where the visitor could not read it.
+ * One bubble at a time: nothing starts while another bubble is up, and nothing is said where the
+ * visitor could not read it. The one exception is a talk: its previous line stays up (dimmed by
+ * the app) while the reply is read, so a punchline never loses its setup.
  */
 
 /** The visitor is within this many cells of someone for a passing remark. */
@@ -34,6 +35,11 @@ export const PERSON_REST_MS = 30_000;
 const IDLE_CHANCE = 0.1;
 /** The chance per poll that a robot or pet nearby chimes in, when no person has anything to say. */
 const AMBIENT_CHANCE = 0.012;
+/**
+ * No robot or pet chimes in before the visitor has heard something about Max, or until they
+ * have been around this long: the office opens with its people, not its beeps.
+ */
+export const AMBIENT_GRACE_MS = 60_000;
 /** At least this long between two ambient lines, whoever says them. */
 export const AMBIENT_GAP_MS = 60_000;
 /** A robot or pet speaks up on its own at most once in this long: in practice once per visit. */
@@ -56,6 +62,10 @@ export type ChatterLine = {
 	kind: ChatterKind;
 	/** Keep the bubble open while the visitor stays near (things about Max, greetings). */
 	hold: boolean;
+	/** In a talk: who said the line before, which stays up (dimmed) while this one is read. */
+	follows?: string;
+	/** In a talk with more to come: how much longer than `ms` the bubble stays, to meet the reply. */
+	linger?: number;
 };
 
 /** What the chatter needs to know about the scene on each poll. */
@@ -67,8 +77,8 @@ export type ChatterScene = {
 	goal?: string;
 	/** Whether a bubble over this actor could be read now (on screen, not under the HUD, close enough). */
 	visible?: (actor: Actor) => boolean;
-	/** Some bubble is up right now (including one held open). */
-	speaking?: boolean;
+	/** Whose bubbles are up right now (held ones included). */
+	speaking?: readonly string[];
 };
 
 /** People have a human rig; the robots, pets, the drone and the parrot do not. */
@@ -111,11 +121,15 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>, rand
 	let freeAt = 0;
 	/** When the last ambient line was said. */
 	let ambientAt = -Infinity;
+	/** The first poll, and whether the visitor has heard anything about Max since. */
+	let startedAt: number | null = null;
+	let heardMax = false;
 
 	const line = (actor: Actor, text: string, kind: ChatterKind, now: number, hold: boolean): ChatterLine => {
 		spoke.set(actor.id, { at: now, text });
 		const ms = readMs(text, kind);
 		freeAt = now + ms + PAUSE_MS;
+		if (kind === 'about-max') heardMax = true;
 		return { actor, text, ms, kind, hold };
 	};
 	const rested = (id: string, now: number, rest: number) => now - (spoke.get(id)?.at ?? -Infinity) >= rest;
@@ -125,6 +139,7 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>, rand
 		tick(now: number, scene: ChatterScene): ChatterLine | null {
 			const { player, at, goal } = scene;
 			const visible = scene.visible ?? always;
+			startedAt ??= now;
 			const dist = (a: Actor) => {
 				const p = at(a);
 				return Math.hypot(p.x - player.x, p.y - player.y);
@@ -138,8 +153,10 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>, rand
 				talk = null;
 				freeAt = Math.max(freeAt, now + PAUSE_MS / 2);
 			}
-			// Something is on screen: wait until it has closed, and a moment longer.
-			if (scene.speaking) {
+			// Something is on screen: wait until it has closed, and a moment longer. A talk's own
+			// lines do not count: the line before stays up while the reply comes.
+			const own = talk ? talks[talk.index] : null;
+			if (scene.speaking?.some((id) => !own || (id !== own.a && id !== own.b))) {
 				freeAt = Math.max(freeAt, now + PAUSE_MS);
 				if (talk) talk.next = Math.max(talk.next, now + TALK_GAP_MS);
 				return null;
@@ -183,8 +200,11 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>, rand
 				if (!visible(speaker)) return null;
 				const last = talk.step === t.lines.length - 1;
 				const said = line(speaker, t.lines[talk.step], 'about-max', now, last);
+				if (talk.step > 0) said.follows = talk.step % 2 === 0 ? t.b : t.a;
+				// One after the other, a beat after the line before was read; that bubble stays
+				// up a little longer, so the reply can keep it in view.
+				if (!last) said.linger = TALK_GAP_MS + 600;
 				talk.step++;
-				// One after the other: the reply waits for this bubble to close.
 				talk.next = now + said.ms + TALK_GAP_MS;
 				return said;
 			}
@@ -216,8 +236,10 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>, rand
 				const kind = kindOf(who, text);
 				return line(who, text, kind, now, kind === 'about-max');
 			}
-			// Robots and pets: rarely, briefly, and each about once a visit.
+			// Robots and pets: rarely, briefly, each about once a visit, and only once the visitor has
+			// heard about Max (or has been around a while).
 			if (roll >= AMBIENT_CHANCE || now - ambientAt < AMBIENT_GAP_MS) return null;
+			if (!heardMax && now - startedAt < AMBIENT_GRACE_MS) return null;
 			const critters = world.npcs.filter(
 				(a) =>
 					!isPerson(a) &&
@@ -249,6 +271,7 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>, rand
 			spoke.set(id, { at: now, text });
 			if (talk && (talks[talk.index].a === id || talks[talk.index].b === id)) talk = null;
 			const kind = actor ? kindOf(actor, text) : 'own';
+			if (kind === 'about-max') heardMax = true;
 			// The visitor asked: even a robot gets a person's reading time.
 			const ms = readMs(text, kind === 'ambient' ? 'own' : kind);
 			freeAt = Math.max(freeAt, now + ms + PAUSE_MS);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clampBelow, declutter, SETTLE_MS, type Candidate, type Placement } from './placement';
+import { clampBelow, declutter, labelRect, SETTLE_MS, type Candidate, type Placement } from './placement';
 
 const box = (l: number, t: number, w = 100, h = 20) => ({ l, t, r: l + w, b: t + h });
 const none = new Map<string, Placement>();
@@ -90,6 +90,39 @@ describe('declutter', () => {
 		expect(state.get('b')?.shown).toBe(true);
 	});
 
+	it('slides the line about Max sideways off Max’s sign when there is no room above', () => {
+		// Max's sign at 403–498, the bubble over it and a panel right above both.
+		const out = declutter(
+			[
+				{ key: 'max', priority: 100, rect: { l: 403, t: 88, r: 498, b: 126 } },
+				{ key: 'about-max', priority: 99, rect: { l: 433, t: 83, r: 703, b: 154 }, keep: true, nudge: 36, slide: 111 },
+			],
+			none,
+			0,
+			80,
+			844,
+		);
+		expect(out.get('max')?.shown).toBe(true);
+		expect(out.get('about-max')?.shown).toBe(true);
+		expect(433 + out.get('about-max')!.dx).toBeGreaterThanOrEqual(498);
+	});
+
+	it('lets Max’s sign step aside for the line about Max rather than vanish', () => {
+		const out = declutter(
+			[
+				{ key: 'max', priority: 100, rect: { l: 403, t: 88, r: 498, b: 126 }, nudge: 18, slide: 36 },
+				{ key: 'about-max', priority: 99, rect: { l: 399, t: 127, r: 570, b: 177 }, keep: true, nudge: 36, slide: 61 },
+			],
+			none,
+			0,
+			80,
+			844,
+		);
+		expect(out.get('about-max')).toMatchObject({ shown: true, dx: 0, dy: 0 });
+		expect(out.get('max')?.shown).toBe(true);
+		expect(out.get('max')!.dy).toBeLessThan(0);
+	});
+
 	it('keeps a nudged bubble where it was while that still fits', () => {
 		const max: Candidate = { key: 'max', priority: 100, rect: box(0, 100) };
 		const bubble: Candidate = { key: 'bubble', priority: 90, rect: box(0, 110), nudge: 40 };
@@ -112,5 +145,17 @@ describe('clampBelow', () => {
 
 	it('gives up where a panel lower down is in the way', () => {
 		expect(clampBelow(box(500, 640), hud, 720)).toBeNull();
+	});
+});
+
+describe('labelRect', () => {
+	it('covers a sign hanging below its anchor, its tag above and its pointer below', () => {
+		// Max's sign: drawn from the anchor point down (offsetTop 0), "tap to talk" 30 px above it,
+		// the pointer 14 px under it.
+		expect(labelRect(500, 200, 0, { w: 120, h: 24, top: 0, above: 30, below: 14 })).toEqual({ l: 440, r: 560, t: 170, b: 238 });
+	});
+
+	it('covers a bubble hanging above its anchor, tail included, slid in from an edge', () => {
+		expect(labelRect(10, 300, 90, { w: 200, h: 60, top: -98, below: 10 })).toEqual({ l: 0, r: 200, t: 202, b: 272 });
 	});
 });

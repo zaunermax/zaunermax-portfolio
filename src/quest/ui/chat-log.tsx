@@ -10,9 +10,15 @@ export type LogEntry = {
 	speaker?: string;
 	/** Whispers: from Max (in) or to Max (out). */
 	direction?: 'in' | 'out';
-	/** Overheard in passing: logged, but not counted as new. */
+	/** Overheard in passing (what people say about Max as the visitor walks by). */
 	ambient?: boolean;
 };
+
+/**
+ * What counts as new on the phone's chat button: what people said about Max and Max's own
+ * replies, not the build replay, the welcome or "Found …".
+ */
+export const countsAsNew = (e: LogEntry) => e.kind === 'npc' || (e.kind === 'whisper' && e.direction === 'in');
 
 /** The chat log as a tiny external store: anything may push, the view subscribes. */
 export class ChatLog {
@@ -95,14 +101,15 @@ export function ChatLogView({
 	const [seen, setSeen] = useState<string | null>(null);
 	const unread =
 		compact && !open
-			? entries.slice(entries.findIndex((e) => e.id === seen) + 1).filter((e) => !e.ambient).length
+			? entries.slice(entries.findIndex((e) => e.id === seen) + 1).filter(countsAsNew).length
 			: 0;
 
 	useEffect(() => {
 		const el = body.current;
 		if (!el) return;
 		if (stick.current || !expanded) el.scrollTop = el.scrollHeight;
-		setOverflow(el.scrollHeight > el.clientHeight + 2);
+		// A lone welcome that runs long is not "older lines": no fade over its first words.
+		setOverflow(entries.length > 1 && el.scrollHeight > el.clientHeight + 2);
 	}, [entries, open, expanded]);
 
 	return (

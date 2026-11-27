@@ -151,13 +151,17 @@
 	background: var(--px-sparkle) 0 0 / 100% 100% no-repeat;
 }
 
-/* Max: a compact coral pill with his job, hanging well above his bun and pointing down at him. */
+/* Max: a compact coral pill with his job, hanging from his anchor (well above his bun) and
+   pointing down at him. labels.tsx measures where it draws, so keep it absolutely placed. */
+.anchor > .plate[data-tone='max'] {
+	top: 0;
+	bottom: auto;
+}
+
 .plate[data-tone='max'] {
-	position: relative;
 	flex-direction: row;
 	align-items: baseline;
 	gap: 6px;
-	margin-bottom: 24px;
 	padding: 3px 9px 4px;
 	color: var(--ink);
 	background: #e8836b;
@@ -211,6 +215,11 @@
 	background: #ffe39a;
 	box-shadow: var(--ring2);
 	animation: tapPulse 1.4s ease-in-out infinite;
+}
+
+/* The prompt over the dock already says it. */
+.anchor[data-prompted] .plateHint {
+	display: none;
 }
 
 @keyframes tapPulse {
@@ -312,6 +321,13 @@
 	display: none;
 }
 
+/* The setup of a talk, kept in view while its punchline is read: same bubble, stepped back. */
+.bubble[data-dim] {
+	opacity: 0.55;
+	box-shadow: var(--ring2-soft);
+	transition: opacity 0.25s ease;
+}
+
 /* A vignette's caption: a dim tag over the scene, the quietest thing on screen. */
 .anchor > .caption {
 	position: absolute;
@@ -329,8 +345,8 @@
 	font-style: italic;
 	line-height: 1.3;
 	text-align: center;
-	color: rgb(255 250 242 / 0.92);
-	background: rgb(43 36 51 / 0.5);
+	color: #fffaf2;
+	background: rgb(43 36 51 / 0.72);
 	border-radius: 3px;
 }
 

@@ -51,17 +51,32 @@ export function GossipWindow({
 	/** After the first message the ideas fold away behind a small button, to leave room for the replies. */
 	const [ideas, setIdeas] = useState(false);
 	const inputId = useId();
+	const ideasRef = useRef<HTMLUListElement>(null);
 	const started = chat.lines.length > 0;
 	const last = chat.lines.at(-1);
+	/** Which of the visitor's messages Max is answering; a new one starts following again. */
+	const turn = chat.lines.filter((l) => l.role === 'visitor').length;
+	/** The turn whose reply has been put in view: from then on the reader owns the scroll. */
+	const placedTurn = useRef(-1);
 
-	// Follow the conversation, but never past the start of Max's reply: a long answer is read
-	// from its top, not scrolled to its end while it streams in (short screens show only a few lines).
+	// Follow the conversation until Max's reply outgrows the window; then show it from its top,
+	// once, and leave the scroll alone while the rest streams in and after it is done.
 	useEffect(() => {
+		if (placedTurn.current === turn) return;
 		const reply = replyRef.current;
 		const box = threadRef.current;
-		if (reply && box && reply.offsetHeight > box.clientHeight - 24) reply.scrollIntoView({ block: 'start' });
-		else endRef.current?.scrollIntoView({ block: 'nearest' });
-	}, [chat.lines.length, chat.streaming]);
+		if (reply && box && reply.offsetHeight > box.clientHeight - 24) {
+			reply.scrollIntoView({ block: 'start' });
+			placedTurn.current = turn;
+		} else endRef.current?.scrollIntoView({ block: 'nearest' });
+	}, [turn, chat.lines.length, chat.streaming]);
+
+	// Unfolded ideas come into view (they open below the conversation).
+	useEffect(() => {
+		const list = ideasRef.current;
+		const box = threadRef.current;
+		if (ideas && list && box) list.scrollIntoView({ block: list.offsetHeight < box.clientHeight - 24 ? 'nearest' : 'start' });
+	}, [ideas]);
 
 	function say(value: string) {
 		const v = value.trim().slice(0, CHAT_LIMITS.messageChars);
@@ -135,7 +150,7 @@ export function GossipWindow({
 					</button>
 				) : null}
 				{chat.suggestions.length && (!started || ideas) ? (
-					<ul className={styles.options} aria-label="Things to say">
+					<ul ref={ideasRef} className={styles.options} aria-label="Things to say">
 						{chat.suggestions.map((s) => (
 							<li key={s}>
 								<button

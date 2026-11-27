@@ -7,6 +7,7 @@ import {
 	useEffect,
 	useRef,
 	type CSSProperties,
+	type KeyboardEvent,
 	type ReactNode,
 	type RefObject,
 } from 'react';
@@ -22,6 +23,8 @@ export const cx = (...c: (string | false | null | undefined)[]) =>
 export function useLayer() {
 	return cx(useContext(LayerContext), styles.layer);
 }
+
+const TABBABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /** Each app has its own colour; its dock tile and its window title bar share it. */
 export type Tone = 'coral' | 'teal' | 'lilac' | 'mustard' | 'navy' | 'sage';
@@ -59,13 +62,37 @@ export function AppWindow({
 }) {
 	const layer = useLayer();
 	const popup = useRef<HTMLDivElement>(null);
-	// A kept-mounted window must not keep focus once it is hidden: its input would swallow the
-	// dock hotkeys and Escape. Hand focus back to the page instead.
+	/** What had focus before the window opened (a dock button, a pin), to hand focus back to. */
+	const opener = useRef<HTMLElement | null>(null);
+	useEffect(() => {
+		const onFocus = (e: FocusEvent) => {
+			const t = e.target;
+			if (t instanceof HTMLElement && t !== document.body && !t.closest('[role="dialog"]')) opener.current = t;
+		};
+		document.addEventListener('focusin', onFocus);
+		return () => document.removeEventListener('focusin', onFocus);
+	}, []);
+	// Closing hands focus back to whatever opened the window (a kept-mounted window must not keep
+	// it either: its input would swallow the dock hotkeys and Escape), or to the page.
 	useEffect(() => {
 		const el = popup.current;
-		if (!open && el && el.contains(document.activeElement))
-			(document.activeElement as HTMLElement).blur();
+		if (open || !el || !el.contains(document.activeElement)) return;
+		if (opener.current?.isConnected) opener.current.focus({ preventScroll: true });
+		else (document.activeElement as HTMLElement).blur();
 	}, [open]);
+	// Tab and Shift+Tab go round the window's own controls, however fast they are pressed.
+	const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+		if (e.key !== 'Tab' || !popup.current) return;
+		const stops = [...popup.current.querySelectorAll<HTMLElement>(TABBABLE)].filter((n) => n.getClientRects().length > 0);
+		if (!stops.length) return;
+		const first = stops[0];
+		const last = stops[stops.length - 1];
+		const at = document.activeElement;
+		if (e.shiftKey ? at === first || !popup.current.contains(at) : at === last) {
+			e.preventDefault();
+			(e.shiftKey ? last : first).focus();
+		}
+	};
 	return (
 		<Dialog.Root open={open} onOpenChange={(next) => !next && onClose()}>
 			<Dialog.Portal keepMounted={keepMounted}>
@@ -76,6 +103,8 @@ export function AppWindow({
 					data-side={side}
 					data-tone={tone}
 					initialFocus={initialFocus}
+					finalFocus={false}
+					onKeyDown={onKeyDown}
 					style={width ? ({ '--w': width } as CSSProperties) : undefined}
 				>
 					<header className={styles.windowHead}>

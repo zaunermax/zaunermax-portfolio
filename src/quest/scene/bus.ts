@@ -26,7 +26,14 @@ type Listener = () => void;
 export type SpeechKind = 'about-max' | 'own' | 'ambient';
 
 /** A line someone is saying. `run` stays the same while they keep talking, one bubble per run. */
-export type Speech = { text: string; until: number; run: number; kind: SpeechKind };
+export type Speech = {
+	text: string;
+	until: number;
+	run: number;
+	kind: SpeechKind;
+	/** The line before in a talk, kept in view (quieter) while the reply is read. */
+	dim?: boolean;
+};
 
 /** A rectangle in label-layer pixels. */
 export type ScreenRect = { l: number; t: number; r: number; b: number };
@@ -158,10 +165,23 @@ export class GameBus {
 		if (s && s.until > performance.now()) s.until = Math.max(s.until, until);
 	}
 	getSpeech = () => this.speech;
-	/** Whether any bubble is up right now, held ones included. */
-	speaking(now = performance.now()) {
-		for (const s of this.speech.values()) if (s.until > now) return true;
-		return false;
+	/** Whose bubbles are up right now, held ones included. */
+	speakers(now = performance.now()) {
+		const ids: string[] = [];
+		for (const [id, s] of this.speech) if (s.until > now) ids.push(id);
+		return ids;
+	}
+	/**
+	 * Keeps someone's last line in view, quieter, until `until`: the setup of a talk while the
+	 * reply is read. Same bubble, so it never pops in again.
+	 */
+	dimSpeech(id: string, until: number) {
+		const s = this.speech.get(id);
+		if (!s) return;
+		const next = new Map(this.speech);
+		next.set(id, { ...s, until: Math.max(s.until, until), dim: true });
+		this.speech = next;
+		for (const l of this.speechListeners) l();
 	}
 	subscribeSpeech = (l: Listener) => {
 		this.speechListeners.add(l);

@@ -1195,6 +1195,12 @@
 	display: grid;
 	justify-items: center;
 	gap: 18px;
+	/* Only the prompt and the tray take taps: the floor beside them stays walkable. */
+	pointer-events: none;
+}
+
+.dock > * {
+	pointer-events: auto;
 }
 
 .prompt {
@@ -2698,6 +2704,24 @@ textarea.fieldInput {
 	.touchHint {
 		bottom: 356px;
 	}
+
+	/* The build card hangs under Max's name tag, clear of the floor plan. */
+	.build {
+		top: 104px;
+		left: 18px;
+		transform: none;
+		max-width: min(340px, calc(100vw - 340px));
+	}
+
+	/* And the skip hint above the chat. */
+	.skipHint {
+		bottom: 356px;
+	}
+}
+
+/* The first-visit hint never lies across an unfolded #general. */
+.root:has(.chat[data-expanded='true']) .touchHint {
+	display: none;
 }
 
 /* ------------------------------------------------------------------ phones */
@@ -3155,6 +3179,25 @@ textarea.fieldInput {
 		bottom: auto;
 		left: 200px;
 		right: 162px;
+	}
+
+	/* The first-visit hint is a small note in the free corner by the dock, not a bar across the
+	   top pushing Max's sign around. */
+	.cues > .touchHint {
+		position: fixed;
+		left: 10px;
+		bottom: 12px;
+		max-width: min(230px, calc(50vw - 200px));
+		gap: 8px;
+		padding: 6px 6px 6px 8px;
+	}
+
+	.touchHint p {
+		font-size: 13.5px;
+	}
+
+	.touchHint .touchHintIcon {
+		display: none;
 	}
 
 	.book {

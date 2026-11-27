@@ -6,7 +6,17 @@ import type { LandmarkId } from '../world/schema';
 import { MAX_ANCHOR, PLAYER_ANCHOR, type GameBus, type SpeechKind } from '../scene/bus';
 import { isPerson } from '../scene/chatter';
 import { visitorAnchor } from '../room/presence';
-import { clampBelow, declutter, overlaps, project, type Candidate, type Placement, type Rect } from './placement';
+import {
+	clampBelow,
+	declutter,
+	labelRect,
+	overlaps,
+	project,
+	type Candidate,
+	type LabelBox,
+	type Placement,
+	type Rect,
+} from './placement';
 import styles from './labels.module.css';
 
 type Tone = 'friendly' | 'critter' | 'max' | 'place' | 'visitor' | 'you';
@@ -30,15 +40,24 @@ type Label = {
 const BUBBLE_FADE = 30;
 /** A vignette's caption only shows to a visitor this close (cells), and only the closest one. */
 const CAPTION_RANGE = 4;
-/** How far each kind of bubble hangs above its owner's anchor. */
-const BUBBLE_LIFT: Record<SpeechKind, number> = { 'about-max': 38, own: 38, ambient: 30 };
-/** The tail under a bubble, which covers what is below it too. */
+/** …and steps aside while someone this close to it (its own little scene) is talking. */
+const CAPTION_SCENE = 2.5;
+/** What hangs below a label's box: a bubble's tail, Max's pointer (labels.module.css). */
 const TAIL = 10;
+const MAX_POINTER = 14;
+/**
+ * Max's sign and the line about Max move this far at most to clear the panels at the top; any
+ * further and they would float over something unrelated, so they wait out of sight instead.
+ */
+const CLAMP_MAX = 72;
+/** A person's own line moves less: it has to stay over its speaker. */
+const CLAMP_OWN = 48;
 
 /** Who wins a crowded spot: Max's sign and the line about Max, then the rest in order. */
 const PRIORITY = {
 	max: 100,
 	'about-max': 99,
+	dim: 95,
 	own: 90,
 	nearby: 85,
 	friendly: 80,
@@ -63,10 +82,11 @@ export function speechVisible(bus: GameBus, id: string) {
 	if (Math.hypot(a.x - v.x, a.y - v.y, a.z - v.z) > BUBBLE_FADE) return false;
 	const p = project(v.matrix, a, w, h);
 	if (!p || p.x < 24 || p.x > w - 24 || p.y > h - 8) return false;
-	// The speaker's head and the foot of their bubble are in the clear; the bubble itself slides
-	// in from the edges and below the top panels where it has to (see the loop below).
-	const r = { l: p.x - 40, r: p.x + 40, t: p.y - BUBBLE_LIFT.own - 30, b: p.y };
-	return r.t >= 6 && !hud.some((panel) => overlaps(r, panel));
+	// Where a two-line bubble would go (it slides in from the edges, so only the middle counts):
+	// readable if it clears the panels at the top as the loop below would move it.
+	const r = labelRect(p.x, p.y, 0, { w: 120, h: 60, top: -98, below: TAIL });
+	const down = clampBelow(r, hud, h);
+	return down !== null && down <= CLAMP_MAX;
 }
 
 /**
@@ -130,7 +150,7 @@ export function Labels({
 		let hud: Rect[] = [];
 		let hudAt = -1e9;
 		let placed = new Map<string, Placement>();
-		const sizes = new WeakMap<HTMLElement, { w: number; h: number; text: string | null }>();
+		const sizes = new WeakMap<HTMLElement, LabelBox & { text: string | null }>();
 		/** What each anchor's style says now, so unchanged values are never written again. */
 		const written = new WeakMap<HTMLElement, { opacity: string; transform: string; fadeUntil: number }>();
 		type Slot = { key: string; node: HTMLElement; plate: HTMLElement | null; opacity: number; x: number; y: number; dx: number; dy: number };
@@ -156,21 +176,25 @@ export function Labels({
 				bus.screen.hud = hud;
 			}
 			const speaking = bus.getSpeech();
-			const talking = (id: string) => (speaking.get(id)?.until ?? 0) > now;
-			const anyBubble = [...speaking.values()].some((s) => s.until > now);
+			const talkers: { x: number; z: number }[] = [];
+			for (const [id, s] of speaking) {
+				const a = s.until > now ? bus.anchors.get(id) : undefined;
+				if (a) talkers.push(a);
+			}
 			const nearby = bus.getNearby();
 			const nearbyId = nearby?.kind === 'npc' ? nearby.id : null;
-			// Only the closest vignette near the visitor tells its little story, and only while
-			// nobody is talking.
+			// The prompt over the dock already says "Tap to talk to Max": his sign drops its tag.
+			const prompted = nearby?.kind === 'landmark' && nearby.id === 'max';
+			// Only the closest vignette near the visitor tells its little story, and it steps aside
+			// while its own people talk (anything else in its way is sorted out by priority).
 			let caption: string | null = null;
-			if (!anyBubble) {
-				let best = CAPTION_RANGE;
-				for (const key of nodes.current.keys()) {
-					if (!key.startsWith('caption:')) continue;
-					const a = bus.anchors.get(key.slice(8));
-					const d = a ? Math.hypot(a.x - bus.player.x, a.z - bus.player.y) : Infinity;
-					if (d <= best) [caption, best] = [key, d];
-				}
+			let best = CAPTION_RANGE;
+			for (const key of nodes.current.keys()) {
+				if (!key.startsWith('caption:')) continue;
+				const a = bus.anchors.get(key.slice(8));
+				if (!a || talkers.some((t) => Math.hypot(t.x - a.x, t.z - a.z) <= CAPTION_SCENE)) continue;
+				const d = Math.hypot(a.x - bus.player.x, a.z - bus.player.y);
+				if (d <= best) [caption, best] = [key, d];
 			}
 
 			const slots: Slot[] = [];
@@ -191,8 +215,7 @@ export function Labels({
 					!a ||
 					(v.overview && node.dataset.overview === 'hide') ||
 					(bubble && !(said && said.until > now)) ||
-					// A caption steps aside while anyone is saying something.
-					(isCaption && (key !== caption || talking(id)))
+					(isCaption && key !== caption)
 				)
 					continue;
 				const p = project(m, a, w, h);
@@ -204,18 +227,33 @@ export function Labels({
 				// Keep labels in the open: whole or not at all, never under a HUD panel, never cut
 				// off by an edge (people's names and bubbles slide in from the sides, pointing back
 				// at their owner), and place signs fade out towards the edges of the screen.
+				const kind = bubble ? (said?.kind ?? 'own') : undefined;
+				const dim = bubble && !!said?.dim;
+				if (tone === 'max' && (node.dataset.prompted === '') !== prompted) {
+					if (prompted) node.dataset.prompted = '';
+					else delete node.dataset.prompted;
+					sizes.delete(plate);
+				}
 				let size = sizes.get(plate);
-				// A bubble's text can change in place, so it is measured again when it does.
+				// Measured where it really draws (offsetTop from the anchor point), again whenever a
+				// bubble's text changes in place.
 				if (!size || size.w === 0 || (bubble && size.text !== plate.textContent)) {
-					size = { w: plate.offsetWidth, h: plate.offsetHeight, text: plate.textContent };
+					const hint = tone === 'max' && !prompted ? plate.querySelector<HTMLElement>('[data-hint]') : null;
+					size = {
+						w: plate.offsetWidth,
+						h: plate.offsetHeight,
+						top: plate.offsetTop,
+						// The tag above Max's sign pulses a little bigger.
+						above: hint ? 2 - hint.offsetTop : 0,
+						below: tone === 'max' ? MAX_POINTER : bubble && kind !== 'ambient' ? TAIL : 0,
+						text: plate.textContent,
+					};
 					sizes.set(plate, size);
 				}
-				const kind = bubble ? (said?.kind ?? 'own') : undefined;
 				// Max's sign and the line about Max never just vanish at an edge or under a panel;
 				// the line about Max also wins any crowded spot (even over Max's sign, for a moment).
-				const important = tone === 'max' || kind === 'about-max';
-				const keep = kind === 'about-max';
-				const lift = bubble ? BUBBLE_LIFT[kind!] : isCaption ? 26 : tone === 'max' ? 24 : 0;
+				const important = tone === 'max' || (kind === 'about-max' && !dim);
+				const keep = kind === 'about-max' && !dim;
 				const margin = 8;
 				const left = x - size.w / 2;
 				let dx = 0;
@@ -225,20 +263,13 @@ export function Labels({
 					// The owner is too close to the edge for the sign to still point at them.
 					if (!important && Math.abs(dx) > size.w / 2 - 10) continue;
 				}
-				// Max's touch hint sits on top of his sign, a bubble's tail below it.
-				const above = tone === 'max' && touch ? 24 : 0;
-				const r = {
-					l: left + dx,
-					r: left + dx + size.w,
-					t: y - lift - size.h - above,
-					b: y - lift + (bubble && kind !== 'ambient' ? TAIL : 0),
-				};
+				const r = labelRect(x, y, dx, size);
 				let dy = 0;
 				if (important || bubble) {
-					// Max's sign and bubbles move down below the top panels rather than vanish; a
-					// person's own line only a little, so it still sits over its speaker.
+					// Max's sign and bubbles move down below the top panels rather than vanish, but
+					// only so far: past that they would hang over something else, so they wait.
 					const down = clampBelow(r, hud, h);
-					if (down === null || (!important && down > 60)) continue;
+					if (down === null || down > (important ? CLAMP_MAX : CLAMP_OWN)) continue;
 					dy = down;
 					r.t += dy;
 					r.b += dy;
@@ -256,15 +287,25 @@ export function Labels({
 				slot.dx = dx;
 				slot.dy = dy;
 				const priority = bubble
-					? PRIORITY[kind!]
+					? PRIORITY[dim ? 'dim' : kind!]
 					: isCaption
 						? PRIORITY.caption
 						: id === nearbyId
 							? PRIORITY.nearby
 							: PRIORITY[(tone as Tone) ?? 'friendly'];
-				candidates.push({ key, priority, rect: r, keep, nudge: bubble ? (kind === 'ambient' ? 18 : 36) : 0 });
+				// The setup of a talk climbs out of the way of its punchline: the two stack.
+				candidates.push({
+					key,
+					priority,
+					rect: r,
+					keep,
+					// Max's sign only moves to make room for the line about Max (see declutter).
+					nudge: bubble ? (kind === 'ambient' ? 18 : dim ? 96 : 36) : tone === 'max' ? 18 : 0,
+					// Sideways too, as far as the tail (or Max's pointer) can still reach its owner.
+					slide: bubble ? Math.max(0, Math.min(120, size.w / 2 - 24)) : tone === 'max' ? 36 : 0,
+				});
 			}
-			placed = declutter(candidates, placed, now);
+			placed = declutter(candidates, placed, now, 6, w);
 
 			for (const { key, node, plate, opacity: wanted, x, y, dx, dy: clamp } of slots) {
 				const spot = wanted > 0 ? placed.get(key) : undefined;
@@ -295,9 +336,10 @@ export function Labels({
 						style.transform = transform;
 						node.style.transform = transform;
 					}
-					if (plate && plate.dataset.dx !== dx.toFixed(0)) {
-						plate.dataset.dx = dx.toFixed(0);
-						plate.style.setProperty('--dx', `${dx.toFixed(0)}px`);
+					const slid = (dx + (spot?.dx ?? 0)).toFixed(0);
+					if (plate && plate.dataset.dx !== slid) {
+						plate.dataset.dx = slid;
+						plate.style.setProperty('--dx', `${slid}px`);
 					}
 				}
 			}
@@ -318,7 +360,11 @@ export function Labels({
 					<>
 						<span className={styles.plateName}>{l.name}</span>
 						{l.title ? <span className={styles.plateTitle}>{l.title}</span> : null}
-						{l.hint ? <span className={styles.plateHint}>{l.hint}</span> : null}
+						{l.hint ? (
+							<span className={styles.plateHint} data-hint="">
+								{l.hint}
+							</span>
+						) : null}
 					</>
 				);
 				return (
@@ -375,7 +421,7 @@ export function Labels({
 						data-fade={BUBBLE_FADE}
 						data-overview="hide"
 					>
-						<div className={styles.bubble} data-kind={s.kind}>
+						<div className={styles.bubble} data-kind={s.kind} data-dim={s.dim ? '' : undefined}>
 							{s.text}
 						</div>
 					</div>

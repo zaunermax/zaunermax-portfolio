@@ -324,7 +324,8 @@ export function QuestApp({
 			log.push({
 				id: `disc-${world.worldId}-${nearby.id}`,
 				kind: 'discovery',
-				text: nearby.name,
+				// Max's desk has no sign of its own in the office; call it what the visitor sees.
+				text: nearby.id === 'max' ? 'Max’s desk' : nearby.name,
 			});
 	}, [nearby, log, world.worldId]);
 
@@ -354,10 +355,12 @@ export function QuestApp({
 				at: (a) => bus.npcs.get(a.id) ?? a,
 				goal: bus.goal?.kind === 'npc' ? bus.goal.id : undefined,
 				visible: (a) => speechVisible(bus, a.id),
-				speaking: bus.speaking(now),
+				speaking: bus.speakers(now),
 			});
 			if (!said) return;
-			bus.say(said.actor.id, said.text, said.ms, said.kind);
+			bus.say(said.actor.id, said.text, said.ms + (said.linger ?? 0), said.kind);
+			// The setup stays in view, quieter, while its punchline is read.
+			if (said.follows) bus.dimSpeech(said.follows, now + said.ms + (said.linger ?? 0));
 			if (said.hold) listening.current = { id: said.actor.id, until: now + said.ms + HOLD_MAX_MS };
 			// #general keeps what people said about Max, overheard; small talk and beeps stay in the room.
 			if (said.kind === 'about-max')
@@ -439,6 +442,11 @@ export function QuestApp({
 	const landmarkName = (id: LandmarkId) => compiled.landmark[id]?.name ?? '';
 
 	// What a walk under way is heading for, so a dock tap never looks like it did nothing.
+	// The first walk shows the visitor has found out how: the touch hint has done its job.
+	useEffect(() => {
+		if (goal && touch && seenTouchHint === false) setStoredFlag(TOUCH_HINT_KEY);
+	}, [goal, touch, seenTouchHint]);
+
 	const walkingTo =
 		goal?.kind === 'landmark'
 			? `Walking to ${landmarkName(goal.id) || 'it'}`
@@ -550,9 +558,11 @@ export function QuestApp({
 
 	return (
 		<LayerContext.Provider value={layer}>
-			<div className={cx(styles.root, fontVars)}>
+			{/* An open window is modal: everything behind it is out of reach, focus included. */}
+			<div className={cx(styles.root, fontVars)} inert={open !== null}>
 				<div
 					className={styles.stage}
+					data-stage=""
 					role="img"
 					aria-label={`A 3D office of ${worldName}`}
 					aria-describedby="quest-world-summary"

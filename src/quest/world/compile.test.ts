@@ -22,6 +22,7 @@ import {
 } from './schema';
 import type { CompiledWorld, Furniture } from './types';
 import { checkWorld } from './validate';
+import seedWorld from './seed-world.json';
 
 /** A random but valid brief, like a model might write. */
 function randomBrief(seed: number): Brief {
@@ -106,6 +107,19 @@ describe('compileWorld', () => {
 					for (const c of clear)
 						expect(Math.floor(a.x) === c.x && Math.floor(a.y) === c.y, `${label} seed ${seed}: ${a.id}`).toBe(false);
 			}
+	});
+
+	it('lets the visitor overhear a talk about Max right where they arrive', () => {
+		const near = (world: CompiledWorld) =>
+			world.talks.some((t) => {
+				const a = world.npcs.find((n) => n.id === t.a)!;
+				const b = world.npcs.find((n) => n.id === t.b)!;
+				return Math.hypot((a.x + b.x) / 2 - world.spawn.x - 0.5, (a.y + b.y) / 2 - world.spawn.y - 0.5) <= 4.2;
+			});
+		expect(near(compileWorld(defaultBrief, DEFAULT_SEED))).toBe(true);
+		expect(near(compileWorld(seedWorld.brief as Brief, seedWorld.seed))).toBe(true);
+		const random = SEEDS.slice(0, 20).filter((seed) => near(compileWorld(randomBrief(seed), seed)));
+		expect(random.length).toBeGreaterThanOrEqual(12);
 	});
 
 	it('every room is reachable', () => {
