@@ -72,13 +72,29 @@ export function AppWindow({
 		document.addEventListener('focusin', onFocus);
 		return () => document.removeEventListener('focusin', onFocus);
 	}, []);
-	// Closing hands focus back to whatever opened the window (a kept-mounted window must not keep
-	// it either: its input would swallow the dock hotkeys and Escape), or to the page.
+	// Closing hands focus back to whatever opened the window, however it was opened (a
+	// kept-mounted window must not keep it either: its input would swallow the dock hotkeys and
+	// Escape). The opener is noted as the window opens, and focus goes back on the next frame,
+	// once the page behind is no longer inert.
+	const returnTo = useRef<HTMLElement | null>(null);
 	useEffect(() => {
-		const el = popup.current;
-		if (open || !el || !el.contains(document.activeElement)) return;
-		if (opener.current?.isConnected) opener.current.focus({ preventScroll: true });
-		else (document.activeElement as HTMLElement).blur();
+		if (open) {
+			returnTo.current = opener.current;
+			return;
+		}
+		const to = returnTo.current;
+		returnTo.current = null;
+		if (!to) {
+			const el = popup.current;
+			if (el?.contains(document.activeElement)) (document.activeElement as HTMLElement).blur();
+			return;
+		}
+		const frame = requestAnimationFrame(() => {
+			const at = document.activeElement;
+			const lost = !at || at === document.body || !!popup.current?.contains(at);
+			if (lost && to.isConnected) to.focus({ preventScroll: true });
+		});
+		return () => cancelAnimationFrame(frame);
 	}, [open]);
 	// Tab and Shift+Tab go round the window's own controls, however fast they are pressed.
 	const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {

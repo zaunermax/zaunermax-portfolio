@@ -7,11 +7,13 @@ import { MAX_ANCHOR, PLAYER_ANCHOR, type GameBus, type SpeechKind } from '../sce
 import { isPerson } from '../scene/chatter';
 import { visitorAnchor } from '../room/presence';
 import {
+	bubbleBox,
 	clampBelow,
 	declutter,
 	labelRect,
 	overlaps,
 	project,
+	roomFor,
 	type Candidate,
 	type LabelBox,
 	type Placement,
@@ -52,6 +54,13 @@ const MAX_POINTER = 14;
 const CLAMP_MAX = 72;
 /** A person's own line moves less: it has to stay over its speaker. */
 const CLAMP_OWN = 48;
+/** How far a bubble may move up and sideways to find room (its tail keeps pointing home). */
+const BUBBLE_NUDGE = 36;
+const SLIDE_MAX = 120;
+/** A line with no spot to show in yet waits this long at most before its reading time runs. */
+const READ_WAIT_MAX = 4000;
+/** The setup of a talk stays this close to its reply's middle, so the two read as one. */
+const STACK_SLIDE = 60;
 
 /** Who wins a crowded spot: Max's sign and the line about Max, then the rest in order. */
 const PRIORITY = {
@@ -74,7 +83,7 @@ const PRIORITY = {
  * enough, on screen and clear of the HUD panels. The chatter asks before it says a line, so
  * nothing is said where nobody can read it.
  */
-export function speechVisible(bus: GameBus, id: string) {
+export function speechVisible(bus: GameBus, id: string, text = '') {
 	const a = bus.anchors.get(id);
 	const v = bus.view;
 	const { w, h, hud } = bus.screen;
@@ -82,11 +91,15 @@ export function speechVisible(bus: GameBus, id: string) {
 	if (Math.hypot(a.x - v.x, a.y - v.y, a.z - v.z) > BUBBLE_FADE) return false;
 	const p = project(v.matrix, a, w, h);
 	if (!p || p.x < 24 || p.x > w - 24 || p.y > h - 8) return false;
-	// Where a two-line bubble would go (it slides in from the edges, so only the middle counts):
-	// readable if it clears the panels at the top as the loop below would move it.
-	const r = labelRect(p.x, p.y, 0, { w: 120, h: 60, top: -98, below: TAIL });
+	// About the size this line's bubble will be, where the loop below could put it.
+	const box = bubbleBox(text, w <= 640 ? 240 : 270);
+	const r = labelRect(p.x, p.y, 0, box);
+	const edge = Math.max(0, 8 - r.l) - Math.max(0, r.r - (w - 8));
+	r.l += edge;
+	r.r += edge;
 	const down = clampBelow(r, hud, h);
-	return down !== null && down <= CLAMP_MAX;
+	if (down !== null && down <= CLAMP_MAX) return true;
+	return roomFor(r, hud, w, Math.min(SLIDE_MAX, box.w / 2 - 24), BUBBLE_NUDGE);
 }
 
 /**
@@ -150,7 +163,10 @@ export function Labels({
 		let hud: Rect[] = [];
 		let hudAt = -1e9;
 		let placed = new Map<string, Placement>();
-		const sizes = new WeakMap<HTMLElement, LabelBox & { text: string | null }>();
+		const sizes = new WeakMap<HTMLElement, LabelBox & { text: string | null; dim: boolean }>();
+		/** Bubbles that have not found a spot yet, and how long their reading time has waited. */
+		const waiting = new WeakMap<HTMLElement, number>();
+		let last = performance.now();
 		/** What each anchor's style says now, so unchanged values are never written again. */
 		const written = new WeakMap<HTMLElement, { opacity: string; transform: string; fadeUntil: number }>();
 		type Slot = { key: string; node: HTMLElement; plate: HTMLElement | null; opacity: number; x: number; y: number; dx: number; dy: number };
@@ -181,6 +197,9 @@ export function Labels({
 				const a = s.until > now ? bus.anchors.get(id) : undefined;
 				if (a) talkers.push(a);
 			}
+			// The reply a talk's dimmed setup stacks on: the line about Max being said now.
+			let reply: string | null = null;
+			for (const [id, s] of speaking) if (s.until > now && s.kind === 'about-max' && !s.dim) reply = `bubble:${id}`;
 			const nearby = bus.getNearby();
 			const nearbyId = nearby?.kind === 'npc' ? nearby.id : null;
 			// The prompt over the dock already says "Tap to talk to Max": his sign drops its tag.
@@ -237,7 +256,7 @@ export function Labels({
 				let size = sizes.get(plate);
 				// Measured where it really draws (offsetTop from the anchor point), again whenever a
 				// bubble's text changes in place.
-				if (!size || size.w === 0 || (bubble && size.text !== plate.textContent)) {
+				if (!size || size.w === 0 || (bubble && (size.text !== plate.textContent || size.dim !== dim))) {
 					const hint = tone === 'max' && !prompted ? plate.querySelector<HTMLElement>('[data-hint]') : null;
 					size = {
 						w: plate.offsetWidth,
@@ -245,8 +264,9 @@ export function Labels({
 						top: plate.offsetTop,
 						// The tag above Max's sign pulses a little bigger.
 						above: hint ? 2 - hint.offsetTop : 0,
-						below: tone === 'max' ? MAX_POINTER : bubble && kind !== 'ambient' ? TAIL : 0,
+						below: tone === 'max' ? MAX_POINTER : bubble && kind !== 'ambient' && !dim ? TAIL : 0,
 						text: plate.textContent,
+						dim,
 					};
 					sizes.set(plate, size);
 				}
@@ -261,16 +281,19 @@ export function Labels({
 					if (left < margin) dx = margin - left;
 					else if (left + size.w > w - margin) dx = w - margin - (left + size.w);
 					// The owner is too close to the edge for the sign to still point at them.
-					if (!important && Math.abs(dx) > size.w / 2 - 10) continue;
+					if (!important && !dim && Math.abs(dx) > size.w / 2 - 10) continue;
 				}
 				const r = labelRect(x, y, dx, size);
 				let dy = 0;
-				if (important || bubble) {
+				if (dim) {
+					// The setup of a talk goes on top of its reply (declutter), wherever that is.
+				} else if (important || bubble) {
 					// Max's sign and bubbles move down below the top panels rather than vanish, but
-					// only so far: past that they would hang over something else, so they wait.
+					// only so far: past that they would hang over something else. A bubble then
+					// still tries moving up or sideways (declutter), clear of the panels.
 					const down = clampBelow(r, hud, h);
-					if (down === null || down > (important ? CLAMP_MAX : CLAMP_OWN)) continue;
-					dy = down;
+					if (down !== null && down <= (important ? CLAMP_MAX : CLAMP_OWN)) dy = down;
+					else if (!bubble) continue;
 					r.t += dy;
 					r.b += dy;
 				} else if (r.t < 6 || hud.some((panel) => overlaps(r, panel))) continue;
@@ -300,12 +323,28 @@ export function Labels({
 					rect: r,
 					keep,
 					// Max's sign only moves to make room for the line about Max (see declutter).
-					nudge: bubble ? (kind === 'ambient' ? 18 : dim ? 96 : 36) : tone === 'max' ? 18 : 0,
+					nudge: bubble ? (kind === 'ambient' ? 18 : dim ? 24 : BUBBLE_NUDGE) : tone === 'max' ? 18 : 0,
 					// Sideways too, as far as the tail (or Max's pointer) can still reach its owner.
-					slide: bubble ? Math.max(0, Math.min(120, size.w / 2 - 24)) : tone === 'max' ? 36 : 0,
+					slide: dim ? STACK_SLIDE : bubble ? Math.max(0, Math.min(SLIDE_MAX, size.w / 2 - 24)) : tone === 'max' ? 36 : 0,
+					above: dim ? (reply ?? undefined) : undefined,
 				});
 			}
-			placed = declutter(candidates, placed, now, 6, w);
+			placed = declutter(candidates, placed, now, 6, w, hud);
+			// A line that found no spot yet has not been read: its time waits (a few seconds at most).
+			const dt = now - last;
+			last = now;
+			for (const { key, node, opacity: wanted } of slots) {
+				if (!key.startsWith('bubble:')) continue;
+				const id = key.slice(7);
+				const s = speaking.get(id);
+				if (!s || s.until <= now || s.dim) continue;
+				const waited = waiting.get(node) ?? 0;
+				if (wanted > 0 && placed.get(key)?.shown) waiting.set(node, Infinity);
+				else if (waited < READ_WAIT_MAX) {
+					waiting.set(node, waited + dt);
+					bus.holdSpeech(id, s.until + dt);
+				}
+			}
 
 			for (const { key, node, plate, opacity: wanted, x, y, dx, dy: clamp } of slots) {
 				const spot = wanted > 0 ? placed.get(key) : undefined;

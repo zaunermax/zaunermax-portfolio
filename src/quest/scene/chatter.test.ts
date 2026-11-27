@@ -5,6 +5,7 @@ import {
 	AMBIENT_GRACE_MS,
 	AMBIENT_REST_MS,
 	createChatter,
+	OWN_REPEAT_MS,
 	PAUSE_MS,
 	PERSON_REST_MS,
 	readMs,
@@ -161,16 +162,46 @@ describe('createChatter', () => {
 	it('keeps chattering once the fresh lines are used up, nobody twice within their rest', () => {
 		const chatter = createChatter({ npcs, talks: [] }, always);
 		expect(chatter.tick(0, scene(20, 3))?.text).toBe('Max loves trains.');
-		const later = run(chatter, 250, PERSON_REST_MS * 3, scene(20, 3));
-		// c alternates between their own line and their remark, resting in between.
-		expect(later.map((l) => l.text).slice(0, 2)).toEqual(['I am c.', 'Max loves trains.']);
-		expect(later.map((l) => l.kind).slice(0, 2)).toEqual(['own', 'about-max']);
-		// Their own line is not held open; what they know about Max is.
-		expect(later.map((l) => l.hold).slice(0, 2)).toEqual([false, true]);
+		const later = run(chatter, 250, TALK_REPLAY_MS * 3, scene(20, 3));
+		// c's own line comes round, resting in between; their remark only long after, and once.
+		expect(later[0]).toMatchObject({ text: 'I am c.', kind: 'own', hold: false });
 		expect(later[0].t).toBeGreaterThanOrEqual(PERSON_REST_MS);
 		for (let i = 1; i < later.length; i++) expect(later[i].t - later[i - 1].t).toBeGreaterThanOrEqual(PERSON_REST_MS);
+		// The very same own line only every couple of minutes.
+		const own = later.filter((l) => l.text === 'I am c.');
+		for (let i = 1; i < own.length; i++) expect(own[i].t - own[i - 1].t).toBeGreaterThanOrEqual(OWN_REPEAT_MS);
+		const again = later.filter((l) => l.text === 'Max loves trains.');
+		expect(again).toHaveLength(1);
+		expect(again[0]).toMatchObject({ kind: 'about-max', hold: true });
+		expect(again[0].t).toBeGreaterThanOrEqual(TALK_REPLAY_MS);
 		// Nobody in reach: nothing.
-		expect(chatter.tick(PERSON_REST_MS * 10, scene(40, 40))).toBeNull();
+		expect(chatter.tick(TALK_REPLAY_MS * 10, scene(40, 40))).toBeNull();
+	});
+
+	it('replays a talk once a visit at most', () => {
+		const chatter = createChatter({ npcs, talks }, never);
+		const firsts = run(chatter, 0, TALK_REPLAY_MS * 6, scene(2, 4)).filter((l) => l.text === 'One.');
+		expect(firsts).toHaveLength(2);
+	});
+
+	it('says nothing old while a talk nobody has heard yet waits nearby', () => {
+		// The talk's people are out of view; c could repeat their remark, but the fresh talk waits.
+		const near = [person('a', 2, 2), person('b', 3, 2), person('c', 2.5, 4, 'Max loves trains.')];
+		const chatter = createChatter({ npcs: near, talks }, always);
+		const hidden = scene(2.5, 4.5, { visible: (a) => a.id === 'c' });
+		const said = run(chatter, 0, TALK_REPLAY_MS * 2, hidden);
+		expect(said.map((l) => l.text)).toEqual(['Max loves trains.']);
+		// In view at last: the talk.
+		expect(run(chatter, TALK_REPLAY_MS * 2, TALK_REPLAY_MS * 2 + 10_000, scene(2.5, 4.5))[0].text).toBe('One.');
+	});
+
+	it('asks the scene about the exact line it is about to say', () => {
+		const asked: string[] = [];
+		const chatter = createChatter({ npcs, talks }, never);
+		run(chatter, 0, 30_000, scene(2, 4, { visible: (_, text) => (asked.push(text), true) }));
+		expect(asked).toContain('One.');
+		expect(asked).toContain('Two.');
+		expect(asked).toContain('Max owns an ErgoDox.');
 	});
 
 	it('lets robots and pets chime in rarely, briefly, about once a visit, and never over people', () => {

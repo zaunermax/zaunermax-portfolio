@@ -27,8 +27,15 @@ const TALK_LEAVE = 6;
 export const PAUSE_MS = 4000;
 /** In a talk, the reply starts this long after the line before has closed. */
 export const TALK_GAP_MS = 700;
-/** A talk can play again this long after it last ended. */
-export const TALK_REPLAY_MS = 90_000;
+/**
+ * A talk can play again this long after it last ended, once per visit; a remark about Max comes
+ * round again as rarely. Fresh lines nearby always go first.
+ */
+export const TALK_REPLAY_MS = 240_000;
+/** How often a talk or a remark plays on its own in a visit (asking someone always works). */
+const PLAYS_MAX = 2;
+/** Someone says the very same line of their own again only this long after. */
+export const OWN_REPEAT_MS = 120_000;
 /** Someone who just said something waits this long before chattering at the visitor again. */
 export const PERSON_REST_MS = 30_000;
 /** Once the fresh lines are used up, the chance per poll (about 4 a second) that someone speaks. */
@@ -75,8 +82,11 @@ export type ChatterScene = {
 	at: (actor: Actor) => Pos;
 	/** Whoever the visitor is walking up to: they greet the visitor on arrival instead. */
 	goal?: string;
-	/** Whether a bubble over this actor could be read now (on screen, not under the HUD, close enough). */
-	visible?: (actor: Actor) => boolean;
+	/**
+	 * Whether a bubble over this actor, saying this, could be read now (on screen, room for it
+	 * clear of the HUD, close enough).
+	 */
+	visible?: (actor: Actor, text: string) => boolean;
 	/** Whose bubbles are up right now (held ones included). */
 	speaking?: readonly string[];
 };
@@ -112,6 +122,9 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>, rand
 	const heard = new Set<string>();
 	/** When each talk last ended. */
 	const told = new Map<number, number>();
+	/** How often each talk has started, and how often (and when) each remark was said unasked. */
+	const plays = new Map<number, number>();
+	const remarks = new Map<string, { count: number; at: number }>();
 	/** When each person last said something, and what. */
 	const spoke = new Map<string, { at: number; text: string }>();
 	/** Who got their own line last time the visitor talked to them (F), so the next is the remark. */
@@ -168,7 +181,7 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>, rand
 				for (const a of world.npcs) {
 					if (!a.remark || heard.has(a.id) || a.id === goal || !isPerson(a)) continue;
 					const d = dist(a);
-					if (d <= bestDist && visible(a)) {
+					if (d <= bestDist && visible(a, a.remark)) {
 						best = a;
 						bestDist = d;
 					}
@@ -178,14 +191,19 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>, rand
 			if (!talk && now >= freeAt) {
 				const ready = (i: number) => {
 					const t = talks[i];
-					return t.a !== goal && t.b !== goal && near(i) <= TALK_RANGE && visible(byId.get(t.a)!);
+					return t.a !== goal && t.b !== goal && near(i) <= TALK_RANGE && visible(byId.get(t.a)!, t.lines[0]);
 				};
 				// A talk nobody has heard yet first, else (after any unheard remark) one that ended
 				// long enough ago.
 				let index = talks.findIndex((_, i) => !told.has(i) && ready(i));
 				if (index < 0 && !unheard())
-					index = talks.findIndex((_, i) => now - (told.get(i) ?? now) >= TALK_REPLAY_MS && ready(i));
-				if (index >= 0) talk = { index, step: 0, next: now };
+					index = talks.findIndex(
+						(_, i) => now - (told.get(i) ?? now) >= TALK_REPLAY_MS && (plays.get(i) ?? 0) < PLAYS_MAX && ready(i),
+					);
+				if (index >= 0) {
+					talk = { index, step: 0, next: now };
+					plays.set(index, (plays.get(index) ?? 0) + 1);
+				}
 			}
 			if (talk) {
 				const t = talks[talk.index];
@@ -197,7 +215,7 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>, rand
 				}
 				const speaker = byId.get(talk.step % 2 === 0 ? t.a : t.b)!;
 				// Nobody could read it now (off screen, under a panel): the talk waits, unspent.
-				if (!visible(speaker)) return null;
+				if (!visible(speaker, t.lines[talk.step])) return null;
 				const last = talk.step === t.lines.length - 1;
 				const said = line(speaker, t.lines[talk.step], 'about-max', now, last);
 				if (talk.step > 0) said.follows = talk.step % 2 === 0 ? t.b : t.a;
@@ -212,11 +230,20 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>, rand
 			const best = unheard();
 			if (best?.remark) {
 				heard.add(best.id);
+				remarks.set(best.id, { count: 1, at: now });
 				return line(best, best.remark, 'about-max', now, true);
 			}
+			// A talk nobody has heard yet is close by (it waits for its people to come into view):
+			// nothing old gets said over it.
+			if (talks.some((_, i) => !told.has(i) && near(i) <= TALK_RANGE)) return null;
 			// Nothing fresh nearby: now and then someone in reach chatters anyway, people first.
 			const roll = random();
 			if (roll >= IDLE_CHANCE) return null;
+			/** A remark comes round again rarely, and only so often in a visit. */
+			const again = (a: Actor) => {
+				const r = remarks.get(a.id);
+				return !r || (r.count < PLAYS_MAX && now - r.at >= TALK_REPLAY_MS);
+			};
 			const idle = world.npcs.filter(
 				(a) =>
 					isPerson(a) &&
@@ -224,16 +251,18 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>, rand
 					a.id !== goal &&
 					rested(a.id, now, PERSON_REST_MS) &&
 					dist(a) <= REMARK_RANGE &&
-					visible(a),
+					visible(a, [a.line, a.remark ?? ''].reduce((x, y) => (y.length > x.length ? y : x))),
 			);
 			if (idle.length) {
 				const who = idle[Math.floor(random() * idle.length)];
-				const said = [who.line, who.remark ?? ''].filter(Boolean);
+				const fresh = spoke.get(who.id)?.text !== who.line || rested(who.id, now, OWN_REPEAT_MS);
+				const said = [fresh ? who.line : '', who.remark && again(who) ? who.remark : ''].filter(Boolean);
 				// Whatever they did not say last time, if they have a choice.
 				const options = said.length > 1 ? said.filter((t) => t !== spoke.get(who.id)?.text) : said;
 				if (!options.length) return null;
 				const text = options[Math.floor(random() * options.length)];
 				const kind = kindOf(who, text);
+				if (kind === 'about-max') remarks.set(who.id, { count: (remarks.get(who.id)?.count ?? 0) + 1, at: now });
 				return line(who, text, kind, now, kind === 'about-max');
 			}
 			// Robots and pets: rarely, briefly, each about once a visit, and only once the visitor has
@@ -248,7 +277,7 @@ export function createChatter(world: Pick<CompiledWorld, 'npcs' | 'talks'>, rand
 					a.id !== goal &&
 					rested(a.id, now, AMBIENT_REST_MS) &&
 					dist(a) <= REMARK_RANGE &&
-					visible(a),
+					visible(a, a.line),
 			);
 			if (!critters.length) return null;
 			const who = critters[Math.floor(random() * critters.length)];

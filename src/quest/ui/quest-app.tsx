@@ -354,7 +354,7 @@ export function QuestApp({
 				player: bus.player,
 				at: (a) => bus.npcs.get(a.id) ?? a,
 				goal: bus.goal?.kind === 'npc' ? bus.goal.id : undefined,
-				visible: (a) => speechVisible(bus, a.id),
+				visible: (a, text) => speechVisible(bus, a.id, text),
 				speaking: bus.speakers(now),
 			});
 			if (!said) return;
@@ -442,10 +442,15 @@ export function QuestApp({
 	const landmarkName = (id: LandmarkId) => compiled.landmark[id]?.name ?? '';
 
 	// What a walk under way is heading for, so a dock tap never looks like it did nothing.
-	// The first walk shows the visitor has found out how: the touch hint has done its job.
+	// The first walk of any kind (a tap on the floor, a held finger, a dock trip) shows the visitor
+	// has found out how: the touch hint has done its job.
 	useEffect(() => {
-		if (goal && touch && seenTouchHint === false) setStoredFlag(TOUCH_HINT_KEY);
-	}, [goal, touch, seenTouchHint]);
+		if (!touch || seenTouchHint !== false || !sceneReady) return;
+		const id = window.setInterval(() => {
+			if (bus.player.moving) setStoredFlag(TOUCH_HINT_KEY);
+		}, 200);
+		return () => window.clearInterval(id);
+	}, [touch, seenTouchHint, sceneReady, bus]);
 
 	const walkingTo =
 		goal?.kind === 'landmark'
