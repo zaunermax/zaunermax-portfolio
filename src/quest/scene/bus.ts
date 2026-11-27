@@ -19,8 +19,17 @@ export type WalkTarget = (
 
 type Listener = () => void;
 
+/**
+ * How much a line matters, which sets how its bubble looks: something about Max, a person's own
+ * line, or ambient flavour from a robot or pet.
+ */
+export type SpeechKind = 'about-max' | 'own' | 'ambient';
+
 /** A line someone is saying. `run` stays the same while they keep talking, one bubble per run. */
-export type Speech = { text: string; until: number; run: number };
+export type Speech = { text: string; until: number; run: number; kind: SpeechKind };
+
+/** A rectangle in label-layer pixels. */
+export type ScreenRect = { l: number; t: number; r: number; b: number };
 
 /** Anchor id of Max himself; his desk needs no plate of its own. */
 export const MAX_ANCHOR = 'max-npc';
@@ -46,6 +55,11 @@ export class GameBus {
 	 * the occlusion by it).
 	 */
 	view = { matrix: new Float32Array(16), x: 0, y: 0, z: 0, dist: Number.NaN, frame: 0, overview: false };
+	/**
+	 * The label layer's size and the HUD panels over it, written by the labels a few times a
+	 * second, so the chatter can tell whether a bubble would be readable before it says a line.
+	 */
+	screen = { w: 0, h: 0, hud: [] as ScreenRect[] };
 
 	private nearby: Interactable | null = null;
 	private nearbyListeners = new Set<Listener>();
@@ -128,13 +142,13 @@ export class GameBus {
 	};
 
 	// --- speech bubbles: a snapshot replaced on every new line
-	say(id: string, text: string, ms = 6000) {
+	say(id: string, text: string, ms = 6000, kind: SpeechKind = 'own') {
 		const now = performance.now();
 		const prev = this.speech.get(id);
 		const next = new Map(this.speech);
 		// Someone still talking keeps their bubble: the next line replaces the text in place.
 		const run = prev && prev.until > now ? prev.run : ++this.speechRuns;
-		next.set(id, { text, until: now + ms, run });
+		next.set(id, { text, until: now + ms, run, kind });
 		this.speech = next;
 		for (const l of this.speechListeners) l();
 	}
@@ -144,6 +158,11 @@ export class GameBus {
 		if (s && s.until > performance.now()) s.until = Math.max(s.until, until);
 	}
 	getSpeech = () => this.speech;
+	/** Whether any bubble is up right now, held ones included. */
+	speaking(now = performance.now()) {
+		for (const s of this.speech.values()) if (s.until > now) return true;
+		return false;
+	}
 	subscribeSpeech = (l: Listener) => {
 		this.speechListeners.add(l);
 		return () => this.speechListeners.delete(l);

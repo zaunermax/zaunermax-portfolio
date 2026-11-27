@@ -68,17 +68,29 @@ export function ChatLogView({
 	log,
 	compact,
 	hidden = false,
+	open: shown,
+	onOpen,
 }: {
 	log: ChatLog;
 	compact: boolean;
 	/** Out of the way while the Talk window shows the same conversation. */
 	hidden?: boolean;
+	/** Phones: open or not, when the app decides (one panel at a time). */
+	open?: boolean;
+	onOpen?: (open: boolean) => void;
 }) {
 	const entries = useSyncExternalStore(log.subscribe, log.get, log.get);
 	const body = useRef<HTMLDivElement>(null);
 	const stick = useRef(true);
-	const [open, setOpen] = useState(false);
+	const [ownOpen, setOwnOpen] = useState(false);
+	const open = shown ?? ownOpen;
+	const setOpen = (next: boolean) => {
+		setOwnOpen(next);
+		onOpen?.(next);
+	};
 	const [expanded, setExpanded] = useState(false);
+	/** More lines than the strip shows: only then do the oldest fade out at the top. */
+	const [overflow, setOverflow] = useState(false);
 	/** The newest entry when the chat was last opened or closed; older ones may be dropped. */
 	const [seen, setSeen] = useState<string | null>(null);
 	const unread =
@@ -88,7 +100,9 @@ export function ChatLogView({
 
 	useEffect(() => {
 		const el = body.current;
-		if (el && (stick.current || !expanded)) el.scrollTop = el.scrollHeight;
+		if (!el) return;
+		if (stick.current || !expanded) el.scrollTop = el.scrollHeight;
+		setOverflow(el.scrollHeight > el.clientHeight + 2);
 	}, [entries, open, expanded]);
 
 	return (
@@ -97,6 +111,7 @@ export function ChatLogView({
 			hidden={hidden}
 			data-open={compact ? String(open) : 'true'}
 			data-expanded={expanded}
+			data-overflow={overflow}
 			data-hud=""
 			aria-label="Chat log"
 		>

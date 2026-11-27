@@ -16,6 +16,7 @@ import type { Appearance } from '../world/appearance';
 import { isTypingTarget } from '../ui/hooks';
 import { ActorModel, Anchor, BlobShadow, LABEL_HEIGHT, turn, type Motion } from './actors';
 import { PLAYER_ANCHOR, type GameBus, type Interactable, type WalkTarget } from './bus';
+import { isPerson } from './chatter';
 import { materials } from './materials';
 import { markShadows, moved } from './shadows';
 import { now } from './spawn';
@@ -606,7 +607,9 @@ export function Controller({
 		bus.setGoal(p.goal);
 
 		// --- what is in reach. The clock restarts at 0 when a paused canvas resumes (phones pause it
-		// behind open windows), so a timestamp from the future means look again now.
+		// behind open windows), so a timestamp from the future means look again now. Max and the
+		// places come first, then people, then robots and pets: a passing robot never takes the
+		// prompt from Max. Within a tier the closest wins.
 		const t = state.clock.elapsedTime;
 		if (t - p.nearbyAt > 0.1 || t < p.nearbyAt) {
 			p.nearbyAt = t;
@@ -615,8 +618,9 @@ export function Controller({
 			for (const l of w.landmarks) {
 				const d1 = Math.hypot(p.x - (l.interact.x + 0.5), p.y - (l.interact.y + 0.5));
 				const d2 = Math.hypot(p.x - l.x, p.y - l.y);
-				const d = Math.min(d1 + 0.4, d2);
-				if ((d1 < 1.3 || d2 < 1.8) && d < bestD) {
+				// Max first among the places; a diagonal step from his spot still counts.
+				const d = Math.min(d1 + 0.4, d2) - (l.landmark === 'max' ? 0.5 : 0);
+				if ((d1 < 1.5 || d2 < 1.8) && d < bestD) {
 					best = { kind: 'landmark', id: l.landmark, name: l.name };
 					bestD = d;
 				}
@@ -626,9 +630,11 @@ export function Controller({
 				const pos = bus.npcs.get(n.id);
 				if (!pos) continue;
 				const d = Math.hypot(p.x - pos.x, p.y - pos.y);
-				if (d < 1.6 && d < bestD) {
+				// Ranked behind every place in reach, robots and pets behind every person.
+				const score = d + (isPerson(n) ? 10 : 20);
+				if (d < 1.6 && score < bestD) {
 					best = { kind: 'npc', id: n.id, name: n.name, npc: n.character, line: n.line };
-					bestD = d;
+					bestD = score;
 				}
 			}
 			bus.setNearby(overviewWanted ? null : best);

@@ -97,6 +97,17 @@ describe('compileWorld', () => {
 		}
 	});
 
+	it('keeps the spawn and Max’s visitor spot clear of people', () => {
+		for (const [label, make] of BRIEFS)
+			for (const seed of [DEFAULT_SEED, ...SEEDS.slice(0, 20)]) {
+				const world = compileWorld(make(seed), seed);
+				const clear = [world.spawn, world.landmark.max!.interact];
+				for (const a of world.npcs)
+					for (const c of clear)
+						expect(Math.floor(a.x) === c.x && Math.floor(a.y) === c.y, `${label} seed ${seed}: ${a.id}`).toBe(false);
+			}
+	});
+
 	it('every room is reachable', () => {
 		for (const seed of SEEDS) {
 			const world = compileWorld(defaultBrief, seed);

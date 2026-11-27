@@ -1,7 +1,11 @@
 /*
  * Nameplates and speech bubbles drawn over the 3D office. Places get a little paper sign, Max a
  * coral one with a pointer, coworkers a light pixel name with a hard ink outline (it reads on
- * every floor colour without hiding the room).
+ * every floor colour without hiding the room), robots and pets a smaller, dimmer one.
+ *
+ * Bubbles come in three weights: what people know about Max is a paper bubble with a coral
+ * band (Max's colour), people's own lines a quieter paper bubble, and robots and pets a small
+ * soft pill. A vignette's caption is a dim tag, clearly not speech.
  */
 
 .layer {
@@ -19,6 +23,8 @@
 	font-synthesis-weight: none;
 	--read: var(--q-read), 'Atkinson Hyperlegible Next', system-ui, sans-serif;
 	--ring2: 0 -2px 0 0 var(--ink), 0 2px 0 0 var(--ink), -2px 0 0 0 var(--ink), 2px 0 0 0 var(--ink);
+	--ink-soft: rgb(43 36 51 / 0.55);
+	--ring2-soft: 0 -2px 0 0 var(--ink-soft), 0 2px 0 0 var(--ink-soft), -2px 0 0 0 var(--ink-soft), 2px 0 0 0 var(--ink-soft);
 	--outline1: 1px 0 0 var(--ink), -1px 0 0 var(--ink), 0 1px 0 var(--ink), 0 -1px 0 var(--ink),
 		1px 1px 0 var(--ink), -1px -1px 0 var(--ink), 1px -1px 0 var(--ink), -1px 1px 0 var(--ink);
 	--px-tail-down: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 4' shape-rendering='crispEdges'><path fill='%232b2433' d='M0 0h1v1H0zM6 0h1v1H6zM1 1h1v1H1zM5 1h1v1H5zM2 2h1v1H2zM4 2h1v1H4zM3 3h1v1H3z'/><path fill='%23fffaf2' d='M1 0h5v1H1zM2 1h3v1H2zM3 2h1v1H3z'/></svg>");
@@ -76,6 +82,20 @@
 	line-height: 1.1;
 }
 
+/* Max's sign and the place signs can be tapped: they walk the visitor over (labels.tsx). */
+.plate[data-action] {
+	margin: 0;
+	border: 0;
+	padding: 0;
+	cursor: pointer;
+	appearance: none;
+	-webkit-tap-highlight-color: transparent;
+}
+
+.anchor[data-shown] > .plate[data-action] {
+	pointer-events: auto;
+}
+
 /* Coworkers: just a name, light and outlined. */
 .plate[data-tone='friendly'] {
 	font-size: 15px;
@@ -83,6 +103,14 @@
 	text-shadow:
 		var(--outline1),
 		0 2px 0 var(--ink);
+}
+
+/* Robots and pets: a smaller, dimmer name, so people stand out. */
+.plate[data-tone='critter'] {
+	font-size: 13px;
+	color: #c4ccb8;
+	text-shadow: var(--outline1);
+	opacity: 0.85;
 }
 
 /* Other visitors in the live room: a name like a coworker's, in the click-ring yellow. */
@@ -209,8 +237,20 @@
 		font-size: 13px;
 	}
 
+	.plate[data-tone='critter'] {
+		font-size: 12px;
+	}
+
 	.bubble {
-		max-width: min(250px, 70vw);
+		max-width: min(240px, 64vw);
+	}
+
+	.bubble[data-kind='about-max'] {
+		font-size: 14.5px;
+	}
+
+	.bubble[data-kind='own'] {
+		font-size: 13.5px;
 	}
 }
 
@@ -225,45 +265,73 @@
 		var(--ring2),
 		0 4px 0 0 rgb(43 36 51 / 0.25);
 	font-family: var(--read);
-	font-size: 15.5px;
+	font-size: 15px;
 	line-height: 1.35;
 	white-space: normal;
 	text-align: center;
 }
 
-/* A vignette's caption: a small sticky note over the scene, quieter than a speech bubble. */
+/* About Max: the clearest bubble on screen, with a coral band in Max's colour. */
+.bubble[data-kind='about-max'] {
+	max-width: 270px;
+	padding-top: 11px;
+	font-size: 15.5px;
+	box-shadow:
+		var(--ring2),
+		inset 0 5px 0 0 #e8836b,
+		0 4px 0 0 rgb(43 36 51 / 0.25);
+}
+
+/* A person's own line: the same paper, a little smaller and lighter. */
+.bubble[data-kind='own'] {
+	max-width: 230px;
+	padding: 5px 10px 6px;
+	font-size: 14px;
+	color: rgb(43 36 51 / 0.88);
+	box-shadow: var(--ring2-soft);
+}
+
+/* Robots and pets: a small soft pill, no box, no tail. Flavour, not news. */
+.anchor > .bubble[data-kind='ambient'] {
+	bottom: 30px;
+}
+
+.bubble[data-kind='ambient'] {
+	max-width: 220px;
+	padding: 2px 8px 3px;
+	font-size: 12.5px;
+	font-style: italic;
+	line-height: 1.3;
+	color: rgb(43 36 51 / 0.8);
+	background: rgb(255 250 242 / 0.78);
+	border-radius: 999px;
+	box-shadow: 0 0 0 1px rgb(43 36 51 / 0.28);
+}
+
+.bubble[data-kind='ambient']::after {
+	display: none;
+}
+
+/* A vignette's caption: a dim tag over the scene, the quietest thing on screen. */
 .anchor > .caption {
 	position: absolute;
 	left: 0;
-	bottom: 30px;
+	bottom: 26px;
 	transform: translateX(calc(-50% + var(--dx, 0px)));
 }
 
 .caption {
 	width: max-content;
-	max-width: 220px;
-	padding: 3px 9px 5px;
-	font-family: var(--pixel);
-	font-size-adjust: var(--pixel-adjust);
-	font-size: 15px;
-	line-height: 1.1;
+	max-width: 200px;
+	padding: 1px 7px 2px;
+	font-family: var(--read);
+	font-size: 12px;
+	font-style: italic;
+	line-height: 1.3;
 	text-align: center;
-	color: var(--ink);
-	background: #fff0c7;
-	box-shadow:
-		var(--ring2),
-		0 3px 0 0 rgb(43 36 51 / 0.3);
-}
-
-.caption::after {
-	content: '';
-	position: absolute;
-	left: clamp(12px, calc(50% - var(--dx, 0px)), calc(100% - 12px));
-	top: 100%;
-	width: 3px;
-	height: 12px;
-	margin-left: -1px;
-	background: var(--ink);
+	color: rgb(255 250 242 / 0.92);
+	background: rgb(43 36 51 / 0.5);
+	border-radius: 3px;
 }
 
 .bubble::after {

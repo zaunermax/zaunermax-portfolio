@@ -358,6 +358,55 @@ const SKY: Record<'dawn' | 'day' | 'dusk' | 'night', Bitmap> = {
 	]),
 };
 
-export function SkyBadge({ time }: { time: 'dawn' | 'day' | 'dusk' | 'night' }) {
-	return <Pixels art={SKY[time]} />;
+/** Clouds, rain and snow win over the time of day: the badge says what the window shows. */
+const WEATHER: Record<'cloudy' | 'rain' | 'snow', Bitmap> = {
+	cloudy: bitmap([
+		'...........',
+		'...........',
+		'....kkk....',
+		'...kwwwk...',
+		'.kkwwwwwkk.',
+		'kwwwwwwwwek',
+		'kwwwwwwweek',
+		'.kkkkkkkkk.',
+		'...........',
+		'...........',
+		'...........',
+	]),
+	rain: bitmap([
+		'....kkk....',
+		'...kwwwk...',
+		'.kkwwwwwkk.',
+		'kwwwwwwwwek',
+		'kwwwwwwweek',
+		'.kkkkkkkkk.',
+		'...........',
+		'..N...N..N.',
+		'.N...N..N..',
+		'...........',
+		'..N..N...N.',
+	]),
+	snow: bitmap([
+		'....kkk....',
+		'...kwwwk...',
+		'.kkwwwwwkk.',
+		'kwwwwwwwwek',
+		'kwwwwwwweek',
+		'.kkkkkkkkk.',
+		'...........',
+		'.G...G...G.',
+		'...G...G...',
+		'...........',
+		'.G...G...G.',
+	]),
+};
+
+export function SkyBadge({
+	time,
+	outside = 'clear',
+}: {
+	time: 'dawn' | 'day' | 'dusk' | 'night';
+	outside?: 'clear' | 'cloudy' | 'rain' | 'snow';
+}) {
+	return <Pixels art={outside === 'clear' ? SKY[time] : WEATHER[outside]} />;
 }

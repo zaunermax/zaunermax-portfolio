@@ -612,7 +612,7 @@ function extras(crowd: Crowd, seed: number, event: CompiledWorld['event'], hasDo
 const VIGNETTE_CAPTIONS = {
 	standup: ['Stand-up, minute 47', 'Daily stand-up (sit-down soon)', 'Blocked by: the stand-up'],
 	duck: ['Explaining the bug to the duck…', 'The duck has questions', 'Rubber duck, senior reviewer'],
-	courier: ['*beep* Oat flat white, desk 4', '*beep* One emergency espresso', '*beep* Coffee for the on-call'],
+	courier: ['Oat flat white for desk 4', 'An emergency espresso on its way', 'Coffee run for the on-call'],
 	printer: ['PC LOAD LETTER?!', 'Printer jam #47 this week', 'Three people, one jam'],
 } as const;
 
@@ -1108,14 +1108,23 @@ export function compileWorld(brief: Brief, seed: number, options: CompileOptions
 		: null;
 
 	const root = landmark.max?.interact ?? { x: plan.entrance.x, y: plan.entrance.y - 1 };
-	const crowd = new Crowd(
-		{ blocked: grid.blocked, roomAt, hEdge, vEdge },
-		rooms,
-		out.spots,
-		grid.reserved,
-		reachable({ blocked: grid.blocked, hEdge, vEdge }, root),
-		skinTones(seed),
-	);
+	const reach = reachable({ blocked: grid.blocked, hEdge, vEdge }, root);
+	// Just beside Max's visitor spot, so the visitor does not stand between him and the camera.
+	const spawn =
+		(landmark.max &&
+			[
+				{ x: 1, y: 1 },
+				{ x: -1, y: 1 },
+				{ x: 1, y: 0 },
+				{ x: -1, y: 0 },
+			]
+				.map((d) => ({ x: landmark.max!.interact.x + d.x, y: landmark.max!.interact.y + d.y }))
+				.find((c) => inBounds(c.x, c.y) && reach[cellIndex(c.x, c.y)] === 1)) ??
+		root;
+	const crowd = new Crowd({ blocked: grid.blocked, roomAt, hEdge, vEdge }, rooms, out.spots, grid.reserved, reach, skinTones(seed));
+	// Nobody stands where the visitor appears, or where they talk to Max.
+	crowd.claim(spawn);
+	crowd.claim(root);
 	castActors(brief, crowd, seed, eventKind);
 	const castCount = crowd.actors.length;
 	let talks: Talk[] = [];
@@ -1135,20 +1144,6 @@ export function compileWorld(brief: Brief, seed: number, options: CompileOptions
 	// Keep playful hair and glasses in proportion: the named cast first, then the extras.
 	balance(crowd.actors.slice(0, castCount), seed);
 	balance(crowd.actors.slice(castCount), seed + 1);
-
-	// Just beside Max's visitor spot, so the visitor does not stand between him and the camera.
-	const reach = landmark.max ? reachable({ blocked: grid.blocked, hEdge, vEdge }, landmark.max.interact) : null;
-	const spawn =
-		(landmark.max &&
-			[
-				{ x: 1, y: 1 },
-				{ x: -1, y: 1 },
-				{ x: 1, y: 0 },
-				{ x: -1, y: 0 },
-			]
-				.map((d) => ({ x: landmark.max!.interact.x + d.x, y: landmark.max!.interact.y + d.y }))
-				.find((c) => inBounds(c.x, c.y) && reach![cellIndex(c.x, c.y)] === 1)) ??
-		landmark.max?.interact ?? { x: plan.entrance.x, y: plan.entrance.y - 1 };
 
 	return {
 		version: WORLD_VERSION,

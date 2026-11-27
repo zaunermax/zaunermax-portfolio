@@ -44,12 +44,23 @@ export function GossipWindow({
 }) {
 	const inputRef = useRef<HTMLInputElement>(null);
 	const endRef = useRef<HTMLDivElement>(null);
+	const replyRef = useRef<HTMLLIElement>(null);
+	const threadRef = useRef<HTMLDivElement>(null);
 	const [text, setText] = useState('');
 	const [dismissed, setDismissed] = useState<string[]>([]);
+	/** After the first message the ideas fold away behind a small button, to leave room for the replies. */
+	const [ideas, setIdeas] = useState(false);
 	const inputId = useId();
+	const started = chat.lines.length > 0;
+	const last = chat.lines.at(-1);
 
+	// Follow the conversation, but never past the start of Max's reply: a long answer is read
+	// from its top, not scrolled to its end while it streams in (short screens show only a few lines).
 	useEffect(() => {
-		endRef.current?.scrollIntoView({ block: 'nearest' });
+		const reply = replyRef.current;
+		const box = threadRef.current;
+		if (reply && box && reply.offsetHeight > box.clientHeight - 24) reply.scrollIntoView({ block: 'start' });
+		else endRef.current?.scrollIntoView({ block: 'nearest' });
 	}, [chat.lines.length, chat.streaming]);
 
 	function say(value: string) {
@@ -83,7 +94,7 @@ export function GossipWindow({
 				</>
 			}
 		>
-			<div className={cx(styles.panelBody, styles.thread)}>
+			<div ref={threadRef} className={cx(styles.panelBody, styles.thread)}>
 				<p className={styles.saidByMax}>
 					Hi! I&rsquo;m Max&rsquo;s echo, a little AI that knows what Max builds, where he
 					has spoken and how he works. Ask me anything, or tell me about a project and
@@ -91,7 +102,7 @@ export function GossipWindow({
 				</p>
 				<ol className={styles.transcript} aria-label="Conversation">
 					{chat.lines.map((line) => (
-						<li key={line.id}>
+						<li key={line.id} ref={chat.streaming === null && line === last && line.role !== 'visitor' ? replyRef : undefined}>
 							<Said line={line} />
 							{line.draft && !dismissed.includes(line.id) ? (
 								<TicketForm
@@ -102,7 +113,7 @@ export function GossipWindow({
 						</li>
 					))}
 					{chat.streaming !== null ? (
-						<li aria-hidden="true" className={styles.saidByMax}>
+						<li ref={replyRef} aria-hidden="true" className={styles.saidByMax}>
 							{chat.streaming || 'Max is typing'}
 							<span className={styles.caret} />
 						</li>
@@ -113,7 +124,17 @@ export function GossipWindow({
 						{chat.error}
 					</p>
 				) : null}
-				{chat.suggestions.length ? (
+				{chat.suggestions.length && started ? (
+					<button
+						type="button"
+						className={styles.ideasToggle}
+						aria-expanded={ideas}
+						onClick={() => setIdeas(!ideas)}
+					>
+						{ideas ? 'Hide ideas' : 'Need an idea?'}
+					</button>
+				) : null}
+				{chat.suggestions.length && (!started || ideas) ? (
 					<ul className={styles.options} aria-label="Things to say">
 						{chat.suggestions.map((s) => (
 							<li key={s}>
@@ -121,7 +142,10 @@ export function GossipWindow({
 									type="button"
 									className={styles.option}
 									disabled={chat.isBusy}
-									onClick={() => say(s)}
+									onClick={() => {
+										setIdeas(false);
+										say(s);
+									}}
 								>
 									<GossipBubble />
 									{s}
