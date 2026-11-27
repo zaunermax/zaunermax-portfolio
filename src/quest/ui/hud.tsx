@@ -153,6 +153,8 @@ export function Minimap({
 	outside,
 	name,
 	collapsedByDefault,
+	collapsed: shut,
+	onCollapse,
 	onPin,
 	footer = null,
 }: {
@@ -164,6 +166,9 @@ export function Minimap({
 	name: string;
 	/** Phones start with the plan folded away, to leave the office in view. */
 	collapsedByDefault: boolean;
+	/** Folded or not, when the app decides (phones show one panel at a time). */
+	collapsed?: boolean;
+	onCollapse?: (collapsed: boolean) => void;
 	onPin: (id: LandmarkId) => void;
 	/** A strip under the plan that stays when it is folded (who else is here). */
 	footer?: ReactNode;
@@ -171,7 +176,7 @@ export function Minimap({
 	const base = useRef<HTMLCanvasElement>(null);
 	const live = useRef<HTMLCanvasElement>(null);
 	const [folded, setFolded] = useState<boolean | null>(null);
-	const collapsed = folded ?? collapsedByDefault;
+	const collapsed = shut ?? folded ?? collapsedByDefault;
 
 	useEffect(() => {
 		const ctx = base.current?.getContext('2d');
@@ -303,7 +308,7 @@ export function Minimap({
 					{company}
 				</span>
 				<span className={styles.mapBadge} title={sky}>
-					<SkyBadge time={time} />
+					<SkyBadge time={time} outside={outside} />
 					<span className={styles.srOnly}>{sky}</span>
 				</span>
 				<button
@@ -311,7 +316,10 @@ export function Minimap({
 					className={styles.mapFold}
 					aria-expanded={!collapsed}
 					aria-label={collapsed ? 'Show the floor plan' : 'Hide the floor plan'}
-					onClick={() => setFolded(!collapsed)}
+					onClick={() => {
+						setFolded(!collapsed);
+						onCollapse?.(!collapsed);
+					}}
 				>
 					<span aria-hidden="true" />
 				</button>

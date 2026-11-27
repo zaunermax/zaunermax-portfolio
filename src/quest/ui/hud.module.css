@@ -1098,17 +1098,21 @@
 	background: var(--mustard-light);
 }
 
-/* Compact: the latest few lines, older ones fading out under the tab. */
+/* Compact: the latest few lines, older ones fading out under the tab (once there are more than fit). */
 .chatBody {
 	height: 86px;
 	overflow: hidden;
 	padding: 8px 10px 10px;
 	scrollbar-width: thin;
 	scrollbar-color: var(--lilac) transparent;
+}
+
+.chat[data-overflow='true'] .chatBody {
 	mask-image: linear-gradient(to bottom, transparent 0, #000 34px);
 }
 
-.chat[data-expanded='true'] .chatBody {
+.chat[data-expanded='true'] .chatBody,
+.chat[data-expanded='true'][data-overflow='true'] .chatBody {
 	height: 220px;
 	overflow-y: auto;
 	mask-image: none;
@@ -1191,6 +1195,12 @@
 	display: grid;
 	justify-items: center;
 	gap: 18px;
+	/* Only the prompt and the tray take taps: the floor beside them stays walkable. */
+	pointer-events: none;
+}
+
+.dock > * {
+	pointer-events: auto;
 }
 
 .prompt {
@@ -1847,6 +1857,8 @@
 .transcript > li {
 	display: grid;
 	gap: 14px;
+	/* A long reply is shown from its top, with its frame in view. */
+	scroll-margin-top: 10px;
 }
 
 .saidByMax,
@@ -1955,6 +1967,26 @@
 	flex: none;
 	width: 18px;
 	height: 12px;
+}
+
+/* Once the conversation is going, the ideas wait behind this. */
+.ideasToggle {
+	display: block;
+	margin: 16px 0 0 4px;
+	padding: 0;
+	border: 0;
+	font: inherit;
+	font-size: 14.5px;
+	font-weight: 700;
+	color: var(--teal-dark);
+	background: none;
+	text-decoration: underline;
+	text-underline-offset: 3px;
+	cursor: pointer;
+}
+
+.ideasToggle + .options {
+	margin-top: 10px;
 }
 
 .say {
@@ -2662,10 +2694,34 @@ textarea.fieldInput {
 /* ------------------------------------------------------------------ mid-size screens */
 
 @media (max-width: 1100px) {
+	/* Above the dock and clear of the prompt over it. */
 	.chat {
-		bottom: 176px;
+		bottom: 206px;
 		width: 340px;
 	}
+
+	/* The chat moved up above the dock: the first-visit hint goes above it, not across it. */
+	.touchHint {
+		bottom: 356px;
+	}
+
+	/* The build card hangs under Max's name tag, clear of the floor plan. */
+	.build {
+		top: 104px;
+		left: 18px;
+		transform: none;
+		max-width: min(340px, calc(100vw - 340px));
+	}
+
+	/* And the skip hint above the chat. */
+	.skipHint {
+		bottom: 356px;
+	}
+}
+
+/* The first-visit hint never lies across an unfolded #general. */
+.root:has(.chat[data-expanded='true']) .touchHint {
+	display: none;
 }
 
 /* ------------------------------------------------------------------ phones */
@@ -2953,7 +3009,8 @@ textarea.fieldInput {
 	}
 
 	.chatBody,
-	.chat[data-expanded='true'] .chatBody {
+	.chat[data-expanded='true'] .chatBody,
+	.chat[data-overflow='true'] .chatBody {
 		height: 150px;
 		overflow-y: auto;
 		mask-image: none;
@@ -3067,6 +3124,37 @@ textarea.fieldInput {
 
 /* ------------------------------------------------------------------ short phones */
 
+/* Portrait phones: the wiki's files are a strip of tabs above the page, so the page gets the room. */
+@media (max-width: 640px) {
+	.pageLeft {
+		max-height: none;
+		padding: 8px 10px 10px;
+		overflow-x: auto;
+		overflow-y: hidden;
+	}
+
+	.pageLabel,
+	.fileMeta {
+		display: none;
+	}
+
+	.files {
+		grid-auto-flow: column;
+		grid-auto-columns: max-content;
+		gap: 6px;
+	}
+
+	.file {
+		padding: 5px 9px 6px;
+	}
+
+	.fileName {
+		font-size: 15px;
+		overflow-wrap: normal;
+		white-space: nowrap;
+	}
+}
+
 /* Centred at 36%, the hello reaches the chat button; hang it below the top panels instead. */
 @media (max-width: 640px) and (max-height: 600px) {
 	.zone {
@@ -3093,6 +3181,25 @@ textarea.fieldInput {
 		right: 162px;
 	}
 
+	/* The first-visit hint is a small note in the free corner by the dock, not a bar across the
+	   top pushing Max's sign around. */
+	.cues > .touchHint {
+		position: fixed;
+		left: 10px;
+		bottom: 12px;
+		max-width: min(230px, calc(50vw - 200px));
+		gap: 8px;
+		padding: 6px 6px 6px 8px;
+	}
+
+	.touchHint p {
+		font-size: 13.5px;
+	}
+
+	.touchHint .touchHintIcon {
+		display: none;
+	}
+
 	.book {
 		grid-template-columns: 220px 1fr;
 		grid-template-rows: none;
@@ -3116,6 +3223,49 @@ textarea.fieldInput {
 		flex: 1;
 		height: auto;
 		min-height: 0;
+	}
+
+	/* Every line counts this short: a slimmer title bar and footer leave the room to the replies. */
+	.windowHead {
+		min-height: 44px;
+		padding: 4px 50px 6px 10px;
+		gap: 10px;
+	}
+
+	.windowTitle {
+		font-size: 19px;
+	}
+
+	.windowSub {
+		font-size: 12.5px;
+	}
+
+	.gossipPortrait {
+		width: 34px;
+		height: 34px;
+	}
+
+	.close {
+		top: 6px;
+		right: 8px;
+	}
+
+	.panelBody {
+		padding: 12px 14px 14px;
+	}
+
+	.say {
+		padding: 6px 12px 6px;
+	}
+
+	.say .note {
+		margin-top: 4px;
+		font-size: 12.5px;
+	}
+
+	.options {
+		margin-top: 12px;
+		gap: 8px;
 	}
 }
 

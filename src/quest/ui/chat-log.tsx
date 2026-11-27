@@ -10,9 +10,15 @@ export type LogEntry = {
 	speaker?: string;
 	/** Whispers: from Max (in) or to Max (out). */
 	direction?: 'in' | 'out';
-	/** Overheard in passing: logged, but not counted as new. */
+	/** Overheard in passing (what people say about Max as the visitor walks by). */
 	ambient?: boolean;
 };
+
+/**
+ * What counts as new on the phone's chat button: what people said about Max and Max's own
+ * replies, not the build replay, the welcome or "Found …".
+ */
+export const countsAsNew = (e: LogEntry) => e.kind === 'npc' || (e.kind === 'whisper' && e.direction === 'in');
 
 /** The chat log as a tiny external store: anything may push, the view subscribes. */
 export class ChatLog {
@@ -68,27 +74,42 @@ export function ChatLogView({
 	log,
 	compact,
 	hidden = false,
+	open: shown,
+	onOpen,
 }: {
 	log: ChatLog;
 	compact: boolean;
 	/** Out of the way while the Talk window shows the same conversation. */
 	hidden?: boolean;
+	/** Phones: open or not, when the app decides (one panel at a time). */
+	open?: boolean;
+	onOpen?: (open: boolean) => void;
 }) {
 	const entries = useSyncExternalStore(log.subscribe, log.get, log.get);
 	const body = useRef<HTMLDivElement>(null);
 	const stick = useRef(true);
-	const [open, setOpen] = useState(false);
+	const [ownOpen, setOwnOpen] = useState(false);
+	const open = shown ?? ownOpen;
+	const setOpen = (next: boolean) => {
+		setOwnOpen(next);
+		onOpen?.(next);
+	};
 	const [expanded, setExpanded] = useState(false);
+	/** More lines than the strip shows: only then do the oldest fade out at the top. */
+	const [overflow, setOverflow] = useState(false);
 	/** The newest entry when the chat was last opened or closed; older ones may be dropped. */
 	const [seen, setSeen] = useState<string | null>(null);
 	const unread =
 		compact && !open
-			? entries.slice(entries.findIndex((e) => e.id === seen) + 1).filter((e) => !e.ambient).length
+			? entries.slice(entries.findIndex((e) => e.id === seen) + 1).filter(countsAsNew).length
 			: 0;
 
 	useEffect(() => {
 		const el = body.current;
-		if (el && (stick.current || !expanded)) el.scrollTop = el.scrollHeight;
+		if (!el) return;
+		if (stick.current || !expanded) el.scrollTop = el.scrollHeight;
+		// A lone welcome that runs long is not "older lines": no fade over its first words.
+		setOverflow(entries.length > 1 && el.scrollHeight > el.clientHeight + 2);
 	}, [entries, open, expanded]);
 
 	return (
@@ -97,6 +118,7 @@ export function ChatLogView({
 			hidden={hidden}
 			data-open={compact ? String(open) : 'true'}
 			data-expanded={expanded}
+			data-overflow={overflow}
 			data-hud=""
 			aria-label="Chat log"
 		>

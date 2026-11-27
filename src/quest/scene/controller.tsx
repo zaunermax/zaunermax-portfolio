@@ -16,6 +16,7 @@ import type { Appearance } from '../world/appearance';
 import { isTypingTarget } from '../ui/hooks';
 import { ActorModel, Anchor, BlobShadow, LABEL_HEIGHT, turn, type Motion } from './actors';
 import { PLAYER_ANCHOR, type GameBus, type Interactable, type WalkTarget } from './bus';
+import { isPerson } from './chatter';
 import { materials } from './materials';
 import { markShadows, moved } from './shadows';
 import { now } from './spawn';
@@ -355,24 +356,36 @@ export function Controller({
 	);
 
 	// Wheel and pinch zoom, within a narrow range; a single held finger steers (see useFrame).
+	// Fingers are tracked over the whole stage, signs included: a pinch that starts on a sign is
+	// still a pinch, and neither finger walks or taps the sign.
 	useEffect(() => {
 		const el = gl.domElement;
+		const stage = el.closest<HTMLElement>('[data-stage]') ?? el;
 		const r = rig.current;
 		const pointers = new Map<number, { x: number; y: number }>();
 		let pinch: number | null = null;
 		// A finger lifted after steering must not also tap-to-walk where it ended.
 		let swallowClick = false;
+		/** A second finger came down during this gesture: no taps come out of it. */
+		let multi = false;
 		const onWheel = (e: WheelEvent) => {
 			e.preventDefault();
 			r.targetDist = THREE.MathUtils.clamp(r.targetDist * (1 + Math.sign(e.deltaY) * 0.1), MIN_DIST, MAX_DIST);
 		};
 		const onDown = (e: PointerEvent) => {
+			if (!pointers.size) multi = false;
 			pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 			swallowClick = false;
+			if (pointers.size > 1) multi = true;
 			hold.current =
-				pointers.size === 1 && e.pointerType !== 'mouse' && input.current
+				pointers.size === 1 && e.target === el && e.pointerType !== 'mouse' && input.current
 					? { id: e.pointerId, x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, at: performance.now(), active: false }
 					: null;
+		};
+		const onStageClick = (e: MouseEvent) => {
+			if (!multi) return;
+			e.stopPropagation();
+			e.preventDefault();
 		};
 		const onMove = (e: PointerEvent) => {
 			if (!pointers.has(e.pointerId)) return;
@@ -407,7 +420,8 @@ export function Controller({
 			if (hold.current) e.preventDefault();
 		};
 		el.addEventListener('wheel', onWheel, { passive: false });
-		el.addEventListener('pointerdown', onDown);
+		stage.addEventListener('pointerdown', onDown);
+		stage.addEventListener('click', onStageClick, true);
 		el.addEventListener('click', onClick);
 		el.addEventListener('contextmenu', onContextMenu);
 		window.addEventListener('pointermove', onMove);
@@ -415,7 +429,8 @@ export function Controller({
 		window.addEventListener('pointercancel', onUp);
 		return () => {
 			el.removeEventListener('wheel', onWheel);
-			el.removeEventListener('pointerdown', onDown);
+			stage.removeEventListener('pointerdown', onDown);
+			stage.removeEventListener('click', onStageClick, true);
 			el.removeEventListener('click', onClick);
 			el.removeEventListener('contextmenu', onContextMenu);
 			window.removeEventListener('pointermove', onMove);
@@ -606,7 +621,9 @@ export function Controller({
 		bus.setGoal(p.goal);
 
 		// --- what is in reach. The clock restarts at 0 when a paused canvas resumes (phones pause it
-		// behind open windows), so a timestamp from the future means look again now.
+		// behind open windows), so a timestamp from the future means look again now. Max and the
+		// places come first, then people, then robots and pets: a passing robot never takes the
+		// prompt from Max. Within a tier the closest wins.
 		const t = state.clock.elapsedTime;
 		if (t - p.nearbyAt > 0.1 || t < p.nearbyAt) {
 			p.nearbyAt = t;
@@ -615,8 +632,9 @@ export function Controller({
 			for (const l of w.landmarks) {
 				const d1 = Math.hypot(p.x - (l.interact.x + 0.5), p.y - (l.interact.y + 0.5));
 				const d2 = Math.hypot(p.x - l.x, p.y - l.y);
-				const d = Math.min(d1 + 0.4, d2);
-				if ((d1 < 1.3 || d2 < 1.8) && d < bestD) {
+				// Max first among the places; a diagonal step from his spot still counts.
+				const d = Math.min(d1 + 0.4, d2) - (l.landmark === 'max' ? 0.5 : 0);
+				if ((d1 < 1.5 || d2 < 1.8) && d < bestD) {
 					best = { kind: 'landmark', id: l.landmark, name: l.name };
 					bestD = d;
 				}
@@ -626,9 +644,11 @@ export function Controller({
 				const pos = bus.npcs.get(n.id);
 				if (!pos) continue;
 				const d = Math.hypot(p.x - pos.x, p.y - pos.y);
-				if (d < 1.6 && d < bestD) {
+				// Ranked behind every place in reach, robots and pets behind every person.
+				const score = d + (isPerson(n) ? 10 : 20);
+				if (d < 1.6 && score < bestD) {
 					best = { kind: 'npc', id: n.id, name: n.name, npc: n.character, line: n.line };
-					bestD = d;
+					bestD = score;
 				}
 			}
 			bus.setNearby(overviewWanted ? null : best);

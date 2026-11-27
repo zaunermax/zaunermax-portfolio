@@ -138,13 +138,12 @@ function Beacon({ world, room }: { world: CompiledWorld; room: number }) {
 	);
 }
 
-/** Twinkling pixel stars on landmarks and trophies: tasteful, a few at a time. */
+/**
+ * Twinkling pixel stars on the landmarks, a few at a time. The sparkle means "something to open
+ * here" (the place signs wear it too), so nothing merely decorative gets one.
+ */
 function Glints({ world }: { world: CompiledWorld }) {
-	const points = useMemo(() => {
-		const out = world.landmarks.map((l) => ({ x: l.x, y: l.height * 0.8, z: l.y, r: 0.6 }));
-		for (const d of world.decor) if (d.asset === 'trophy') out.push({ x: d.x, y: d.y + 0.3, z: d.z, r: 0.2 });
-		return out;
-	}, [world]);
+	const points = useMemo(() => world.landmarks.map((l) => ({ x: l.x, y: l.height * 0.8, z: l.y, r: 0.6 })), [world]);
 	const PER = 2;
 	const ref = useRef<THREE.InstancedMesh>(null);
 	const material = useMemo(
@@ -254,17 +253,17 @@ function Party({ world, room }: { world: CompiledWorld; room: number }) {
 	);
 }
 
+/**
+ * Only states the icon tells truthfully: someone napping, someone making coffee. Hearts, notes,
+ * dots, sparkles and a "!" over people who merely chat or cheer read as "something here for you"
+ * and promise what is not there.
+ */
 const POSE_ICONS: Partial<Record<Pose, IconName[]>> = {
-	chat: ['heart', 'note', 'dots', 'heart'],
 	nap: ['zzz'],
-	panic: ['bang'],
 	serve: ['coffee'],
-	cheer: ['note', 'heart', 'sparkle'],
-	present: ['sparkle', 'dots'],
-	play: ['bang', 'sparkle'],
 };
 
-/** Pixel bubbles drifting up from people who are chatting, napping, panicking… */
+/** Pixel bubbles drifting up from people who are napping or making coffee; never over a speech bubble. */
 function Bubbles({ world, bus }: { world: CompiledWorld; bus: GameBus }) {
 	const actors = useMemo(
 		() => world.npcs.filter((a) => POSE_ICONS[a.pose]).slice(0, 18),
@@ -286,6 +285,8 @@ function Bubbles({ world, bus }: { world: CompiledWorld; bus: GameBus }) {
 	);
 	useFrame((state) => {
 		const t = state.clock.elapsedTime;
+		const speech = bus.getSpeech();
+		const now = performance.now();
 		actors.forEach((a: Actor, i) => {
 			const sprite = sprites.current[i];
 			if (!sprite) return;
@@ -299,7 +300,7 @@ function Bubbles({ world, bus }: { world: CompiledWorld; bus: GameBus }) {
 				materials[i].needsUpdate = true;
 			}
 			const shown = local < 0.45;
-			sprite.visible = shown && !bus.view.overview;
+			sprite.visible = shown && !bus.view.overview && !((speech.get(a.id)?.until ?? 0) > now);
 			const k = local / 0.45;
 			sprite.position.set(pos.x + 0.25, a.elev + (a.sit ? 1.2 : 1.75) + k * 0.4, pos.y);
 			const size = 0.28 * Math.min(1, k * 4) * (1 - Math.max(0, k - 0.75) * 2);

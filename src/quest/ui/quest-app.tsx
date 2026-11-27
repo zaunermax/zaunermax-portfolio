@@ -16,7 +16,7 @@ import { useMaxChat } from '../chat/use-max-chat';
 import { lookFor } from '../room/presence';
 import { useRoom } from '../room/use-room';
 import { GameBus, type Interactable } from '../scene/bus';
-import { createChatter, HOLD_RANGE, readMs, type ChatterDirector } from '../scene/chatter';
+import { createChatter, HOLD_RANGE, type ChatterDirector } from '../scene/chatter';
 import { compileWorld } from '../world/compile';
 import { defaultBrief, DEFAULT_SEED } from '../world/default-world';
 import { briefForSeed } from '../world/offline-briefs';
@@ -25,7 +25,7 @@ import { briefSteps } from '../world/replay';
 import { eventKinds, outsides, timesOfDay, vibes, type LandmarkId } from '../world/schema';
 import { useWorld } from '../world/use-world';
 import { ChatLog, ChatLogView } from './chat-log';
-import { Labels } from './labels';
+import { Labels, speechVisible } from './labels';
 import styles from './hud.module.css';
 import {
 	BuildProgress,
@@ -78,6 +78,8 @@ const LANDMARK_WINDOW: Record<LandmarkId, WindowId> = {
 const INTRO_KEY = 'quest-v2-intro-seen';
 const TOUCH_HINT_KEY = 'quest-touch-hint-seen';
 const INTRO_MS = 4200;
+/** A line held open for a visitor standing near goes at most this much longer than it would have. */
+const HOLD_MAX_MS = 8000;
 const HOUR = 60 * 60 * 1000;
 
 /** Max was born in September 1993: one level per year, experience is the year so far. */
@@ -168,6 +170,8 @@ export function QuestApp({
 
 	const [sceneReady, setSceneReady] = useState(false);
 	const [open, setOpen] = useState<WindowId | null>(null);
+	/** Phones show one HUD panel unfolded at a time: opening the log folds the floor plan, and back. */
+	const [phonePanel, setPhonePanel] = useState<'map' | 'log' | null>(null);
 	const [wikiFile, setWikiFile] = useState(content.wiki[0]?.filename ?? '');
 	const [intro, setIntro] = useState({ step: 0, done: false });
 	const [zone, setZone] = useState({ key: '', small: false });
@@ -320,7 +324,8 @@ export function QuestApp({
 			log.push({
 				id: `disc-${world.worldId}-${nearby.id}`,
 				kind: 'discovery',
-				text: nearby.name,
+				// Max's desk has no sign of its own in the office; call it what the visitor sees.
+				text: nearby.id === 'max' ? 'Max’s desk' : nearby.name,
 			});
 	}, [nearby, log, world.worldId]);
 
@@ -331,28 +336,41 @@ export function QuestApp({
 	// It waits for the welcome card to shrink, so the first talk is not said behind it.
 	const chatting =
 		sceneReady && !introActive && !generating && !overview && open === null && !hidden && zoneState === 'small';
-	/** Who the visitor is listening to: their bubble stays open while the visitor stays near. */
-	const listening = useRef<string | null>(null);
+	/**
+	 * Who the visitor is listening to: a line about Max or an answer to a greeting stays open
+	 * while the visitor stays near, up to HOLD_MAX_MS longer than it would have.
+	 */
+	const listening = useRef<{ id: string; until: number } | null>(null);
 	useEffect(() => {
 		if (!chatting) return;
 		const timer = setInterval(() => {
 			const now = performance.now();
-			const held = listening.current && bus.npcs.get(listening.current);
-			if (held && Math.hypot(held.x - bus.player.x, held.y - bus.player.y) <= HOLD_RANGE)
-				bus.holdSpeech(listening.current!, now + 800);
+			const held = listening.current;
+			const pos = held && bus.npcs.get(held.id);
+			if (held && pos && now < held.until && Math.hypot(pos.x - bus.player.x, pos.y - bus.player.y) <= HOLD_RANGE)
+				bus.holdSpeech(held.id, now + 800);
 			else listening.current = null;
-			const goal = bus.goal?.kind === 'npc' ? bus.goal.id : undefined;
-			const said = chatter.tick(now, bus.player, (a) => bus.npcs.get(a.id) ?? a, goal);
-			if (!said) return;
-			bus.say(said.actor.id, said.text, said.ms);
-			if (said.kind === 'remark') listening.current = said.actor.id;
-			log.push({
-				id: `chatter-${said.actor.id}-${Date.now()}`,
-				kind: 'npc',
-				speaker: said.actor.name || 'Colleague',
-				text: said.text,
-				ambient: true,
+			const said = chatter.tick(now, {
+				player: bus.player,
+				at: (a) => bus.npcs.get(a.id) ?? a,
+				goal: bus.goal?.kind === 'npc' ? bus.goal.id : undefined,
+				visible: (a, text) => speechVisible(bus, a.id, text),
+				speaking: bus.speakers(now),
 			});
+			if (!said) return;
+			bus.say(said.actor.id, said.text, said.ms + (said.linger ?? 0), said.kind);
+			// The setup stays in view, quieter, while its punchline is read.
+			if (said.follows) bus.dimSpeech(said.follows, now + said.ms + (said.linger ?? 0));
+			if (said.hold) listening.current = { id: said.actor.id, until: now + said.ms + HOLD_MAX_MS };
+			// #general keeps what people said about Max, overheard; small talk and beeps stay in the room.
+			if (said.kind === 'about-max')
+				log.push({
+					id: `chatter-${said.actor.id}-${Date.now()}`,
+					kind: 'npc',
+					speaker: said.actor.name || 'Overheard',
+					text: said.text,
+					ambient: true,
+				});
 		}, 250);
 		return () => clearInterval(timer);
 	}, [chatting, chatter, bus, log]);
@@ -360,21 +378,22 @@ export function QuestApp({
 	// --- what happens when the visitor arrives somewhere or presses F
 	const onInteract = useEffectEvent((t: Interactable) => {
 		if (t.kind === 'npc') {
-			const text = chatter.greet(performance.now(), t.id, t.line);
+			const { text, ms, kind } = chatter.greet(performance.now(), t.id, t.line);
 			setAskAbout((prev) => {
 				const ids = new Set(prev?.chatter === chatter ? prev.ids : []);
 				if (chatter.remarkNext(t.id)) ids.add(t.id);
 				else ids.delete(t.id);
 				return { chatter, ids };
 			});
-			bus.say(t.id, text, readMs(text));
-			listening.current = t.id;
-			log.push({
-				id: `npc-${t.id}-${Date.now()}`,
-				kind: 'npc',
-				speaker: t.name,
-				text,
-			});
+			bus.say(t.id, text, ms, kind);
+			listening.current = { id: t.id, until: performance.now() + ms + HOLD_MAX_MS };
+			if (kind !== 'ambient')
+				log.push({
+					id: `npc-${t.id}-${Date.now()}`,
+					kind: 'npc',
+					speaker: t.name,
+					text,
+				});
 			return;
 		}
 		setOpen(LANDMARK_WINDOW[t.id]);
@@ -423,6 +442,16 @@ export function QuestApp({
 	const landmarkName = (id: LandmarkId) => compiled.landmark[id]?.name ?? '';
 
 	// What a walk under way is heading for, so a dock tap never looks like it did nothing.
+	// The first walk of any kind (a tap on the floor, a held finger, a dock trip) shows the visitor
+	// has found out how: the touch hint has done its job.
+	useEffect(() => {
+		if (!touch || seenTouchHint !== false || !sceneReady) return;
+		const id = window.setInterval(() => {
+			if (bus.player.moving) setStoredFlag(TOUCH_HINT_KEY);
+		}, 200);
+		return () => window.clearInterval(id);
+	}, [touch, seenTouchHint, sceneReady, bus]);
+
 	const walkingTo =
 		goal?.kind === 'landmark'
 			? `Walking to ${landmarkName(goal.id) || 'it'}`
@@ -534,9 +563,11 @@ export function QuestApp({
 
 	return (
 		<LayerContext.Provider value={layer}>
-			<div className={cx(styles.root, fontVars)}>
+			{/* An open window is modal: everything behind it is out of reach, focus included. */}
+			<div className={cx(styles.root, fontVars)} inert={open !== null}>
 				<div
 					className={styles.stage}
+					data-stage=""
 					role="img"
 					aria-label={`A 3D office of ${worldName}`}
 					aria-describedby="quest-world-summary"
@@ -564,7 +595,7 @@ export function QuestApp({
 							/>
 						</Suspense>
 					</ClientOnly>
-					<Labels world={compiled} bus={bus} touch={touch} visitors={visitors} />
+					<Labels world={compiled} bus={bus} touch={touch} visitors={visitors} onVisit={visit} />
 				</div>
 				<p id="quest-world-summary" className={styles.srOnly}>
 					{worldName}. {tagline} Places: {places || 'still being built'}. Everything here
@@ -617,6 +648,8 @@ export function QuestApp({
 					outside={compiled.meta.outside}
 					name={worldName}
 					collapsedByDefault={compact}
+					collapsed={compact ? phonePanel !== 'map' : undefined}
+					onCollapse={(folded) => setPhonePanel(folded ? null : 'map')}
 					onPin={(id) => {
 						setOpen(null);
 						bus.walkTo({ kind: 'landmark', id });
@@ -625,7 +658,13 @@ export function QuestApp({
 						<PresenceStrip status={room.status} count={room.count} onWave={() => bus.wave()} />
 					}
 				/>
-				<ChatLogView log={log} compact={compact} hidden={open === 'gossip'} />
+				<ChatLogView
+					log={log}
+					compact={compact}
+					hidden={open === 'gossip'}
+					open={compact ? phonePanel === 'log' : undefined}
+					onOpen={(shown) => setPhonePanel(shown ? 'log' : null)}
+				/>
 				<Dock
 					actions={actions}
 					xp={xp}

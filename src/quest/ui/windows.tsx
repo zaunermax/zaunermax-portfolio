@@ -44,13 +44,39 @@ export function GossipWindow({
 }) {
 	const inputRef = useRef<HTMLInputElement>(null);
 	const endRef = useRef<HTMLDivElement>(null);
+	const replyRef = useRef<HTMLLIElement>(null);
+	const threadRef = useRef<HTMLDivElement>(null);
 	const [text, setText] = useState('');
 	const [dismissed, setDismissed] = useState<string[]>([]);
+	/** After the first message the ideas fold away behind a small button, to leave room for the replies. */
+	const [ideas, setIdeas] = useState(false);
 	const inputId = useId();
+	const ideasRef = useRef<HTMLUListElement>(null);
+	const started = chat.lines.length > 0;
+	const last = chat.lines.at(-1);
+	/** Which of the visitor's messages Max is answering; a new one starts following again. */
+	const turn = chat.lines.filter((l) => l.role === 'visitor').length;
+	/** The turn whose reply has been put in view: from then on the reader owns the scroll. */
+	const placedTurn = useRef(-1);
 
+	// Follow the conversation until Max's reply outgrows the window; then show it from its top,
+	// once, and leave the scroll alone while the rest streams in and after it is done.
 	useEffect(() => {
-		endRef.current?.scrollIntoView({ block: 'nearest' });
-	}, [chat.lines.length, chat.streaming]);
+		if (placedTurn.current === turn) return;
+		const reply = replyRef.current;
+		const box = threadRef.current;
+		if (reply && box && reply.offsetHeight > box.clientHeight - 24) {
+			reply.scrollIntoView({ block: 'start' });
+			placedTurn.current = turn;
+		} else endRef.current?.scrollIntoView({ block: 'nearest' });
+	}, [turn, chat.lines.length, chat.streaming]);
+
+	// Unfolded ideas come into view (they open below the conversation).
+	useEffect(() => {
+		const list = ideasRef.current;
+		const box = threadRef.current;
+		if (ideas && list && box) list.scrollIntoView({ block: list.offsetHeight < box.clientHeight - 24 ? 'nearest' : 'start' });
+	}, [ideas]);
 
 	function say(value: string) {
 		const v = value.trim().slice(0, CHAT_LIMITS.messageChars);
@@ -83,7 +109,7 @@ export function GossipWindow({
 				</>
 			}
 		>
-			<div className={cx(styles.panelBody, styles.thread)}>
+			<div ref={threadRef} className={cx(styles.panelBody, styles.thread)}>
 				<p className={styles.saidByMax}>
 					Hi! I&rsquo;m Max&rsquo;s echo, a little AI that knows what Max builds, where he
 					has spoken and how he works. Ask me anything, or tell me about a project and
@@ -91,7 +117,7 @@ export function GossipWindow({
 				</p>
 				<ol className={styles.transcript} aria-label="Conversation">
 					{chat.lines.map((line) => (
-						<li key={line.id}>
+						<li key={line.id} ref={chat.streaming === null && line === last && line.role !== 'visitor' ? replyRef : undefined}>
 							<Said line={line} />
 							{line.draft && !dismissed.includes(line.id) ? (
 								<TicketForm
@@ -102,7 +128,7 @@ export function GossipWindow({
 						</li>
 					))}
 					{chat.streaming !== null ? (
-						<li aria-hidden="true" className={styles.saidByMax}>
+						<li ref={replyRef} aria-hidden="true" className={styles.saidByMax}>
 							{chat.streaming || 'Max is typing'}
 							<span className={styles.caret} />
 						</li>
@@ -113,15 +139,28 @@ export function GossipWindow({
 						{chat.error}
 					</p>
 				) : null}
-				{chat.suggestions.length ? (
-					<ul className={styles.options} aria-label="Things to say">
+				{chat.suggestions.length && started ? (
+					<button
+						type="button"
+						className={styles.ideasToggle}
+						aria-expanded={ideas}
+						onClick={() => setIdeas(!ideas)}
+					>
+						{ideas ? 'Hide ideas' : 'Need an idea?'}
+					</button>
+				) : null}
+				{chat.suggestions.length && (!started || ideas) ? (
+					<ul ref={ideasRef} className={styles.options} aria-label="Things to say">
 						{chat.suggestions.map((s) => (
 							<li key={s}>
 								<button
 									type="button"
 									className={styles.option}
 									disabled={chat.isBusy}
-									onClick={() => say(s)}
+									onClick={() => {
+										setIdeas(false);
+										say(s);
+									}}
 								>
 									<GossipBubble />
 									{s}

@@ -399,6 +399,19 @@ class Crowd {
 	claim(cell: Cell) {
 		this.people.add(cellIndex(cell.x, cell.y));
 	}
+
+	roomAt(cell: Cell) {
+		return this.world.roomAt[cellIndex(cell.x, cell.y)];
+	}
+
+	/** Moves someone standing free (no seat, no spot) to another cell, room and all. */
+	move(actor: Actor, cell: Cell) {
+		this.people.delete(cellIndex(Math.floor(actor.x), Math.floor(actor.y)));
+		this.claim(cell);
+		actor.x = cell.x + 0.5;
+		actor.y = cell.y + 0.5;
+		actor.room = this.world.roomAt[cellIndex(cell.x, cell.y)];
+	}
 }
 
 function castActors(brief: Brief, crowd: Crowd, seed: number, event: EventKind) {
@@ -612,7 +625,7 @@ function extras(crowd: Crowd, seed: number, event: CompiledWorld['event'], hasDo
 const VIGNETTE_CAPTIONS = {
 	standup: ['Stand-up, minute 47', 'Daily stand-up (sit-down soon)', 'Blocked by: the stand-up'],
 	duck: ['Explaining the bug to the duck…', 'The duck has questions', 'Rubber duck, senior reviewer'],
-	courier: ['*beep* Oat flat white, desk 4', '*beep* One emergency espresso', '*beep* Coffee for the on-call'],
+	courier: ['Oat flat white for desk 4', 'An emergency espresso on its way', 'Coffee run for the on-call'],
 	printer: ['PC LOAD LETTER?!', 'Printer jam #47 this week', 'Three people, one jam'],
 } as const;
 
@@ -824,6 +837,73 @@ function assignChatter(actors: Actor[], castCount: number, chatter: Chatter, see
 		talks.push({ a: best.a.id, b: best.b.id, lines });
 	}
 	return talks;
+}
+
+/** Where a welcome talk stands, in cells from the spawn: in view, not in the way. */
+const GREET_NEAR = 2;
+const GREET_FAR = 3.2;
+
+/**
+ * The first thing a visitor should overhear is people talking about Max, right where they
+ * arrive. If no named person stands with someone within a few cells of the spawn, two people
+ * who are standing around anyway (chatters first) step over there, beside each other, so the
+ * first talk about Max (assignChatter, nearest Max) plays at the spawn.
+ */
+function greeters(crowd: Crowd, castCount: number, spawn: Cell, keepClear: Cell) {
+	const centre = { x: spawn.x + 0.5, y: spawn.y + 0.5 };
+	const from = (a: { x: number; y: number }) => Math.hypot(a.x - centre.x, a.y - centre.y);
+	const people = crowd.actors.filter((a) => a.appearance && !a.caption);
+	const named = people.filter((a) => crowd.actors.indexOf(a) < castCount);
+	const paired = named.some((a) =>
+		people.some(
+			(b) =>
+				b !== a &&
+				b.room === a.room &&
+				Math.hypot(a.x - b.x, a.y - b.y) <= TALK_REACH &&
+				from({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }) <= GREET_FAR + 1,
+		),
+	);
+	if (paired) return;
+	const free = (a: Actor) => !a.sit && !a.elev && !a.wanders && (a.pose === 'chat' || a.pose === 'stand');
+	const movers = named.filter(free).sort((a, b) => Number(b.pose === 'chat') - Number(a.pose === 'chat'));
+	const a = movers[0];
+	if (!a) return;
+	const partners = people.filter((b) => b !== a && free(b));
+	const b = partners.sort((p, q) => Math.hypot(p.x - a.x, p.y - a.y) - Math.hypot(q.x - a.x, q.y - a.y))[0];
+	if (!b) return;
+	// Two free cells side by side at the right distance.
+	const ok = (c: Cell) => {
+		const d = from({ x: c.x + 0.5, y: c.y + 0.5 });
+		return (
+			d >= GREET_NEAR &&
+			d <= GREET_FAR &&
+			crowd.standable(c) &&
+			Math.abs(c.x - keepClear.x) + Math.abs(c.y - keepClear.y) > 1 &&
+			!(c.x === spawn.x && c.y === spawn.y)
+		);
+	};
+	const cells: Cell[] = [];
+	for (let y = spawn.y - 4; y <= spawn.y + 4; y++) for (let x = spawn.x - 4; x <= spawn.x + 4; x++) if (ok({ x, y })) cells.push({ x, y });
+	// The camera looks from the south-east (CAMERA_YAW): cells along that line stay on screen
+	// however narrow it is (a phone held upright), the ones in front of the visitor best.
+	const fit = (c: Cell) => {
+		const dx = c.x - spawn.x;
+		const dy = c.y - spawn.y;
+		const across = Math.abs(dx - dy) / Math.SQRT2;
+		return across + Math.abs(from({ x: c.x + 0.5, y: c.y + 0.5 }) - 2.5) * 0.5 - (dx + dy > 0 ? 0.3 : 0);
+	};
+	cells.sort((p, q) => fit(p) - fit(q));
+	for (const c of cells)
+		for (const f of FACE) {
+			const d = { x: c.x + f.x, y: c.y + f.y };
+			if (!ok(d) || crowd.roomAt(c) !== crowd.roomAt(d)) continue;
+			crowd.move(a, c);
+			crowd.move(b, d);
+			a.pose = b.pose = 'chat';
+			a.heading = Math.atan2(b.x - a.x, b.y - a.y);
+			b.heading = Math.atan2(a.x - b.x, a.y - b.y);
+			return;
+		}
 }
 
 /** Someone always works the coffee bar: a barista behind the counter if nobody is there yet. */
@@ -1108,14 +1188,23 @@ export function compileWorld(brief: Brief, seed: number, options: CompileOptions
 		: null;
 
 	const root = landmark.max?.interact ?? { x: plan.entrance.x, y: plan.entrance.y - 1 };
-	const crowd = new Crowd(
-		{ blocked: grid.blocked, roomAt, hEdge, vEdge },
-		rooms,
-		out.spots,
-		grid.reserved,
-		reachable({ blocked: grid.blocked, hEdge, vEdge }, root),
-		skinTones(seed),
-	);
+	const reach = reachable({ blocked: grid.blocked, hEdge, vEdge }, root);
+	// Just beside Max's visitor spot, so the visitor does not stand between him and the camera.
+	const spawn =
+		(landmark.max &&
+			[
+				{ x: 1, y: 1 },
+				{ x: -1, y: 1 },
+				{ x: 1, y: 0 },
+				{ x: -1, y: 0 },
+			]
+				.map((d) => ({ x: landmark.max!.interact.x + d.x, y: landmark.max!.interact.y + d.y }))
+				.find((c) => inBounds(c.x, c.y) && reach[cellIndex(c.x, c.y)] === 1)) ??
+		root;
+	const crowd = new Crowd({ blocked: grid.blocked, roomAt, hEdge, vEdge }, rooms, out.spots, grid.reserved, reach, skinTones(seed));
+	// Nobody stands where the visitor appears, or where they talk to Max.
+	crowd.claim(spawn);
+	crowd.claim(root);
 	castActors(brief, crowd, seed, eventKind);
 	const castCount = crowd.actors.length;
 	let talks: Talk[] = [];
@@ -1129,26 +1218,13 @@ export function compileWorld(brief: Brief, seed: number, options: CompileOptions
 		companions(crowd, seed, out.furniture, event);
 		staffCoffeeBar(crowd, seed);
 		vignettes(crowd, seed, { furniture: out.furniture, decor: out.decor, landmark });
+		greeters(crowd, castCount, spawn, root);
 		talks = assignChatter(crowd.actors, castCount, brief.chatter ?? DEFAULT_CHATTER, seed, landmark.max?.interact ?? null);
 	}
 	tuckEmptySeats(out.furniture, crowd.actors, grid.blocked);
 	// Keep playful hair and glasses in proportion: the named cast first, then the extras.
 	balance(crowd.actors.slice(0, castCount), seed);
 	balance(crowd.actors.slice(castCount), seed + 1);
-
-	// Just beside Max's visitor spot, so the visitor does not stand between him and the camera.
-	const reach = landmark.max ? reachable({ blocked: grid.blocked, hEdge, vEdge }, landmark.max.interact) : null;
-	const spawn =
-		(landmark.max &&
-			[
-				{ x: 1, y: 1 },
-				{ x: -1, y: 1 },
-				{ x: 1, y: 0 },
-				{ x: -1, y: 0 },
-			]
-				.map((d) => ({ x: landmark.max!.interact.x + d.x, y: landmark.max!.interact.y + d.y }))
-				.find((c) => inBounds(c.x, c.y) && reach![cellIndex(c.x, c.y)] === 1)) ??
-		landmark.max?.interact ?? { x: plan.entrance.x, y: plan.entrance.y - 1 };
 
 	return {
 		version: WORLD_VERSION,
